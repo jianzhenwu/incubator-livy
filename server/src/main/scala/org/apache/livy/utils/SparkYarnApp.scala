@@ -201,7 +201,13 @@ class SparkYarnApp private[utils] (
     // Consider calling rmClient in YarnClient directly.
     // applicationTags
     val tags = Set(appTagLowerCase).asJava
-    val appReport = Option(yarnClient.getApplications(appType,appStates,tags).get(0))
+    val appList = yarnClient.getApplications(appType,appStates,tags)
+    val appReport = if (appList.isEmpty) {
+       None
+    } else {
+      Some(appList.get(0))
+    }
+    //TODO: Clean the below code
     appReport match {
       case Some(app) => app.getApplicationId
       case None =>
