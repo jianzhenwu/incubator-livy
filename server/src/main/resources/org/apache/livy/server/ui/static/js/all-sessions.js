@@ -67,7 +67,7 @@ $(document).ready(function () {
     numSessions = response.total;
   });
 
-  var batchesReq = $.getJSON(location.origin + prependBasePath("/batches"), function(response) {
+  var batchesReq = $.getJSON(location.origin + prependBasePath("/batches?size=6000"), function(response) {
     if (response && response.total > 0) {
       $("#batches").load(prependBasePath("/static/html/batches-table.html .sessions-template"), function() {
         loadBatchesTable(response.sessions);
