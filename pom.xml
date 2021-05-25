@@ -208,7 +208,6 @@
     <module>core/scala-2.12</module>
     <module>coverage</module>
     <module>examples</module>
-    <module>python-api</module>
     <module>repl</module>
     <module>repl/scala-2.11</module>
     <module>repl/scala-2.12</module>
@@ -1043,6 +1042,13 @@
   </reporting>
 
   <profiles>
+    <profile>
+      <id>python-api</id>
+      <modules>
+        <module>python-api</module>
+      </modules>
+    </profile>
+
     <profile>
       <id>thriftserver</id>
       <modules>

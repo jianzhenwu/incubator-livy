@@ -37,8 +37,8 @@ import org.apache.hive.service.cli.{HiveSQLException, SessionHandle}
 import org.apache.hive.service.rpc.thrift.TProtocolVersion
 import org.apache.hive.service.server.ThreadFactoryWithGarbageCleanup
 
-import org.apache.livy.LivyConf
-import org.apache.livy.Logging
+import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey, MetricsVariable}
 import org.apache.livy.server.interactive.{CreateInteractiveRequest, InteractiveSession}
 import org.apache.livy.sessions.Spark
 import org.apache.livy.thriftserver.SessionStates._
@@ -227,6 +227,11 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
       LivyThriftSessionManager.processSessionConf(sessionConf, supportUseDatabase)
     val createLivySession = () => {
       createInteractiveRequest.kind = Spark
+
+      // thrift session is also interactive session
+      Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_TOTAL_COUNT)
+      Metrics().incrementCounter(MetricsKey.THRIFT_SESSION_TOTAL_COUNT)
+
       val newSession = InteractiveSession.create(
         server.livySessionManager.nextId(),
         createInteractiveRequest.name,
@@ -296,6 +301,10 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
     info("Connections limit are user: {} ipaddress: {} user-ipaddress: {}",
       userLimit, ipAddressLimit, userIpAddressLimit)
     super.init(livyConf)
+
+    Metrics().addGauge(MetricsKey.THRIFT_SESSION_ACTIVE_NUM, new MetricsVariable[Integer] {
+      override def getValue: Integer = sessionInfo.size()
+    })
   }
 
   // Taken from Hive

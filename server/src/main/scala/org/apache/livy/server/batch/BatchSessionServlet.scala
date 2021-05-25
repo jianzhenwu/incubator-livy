@@ -20,6 +20,7 @@ package org.apache.livy.server.batch
 import javax.servlet.http.HttpServletRequest
 
 import org.apache.livy.LivyConf
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.server.{AccessManager, SessionServlet}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.BatchSessionManager
@@ -45,11 +46,12 @@ class BatchSessionServlet(
 
   override protected def createSession(req: HttpServletRequest): BatchSession = {
     val createRequest = bodyAs[CreateBatchRequest](req)
-    val sessionId = sessionManager.nextId()
-    val sessionName = createRequest.name
+
+    Metrics().incrementCounter(MetricsKey.BATCH_SESSION_TOTAL_COUNT)
+
     BatchSession.create(
-      sessionId,
-      sessionName,
+      sessionManager.nextId(),
+      createRequest.name,
       createRequest,
       livyConf,
       accessManager,

@@ -26,8 +26,7 @@ import scala.collection.JavaConverters._
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.livy.client.common.ClientConf
-import org.apache.livy.client.common.ClientConf.ConfEntry
-import org.apache.livy.client.common.ClientConf.DeprecatedConf
+import org.apache.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
 
 object LivyConf {
 
@@ -261,6 +260,11 @@ object LivyConf {
   val SESSION_STATE_RETAIN_TIME = Entry("livy.server.session.state-retain.sec", "600s")
   // Max creating session in livyServer
   val SESSION_MAX_CREATION = Entry("livy.server.session.max-creation", 100)
+
+  // Comma separated list of reporter implementation class metric class
+  val CODAHALE_METRICS_REPORTER_CLASSES =
+    Entry("livy.server.metrics.codahale.reporter.classes",
+      "org.apache.livy.metrics.metrics2.JmxMetricsReporter")
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"

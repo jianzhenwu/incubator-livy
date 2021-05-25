@@ -18,7 +18,7 @@
 package org.apache.livy.thriftserver
 
 import java.security.PrivilegedExceptionAction
-import java.util.concurrent.{ConcurrentLinkedQueue, RejectedExecutionException}
+import java.util.concurrent.{ConcurrentLinkedQueue, RejectedExecutionException, TimeUnit}
 
 import scala.collection.mutable
 import scala.util.control.NonFatal
@@ -27,6 +27,7 @@ import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hive.service.cli._
 
 import org.apache.livy.Logging
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.thriftserver.SessionStates._
 import org.apache.livy.thriftserver.operation.Operation
 import org.apache.livy.thriftserver.rpc.RpcClient
@@ -137,6 +138,9 @@ class LivyExecuteStatementOperation(
     }
     setState(OperationState.RUNNING)
 
+    Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_STATEMENT_TOTAL_COUNT)
+    Metrics().incrementCounter(MetricsKey.THRIFT_SESSION_SQL_TOTAL_COUNT)
+
     val before = System.currentTimeMillis()
 
     try {
@@ -152,6 +156,15 @@ class LivyExecuteStatementOperation(
 
     val sessionInfo = sessionManager.getSessionInfo(sessionHandle)
     val after = System.currentTimeMillis()
+
+    val spentInMilSec = after - before
+    Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_STATEMENT_SUCCEED_COUNT)
+    Metrics().updateTimer(MetricsKey.INTERACTIVE_SESSION_STATEMENT_PROCESSING_TIME, spentInMilSec,
+      TimeUnit.MILLISECONDS)
+    Metrics().incrementCounter(MetricsKey.THRIFT_SESSION_SQL_SUCCEED_COUNT)
+    Metrics().updateTimer(MetricsKey.THRIFT_SESSION_SQL_PROCESSING_TIME, spentInMilSec,
+      TimeUnit.MILLISECONDS)
+
     ThriftServerAudit.audit(sessionInfo.username, sessionInfo.ipAddress, statement, before, after)
   }
 

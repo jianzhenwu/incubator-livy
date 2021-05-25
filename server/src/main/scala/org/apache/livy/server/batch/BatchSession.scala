@@ -18,6 +18,7 @@
 package org.apache.livy.server.batch
 
 import java.lang.ProcessBuilder.Redirect
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
@@ -26,9 +27,10 @@ import scala.util.Random
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
 import org.apache.livy.{LivyConf, Logging, Utils}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{FinishedSessionState, Session, SessionState}
+import org.apache.livy.sessions.{Session, SessionState}
 import org.apache.livy.sessions.Session._
 import org.apache.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
 
@@ -185,9 +187,19 @@ class BatchSession(
       newState match {
         case SparkApp.State.RUNNING =>
           _state = SessionState.Running
+          if (oldState == SparkApp.State.STARTING) {
+            _startedTime = System.currentTimeMillis()
+            Metrics().updateTimer(MetricsKey.BATCH_SESSION_START_TIME,
+              (_startedTime - _createdTime), TimeUnit.MILLISECONDS)
+          }
           info(s"Batch session $id created [appid: ${appId.orNull}, state: ${state.toString}, " +
             s"info: ${appInfo.asJavaMap}]")
-        case SparkApp.State.FINISHED => _state = SessionState.Success()
+        case SparkApp.State.FINISHED =>
+          _state = SessionState.Success()
+          if (oldState == SparkApp.State.RUNNING) {
+            Metrics().updateTimer(MetricsKey.BATCH_SESSION_PROCESSING_TIME,
+              (System.currentTimeMillis() - _startedTime), TimeUnit.MILLISECONDS)
+          }
         case SparkApp.State.KILLED => {
           _state = SessionState.Killed()
           sessionStore.remove(RECOVERY_SESSION_TYPE, id)
@@ -195,6 +207,7 @@ class BatchSession(
         case SparkApp.State.FAILED => {
           _state = SessionState.Dead()
           sessionStore.remove(RECOVERY_SESSION_TYPE, id)
+          Metrics().incrementCounter(MetricsKey.BATCH_SESSION_FAILED_COUNT)
         }
         case _ =>
       }

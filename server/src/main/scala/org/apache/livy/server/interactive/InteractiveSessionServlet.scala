@@ -18,6 +18,7 @@
 package org.apache.livy.server.interactive
 
 import java.net.URI
+import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
 import scala.collection.JavaConverters._
@@ -31,6 +32,8 @@ import org.scalatra.servlet.FileUploadSupport
 import org.apache.livy.{CompletionRequest, ExecuteRequest, JobHandle, LivyConf, Logging}
 import org.apache.livy.client.common.HttpMessages
 import org.apache.livy.client.common.HttpMessages._
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
+import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.server.{AccessManager, SessionServlet}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions._
@@ -52,6 +55,9 @@ class InteractiveSessionServlet(
 
   override protected def createSession(req: HttpServletRequest): InteractiveSession = {
     val createRequest = bodyAs[CreateInteractiveRequest](req)
+
+    Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_TOTAL_COUNT)
+
     InteractiveSession.create(
       sessionManager.nextId(),
       createRequest.name,
@@ -118,14 +124,26 @@ class InteractiveSessionServlet(
   val getStatement = get("/:id/statements/:statementId") {
     withViewAccessSession { session =>
       val statementId = params("statementId").toInt
+      val statement = session.getStatement(statementId)
 
-      session.getStatement(statementId).getOrElse(NotFound("Statement not found"))
+      // add metric when get statement, because livy doesn't know statement state until client fetch
+      statement.map { s =>
+        if (s.state.get().isOneOf(StatementState.Available)) {
+          Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_STATEMENT_SUCCEED_COUNT)
+          Metrics().updateTimer(MetricsKey.INTERACTIVE_SESSION_STATEMENT_PROCESSING_TIME,
+            (s.completed - s.started), TimeUnit.MILLISECONDS)
+        }
+      }
+
+      statement.getOrElse(NotFound("Statement not found"))
     }
   }
 
   jpost[ExecuteRequest]("/:id/statements") { req =>
     withModifyAccessSession { session =>
       val statement = session.executeStatement(req)
+
+      Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_STATEMENT_TOTAL_COUNT)
 
       Created(statement,
         headers = Map(

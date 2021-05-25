@@ -24,6 +24,7 @@ import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.livy.LivyConf
 import org.apache.livy.LivyConf.{LIVY_SPARK_SCALA_VERSION, LIVY_SPARK_VERSION}
+import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.recovery.{SessionStore, StateStore}
 import org.apache.livy.sessions.InteractiveSessionManager
@@ -63,6 +64,7 @@ abstract class ThriftServerBaseTest extends FunSuite with BeforeAndAfterAll {
     livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
       sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
     StateStore.init(livyConf)
+    Metrics.init(livyConf)
 
     val ss = new SessionStore(livyConf)
     val sessionManager = new InteractiveSessionManager(livyConf, ss)

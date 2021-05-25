@@ -25,6 +25,7 @@ import scala.concurrent._
 import scala.concurrent.duration._
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.RSCClientFactory
 import org.apache.livy.server.batch.BatchSession
 import org.apache.livy.sessions.{Session, SessionManager}
@@ -72,7 +73,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     val from = params.get("from").map(_.toInt).getOrElse(0)
     val size = params.get("size").map(_.toInt).getOrElse(100)
 
+    Metrics().startStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
     val sessions = sessionManager.all()
+    Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
 
     Map(
       "from" -> from,
@@ -131,7 +134,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       if (tooManySessions) {
         BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
       } else {
+        Metrics().startStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
         val session = sessionManager.register(createSession(request))
+        Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
         // Because it may take some time to establish the session, update the last activity
         // time before returning the session info to the client.
         session.recordActivity()

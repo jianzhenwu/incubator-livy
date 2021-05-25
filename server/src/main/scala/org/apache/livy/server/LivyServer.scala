@@ -19,8 +19,8 @@ package org.apache.livy.server
 
 import java.io.{BufferedInputStream, InputStream}
 import java.net.InetAddress
-import java.util.concurrent._
 import java.util.EnumSet
+import java.util.concurrent._
 import javax.servlet._
 
 import scala.collection.JavaConverters._
@@ -36,11 +36,12 @@ import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import org.apache.livy._
+import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.auth.LdapAuthenticationHandlerImpl
 import org.apache.livy.server.batch.BatchSessionServlet
 import org.apache.livy.server.interactive.InteractiveSessionServlet
 import org.apache.livy.server.recovery.{SessionStore, StateStore, ZooKeeperManager}
-import org.apache.livy.server.ui.UIServlet
+import org.apache.livy.server.ui.{JmxJsonServlet, UIServlet}
 import org.apache.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
 import org.apache.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import org.apache.livy.utils.LivySparkUtils._
@@ -154,6 +155,8 @@ class LivyServer extends Logging {
     }
 
     StateStore.init(livyConf, zkManager)
+    Metrics.init(livyConf)
+
     val sessionStore = new SessionStore(livyConf)
     val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
     val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore)
@@ -236,6 +239,9 @@ class LivyServer extends Logging {
             } else {
               mount(context, uiRedirectServlet(basePath + "/metrics"), "/*")
             }
+
+            val jmxJsonServlet = new JmxJsonServlet()
+            mount(context, jmxJsonServlet, "/jmx")
 
             context.mountMetricsAdminServlet("/metrics")
 
@@ -393,6 +399,7 @@ class LivyServer extends Logging {
     if (server != null) {
       server.stop()
     }
+    Metrics.close()
   }
 
   def serverUrl(): String = {

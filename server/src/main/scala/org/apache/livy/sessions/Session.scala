@@ -156,6 +156,9 @@ abstract class Session(
 
   private var _lastActivity = System.nanoTime()
 
+  protected val _createdTime = System.currentTimeMillis()
+  protected var _startedTime: java.lang.Long = _
+
   // Directory where the session's staging files are created. The directory is only accessible
   // to the session's effective user.
   private var stagingDir: Path = null

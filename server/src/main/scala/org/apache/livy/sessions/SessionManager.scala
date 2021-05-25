@@ -27,6 +27,8 @@ import scala.reflect.ClassTag
 import scala.util.control.NonFatal
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey, MetricsVariable}
+import org.apache.livy.rsc.RSCClientFactory
 import org.apache.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession, SessionHeartbeatWatchdog}
 import org.apache.livy.server.recovery.SessionStore
@@ -42,7 +44,15 @@ class BatchSessionManager(
     sessionStore: SessionStore,
     mockSessions: Option[Seq[BatchSession]] = None)
   extends SessionManager[BatchSession, BatchRecoveryMetadata] (
-    livyConf, BatchSession.recover(_, livyConf, sessionStore), sessionStore, "batch", mockSessions)
+    livyConf, BatchSession.recover(_, livyConf, sessionStore), sessionStore, "batch",
+    mockSessions) {
+  Metrics().addGauge(MetricsKey.BATCH_SESSION_ACTIVE_NUM, new MetricsVariable[Integer] {
+    override def getValue: Integer = sessions.size
+  })
+  Metrics().addGauge(MetricsKey.BATCH_SESSION_SUBMITTING_NUM, new MetricsVariable[Integer] {
+    override def getValue: Integer = BatchSession.childProcesses.get()
+  })
+}
 
 class InteractiveSessionManager(
   livyConf: LivyConf,
@@ -57,6 +67,13 @@ class InteractiveSessionManager(
   with SessionHeartbeatWatchdog[InteractiveSession, InteractiveRecoveryMetadata]
   {
     start()
+
+    Metrics().addGauge(MetricsKey.INTERACTIVE_SESSION_ACTIVE_NUM, new MetricsVariable[Integer] {
+      override def getValue: Integer = sessions.size
+    })
+    Metrics().addGauge(MetricsKey.INTERACTIVE_SESSION_SUBMITTING_NUM, new MetricsVariable[Integer] {
+      override def getValue: Integer = RSCClientFactory.childProcesses().get()
+    })
   }
 
 class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](

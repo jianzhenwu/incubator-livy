@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.concurrent.{Future, Promise}
+import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.{Random, Try}
 
@@ -36,6 +36,7 @@ import org.apache.spark.launcher.SparkLauncher
 
 import org.apache.livy._
 import org.apache.livy.client.common.HttpMessages._
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.{PingJob, RSCClient, RSCConf}
 import org.apache.livy.rsc.driver.Statement
 import org.apache.livy.server.AccessManager
@@ -635,8 +636,18 @@ class InteractiveSession(
     synchronized {
       debug(s"$this app state changed from $oldState to $newState")
       newState match {
-        case SparkApp.State.FINISHED | SparkApp.State.FAILED =>
+        case SparkApp.State.RUNNING =>
+          if (oldState == SparkApp.State.STARTING) {
+            _startedTime = System.currentTimeMillis()
+            Metrics().updateTimer(MetricsKey.INTERACTIVE_SESSION_START_TIME,
+              (_startedTime - _createdTime), TimeUnit.MILLISECONDS)
+          }
+        case SparkApp.State.FINISHED =>
           transition(SessionState.Dead())
+        case SparkApp.State.FAILED => {
+          transition(SessionState.Dead())
+          Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_FAILED_COUNT)
+        }
         case SparkApp.State.KILLED => transition(SessionState.Killed())
         case _ =>
       }

@@ -16,9 +16,9 @@
  */
 package org.apache.livy.utils
 
-import org.apache.hadoop.yarn.api.protocolrecords.GetApplicationsRequest
-
+import java.util
 import java.util.concurrent.TimeoutException
+
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
@@ -27,14 +27,14 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.Try
 import scala.util.control.NonFatal
+
 import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
-import org.apache.livy.{LivyConf, Logging, Utils}
 
-import java.util
+import org.apache.livy.{LivyConf, Logging, Utils}
 
 object SparkYarnApp extends Logging {
 
@@ -67,7 +67,8 @@ object SparkYarnApp extends Logging {
 
   private[utils] val leakedAppTags = new java.util.concurrent.ConcurrentHashMap[String, Long]()
 
-  private[utils] val appStates: java.util.EnumSet[YarnApplicationState] = util.EnumSet.allOf(classOf[YarnApplicationState])
+  private[utils] val appStates: java.util.EnumSet[YarnApplicationState] =
+    util.EnumSet.allOf(classOf[YarnApplicationState])
 
   private var sessionLeakageCheckTimeout: Long = _
 
@@ -201,13 +202,13 @@ class SparkYarnApp private[utils] (
     // Consider calling rmClient in YarnClient directly.
     // applicationTags
     val tags = Set(appTagLowerCase).asJava
-    val appList = yarnClient.getApplications(appType,appStates,tags)
+    val appList = yarnClient.getApplications(appType, appStates, tags)
     val appReport = if (appList.isEmpty) {
        None
     } else {
       Some(appList.get(0))
     }
-    //TODO: Clean the below code
+    // TODO: Clean the below code
     appReport match {
       case Some(app) => app.getApplicationId
       case None =>
