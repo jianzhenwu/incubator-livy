@@ -143,6 +143,9 @@
                 <relocation>
                   <pattern>com.esotericsoftware</pattern>
                   <shadedPattern>org.apache.livy.shaded.kryo</shadedPattern>
+                  <excludes>
+                    <exclude>com.esotericsoftware.reflectasm.shaded.*</exclude>
+                  </excludes>
                 </relocation>
                 <relocation>
                   <pattern>com.fasterxml.jackson</pattern>

@@ -59,7 +59,7 @@
 
     <dependency>
       <groupId>com.esotericsoftware</groupId>
-      <artifactId>kryo</artifactId>
+      <artifactId>kryo-shaded</artifactId>
     </dependency>
     <dependency>
       <groupId>io.netty</groupId>
@@ -140,9 +140,8 @@
               <artifactSet>
                 <includes>
                   <include>org.apache.livy:livy-client-common</include>
-                  <include>com.esotericsoftware:kryo</include>
+                  <include>com.esotericsoftware:kryo-shaded</include>
                   <include>com.esotericsoftware:minlog</include>
-                  <include>com.esotericsoftware:reflectasm</include>
                 </includes>
               </artifactSet>
               <filters>
@@ -159,6 +158,9 @@
                 <relocation>
                   <pattern>com.esotericsoftware</pattern>
                   <shadedPattern>org.apache.livy.shaded.kryo</shadedPattern>
+                  <excludes>
+                    <exclude>com.esotericsoftware.reflectasm.shaded.*</exclude>
+                  </excludes>
                 </relocation>
               </relocations>
             </configuration>
@@ -177,7 +179,7 @@
             <configuration>
               <excludeArtifactIds>
                 livy-client-common,
-                kryo,
+                kryo-shaded,
                 spark-launcher_${scala.binary.version},
               </excludeArtifactIds>
               <outputDirectory>${project.build.directory}/jars</outputDirectory>
