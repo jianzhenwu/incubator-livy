@@ -39,6 +39,7 @@ import org.apache.livy._
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.auth.LdapAuthenticationHandlerImpl
 import org.apache.livy.server.batch.BatchSessionServlet
+import org.apache.livy.server.event.Events
 import org.apache.livy.server.interactive.InteractiveSessionServlet
 import org.apache.livy.server.recovery.{SessionStore, StateStore, ZooKeeperManager}
 import org.apache.livy.server.ui.{JmxJsonServlet, UIServlet}
@@ -156,6 +157,7 @@ class LivyServer extends Logging {
 
     StateStore.init(livyConf, zkManager)
     Metrics.init(livyConf)
+    Events.init(livyConf)
 
     val sessionStore = new SessionStore(livyConf)
     val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)

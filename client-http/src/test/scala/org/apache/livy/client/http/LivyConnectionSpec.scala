@@ -30,9 +30,16 @@ import org.scalatest.Matchers._
 import org.scalatra.servlet.ScalatraListener
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
+import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.WebServer
 
 class LivyConnectionSpec extends FunSpecLike with BeforeAndAfterAll with LivyBaseUnitTestSuite {
+
+  override def beforeAll(): Unit = {
+    super.beforeAll()
+    Metrics.init(new LivyConf())
+  }
+
   describe("LivyConnection") {
     def basicAuth(username: String, password: String, realm: String): SecurityHandler = {
       val roles = Array("user")

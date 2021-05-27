@@ -29,6 +29,7 @@ import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
 import org.apache.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
+import org.apache.livy.server.event.Events
 import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.Session.RecoveryMetadata
@@ -208,6 +209,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
     it("should not fail if state store is empty") {
       val conf = new LivyConf()
+      Events.init(conf)
 
       val sessionStore = mock[SessionStore]
       when(sessionStore.getAllSessions[BatchRecoveryMetadata]("batch"))

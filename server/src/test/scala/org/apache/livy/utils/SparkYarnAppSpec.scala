@@ -303,8 +303,9 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         when(mockAppReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
         when(mockAppReport.getYarnApplicationState).thenReturn(YarnApplicationState.FINISHED)
         when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
-        when(mockYarnClient.getApplications(Set("SPARK").asJava))
-          .thenReturn(List(mockAppReport).asJava)
+        when(mockYarnClient.getApplications(Set("SPARK").asJava,
+          java.util.EnumSet.allOf(classOf[YarnApplicationState]),
+          Set(appTag.toLowerCase()).asJava)).thenReturn(List(mockAppReport).asJava)
 
         val mockListener = mock[SparkAppListener]
         val mockSparkSubmit = mock[LineBufferedProcess]

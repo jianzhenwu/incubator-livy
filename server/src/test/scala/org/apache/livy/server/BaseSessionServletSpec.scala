@@ -22,6 +22,8 @@ import javax.servlet.http.HttpServletRequest
 import org.scalatest.BeforeAndAfterAll
 
 import org.apache.livy.LivyConf
+import org.apache.livy.metrics.common.Metrics
+import org.apache.livy.server.event.Events
 import org.apache.livy.sessions.Session
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
@@ -72,6 +74,8 @@ abstract class BaseSessionServletSpec[S <: Session, R <: RecoveryMetadata]
 
   def createServlet(): SessionServlet[S, R]
 
+  Metrics.init(createConf())
+  Events.init(createConf())
   protected val servlet = createServlet()
 
   addServlet(servlet, "/*")

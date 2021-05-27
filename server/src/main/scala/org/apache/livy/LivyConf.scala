@@ -266,6 +266,10 @@ object LivyConf {
     Entry("livy.server.metrics.codahale.reporter.classes",
       "org.apache.livy.metrics.metrics2.JmxMetricsReporter")
 
+  // Comma separated list of event listener implementation class
+  val EVENT_LISTENER_CLASSES = Entry("livy.server.event.listener.classes",
+    "org.apache.livy.server.event.LoggingEventListener")
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"

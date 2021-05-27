@@ -40,6 +40,7 @@ import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.{PingJob, RSCClient, RSCConf}
 import org.apache.livy.rsc.driver.Statement
 import org.apache.livy.server.AccessManager
+import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions._
 import org.apache.livy.sessions.Session._
@@ -396,6 +397,8 @@ class InteractiveSession(
 
   private var app: Option[SparkApp] = None
 
+  triggerSessionEvent()
+
   override def start(): Unit = {
     sessionStore.save(RECOVERY_SESSION_TYPE, recoveryMetadata)
     heartbeat()
@@ -601,6 +604,7 @@ class InteractiveSession(
       debug(s"$this session state change from ${serverSideState} to $newState")
       serverSideState = newState
     }
+    triggerSessionEvent()
   }
 
   private def ensureActive(): Unit = synchronized {
@@ -666,5 +670,11 @@ class InteractiveSession(
     } else {
       serverSideLastActivity
     }
+  }
+
+  private def triggerSessionEvent(): Unit = {
+    val event: Event = new SessionEvent(SessionType.Interactive, id, name, appId, appTag, owner,
+      proxyUser, state)
+    Events().notify(event)
   }
 }

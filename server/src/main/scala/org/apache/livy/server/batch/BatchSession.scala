@@ -29,6 +29,7 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import org.apache.livy.{LivyConf, Logging, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.server.AccessManager
+import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionState}
 import org.apache.livy.sessions.Session._
@@ -164,6 +165,8 @@ class BatchSession(
 
   private var app: Option[SparkApp] = None
 
+  triggerSessionEvent()
+
   override def state: SessionState = _state
 
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(IndexedSeq.empty[String])
@@ -212,10 +215,17 @@ class BatchSession(
         case _ =>
       }
     }
+    triggerSessionEvent()
   }
 
   override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
 
   override def recoveryMetadata: RecoveryMetadata =
     BatchRecoveryMetadata(id, name, appId, appTag, owner, proxyUser)
+
+  private def triggerSessionEvent(): Unit = {
+    val event: Event = new SessionEvent(SessionType.Batch, id, name, appId, appTag, owner,
+      proxyUser, state)
+    Events().notify(event)
+  }
 }

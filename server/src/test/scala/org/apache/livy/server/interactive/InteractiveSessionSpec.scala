@@ -37,6 +37,7 @@ import org.apache.livy.{ExecuteRequest, JobHandle, LivyBaseUnitTestSuite, LivyCo
 import org.apache.livy.rsc.{PingJob, RSCClient, RSCConf}
 import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.server.AccessManager
+import org.apache.livy.server.event.Events
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{PySpark, SessionState, Spark}
 import org.apache.livy.utils.{AppInfo, SparkApp}
@@ -48,6 +49,7 @@ class InteractiveSessionSpec extends FunSpec
   livyConf.set(LivyConf.REPL_JARS, "dummy.jar")
     .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
     .set(LivyConf.LIVY_SPARK_SCALA_VERSION, sys.env("LIVY_SCALA_VERSION"))
+  Events.init(livyConf)
 
   implicit val formats = DefaultFormats
 

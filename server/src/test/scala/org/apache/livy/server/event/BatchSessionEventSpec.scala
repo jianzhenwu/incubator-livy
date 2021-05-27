@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.livy.server.batch
+package org.apache.livy.server.event
 
 import java.io.FileWriter
 import java.nio.file.{Files, Path}
@@ -23,24 +23,21 @@ import java.util.concurrent.TimeUnit
 
 import scala.concurrent.duration.Duration
 
-import org.mockito.Matchers
-import org.mockito.Matchers.anyObject
-import org.mockito.Mockito._
 import org.scalatest.{BeforeAndAfter, FunSpec}
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, Utils}
 import org.apache.livy.server.AccessManager
-import org.apache.livy.server.event.Events
+import org.apache.livy.server.batch.{BatchSession, CreateBatchRequest}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.SessionState
-import org.apache.livy.utils.{AppInfo, Clock, SparkApp}
+import org.apache.livy.utils.Clock
 
-class BatchSessionSpec
-  extends FunSpec
+class BatchSessionEventSpec extends FunSpec
   with BeforeAndAfter
   with org.scalatest.Matchers
-  with LivyBaseUnitTestSuite {
+  with LivyBaseUnitTestSuite
+  with BaseEventSpec {
 
   val script: Path = {
     val script = Files.createTempFile("livy-test", ".py")
@@ -50,6 +47,21 @@ class BatchSessionSpec
       writer.write(
         """
           |print "hello world"
+        """.stripMargin)
+    } finally {
+      writer.close()
+    }
+    script
+  }
+
+  val errorScript: Path = {
+    val script = Files.createTempFile("livy-test-error-script", ".py")
+    script.toFile.deleteOnExit()
+    val writer = new FileWriter(script.toFile)
+    try {
+      writer.write(
+        """
+          |exit(1)
         """.stripMargin)
     } finally {
       writer.close()
@@ -74,15 +86,15 @@ class BatchSessionSpec
     script
   }
 
-  describe("A Batch process") {
+  describe("A Batch Event process") {
     var sessionStore: SessionStore = null
 
     before {
       sessionStore = mock[SessionStore]
-      Events.init(new LivyConf())
+      BufferedEventListener.buffer.clear()
     }
 
-    it("should create a process") {
+    it("should receive success event") {
       val req = new CreateBatchRequest()
       req.file = script.toString
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
@@ -93,35 +105,27 @@ class BatchSessionSpec
       batch.start()
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
-      (batch.state match {
-        case SessionState.Success(_) => true
-        case _ => false
-      }) should be (true)
 
-      batch.logLines() should contain("hello world")
+      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
+        SessionState.Success()))
     }
 
-    it("should update appId and appInfo") {
-      val conf = new LivyConf()
+    it("should receive dead event") {
       val req = new CreateBatchRequest()
-      val mockApp = mock[SparkApp]
+      req.file = errorScript.toString
+      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
+
+      val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
       val accessManager = new AccessManager(conf)
-      val batch = BatchSession.create(
-        0, None, req, conf, accessManager, null, None, sessionStore, Some(mockApp))
+      val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
 
-      val expectedAppId = "APPID"
-      batch.appIdKnown(expectedAppId)
-      verify(sessionStore, atLeastOnce()).save(
-        Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
-      batch.appId shouldEqual Some(expectedAppId)
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
 
-      val expectedAppInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
-      batch.infoChanged(expectedAppInfo)
-      batch.appInfo shouldEqual expectedAppInfo
+      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running, SessionState.Dead()))
     }
 
-    it("should end with status killed when batch session was stopped") {
+    it("should receive killed event") {
       val req = new CreateBatchRequest()
       req.file = runForeverScript.toString
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
@@ -134,33 +138,9 @@ class BatchSessionSpec
       batch.stopSession()
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
-      (batch.state match {
-        case SessionState.Killed(_) => true
-        case _ => false
-      }) should be (true)
+
+      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
+        SessionState.Killed()))
     }
-
-    def testRecoverSession(name: Option[String]): Unit = {
-      val conf = new LivyConf()
-      val req = new CreateBatchRequest()
-      val name = Some("Test Batch Session")
-      val mockApp = mock[SparkApp]
-      val m = BatchRecoveryMetadata(99, name, None, "appTag", null, None)
-      val batch = BatchSession.recover(m, conf, sessionStore, Some(mockApp))
-
-      batch.state shouldBe (SessionState.Recovering)
-      batch.name shouldBe (name)
-
-      batch.appIdKnown("appId")
-      verify(sessionStore, atLeastOnce()).save(
-        Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
-    }
-
-    Seq[Option[String]](None, Some("Test Batch Session"), null)
-      .foreach { case name =>
-        it(s"should recover session (name = $name)") {
-          testRecoverSession(name)
-        }
-      }
   }
 }
