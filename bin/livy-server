@@ -102,9 +102,8 @@ start_livy_server() {
     LIVY_CLASSPATH="$LIVY_CLASSPATH:$YARN_CONF_DIR"
   fi
 
-  command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH:$CLASSPATH org.apache.livy.server.LivyServer"
-
   if [ $1 = "old" ]; then
+    command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH:$CLASSPATH org.apache.livy.server.LivyServer"
     exec $command
   else
     # get log directory
@@ -123,6 +122,9 @@ start_livy_server() {
     fi
 
     livy_rotate_log "$log"
+
+    LIVY_SERVER_JAVA_OPTS="$LIVY_SERVER_JAVA_OPTS -DLIVY_LOG_DIR=${LIVY_LOG_DIR} -DLIVY_IDENT_STRING=${LIVY_IDENT_STRING}"
+    command="$RUNNER $LIVY_SERVER_JAVA_OPTS -cp $LIVY_CLASSPATH:$CLASSPATH org.apache.livy.server.LivyServer"
     echo "starting $command, logging to $log"
     nohup nice -n "$LIVY_NICENESS" $command >> "$log" 2>&1 < /dev/null &
     newpid="$!"
