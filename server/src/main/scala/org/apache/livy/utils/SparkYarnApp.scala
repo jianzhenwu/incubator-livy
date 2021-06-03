@@ -16,6 +16,7 @@
  */
 package org.apache.livy.utils
 
+import java.io.IOException
 import java.util
 import java.util.concurrent.TimeoutException
 
@@ -28,6 +29,7 @@ import scala.language.postfixOps
 import scala.util.Try
 import scala.util.control.NonFatal
 
+import com.google.common.collect.Lists
 import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
@@ -62,6 +64,9 @@ object SparkYarnApp extends Logging {
 
   private def getYarnPollInterval(livyConf: LivyConf): FiniteDuration =
     livyConf.getTimeAsMs(LivyConf.YARN_POLL_INTERVAL) milliseconds
+
+  private def getYarnPollBackoffMaxInterval(livyConf: LivyConf): FiniteDuration =
+    livyConf.getTimeAsMs(LivyConf.YARN_POLL_BACKOFF_MAX_INTERVAL) milliseconds
 
   private[utils] val appType = Set("SPARK").asJava
 
@@ -202,7 +207,16 @@ class SparkYarnApp private[utils] (
     // Consider calling rmClient in YarnClient directly.
     // applicationTags
     val tags = Set(appTagLowerCase).asJava
-    val appList = yarnClient.getApplications(appType, appStates, tags)
+    var lastIOE: IOException = null
+    val appList = try {
+      yarnClient.getApplications(appType, appStates, tags)
+    } catch {
+      // Caused by YARN failure or network issue, should wait
+      case ioe: IOException =>
+        lastIOE = ioe
+        error(s"Error get application by tags: ${ioe.getMessage}")
+        Lists.newArrayList[ApplicationReport]()
+    }
     val appReport = if (appList.isEmpty) {
        None
     } else {
@@ -215,11 +229,16 @@ class SparkYarnApp private[utils] (
         if (deadline.isOverdue) {
           process.foreach(_.destroy())
           leakedAppTags.put(appTag, System.currentTimeMillis())
-          throw new IllegalStateException(s"No YARN application is found with tag" +
-            s" $appTagLowerCase in ${livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT)/1000}" +
-            " seconds. This may be because 1) spark-submit fail to submit application to YARN; " +
-            "or 2) YARN cluster doesn't have enough resources to start the application in time. " +
-            "Please check Livy log and YARN log to know the details.")
+          if(lastIOE == null) {
+            val appLookupTimeoutSecs = livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT) / 1000
+            throw new IllegalStateException(s"No YARN application is found with tag" +
+              s" $appTagLowerCase in $appLookupTimeoutSecs seconds. " +
+              "This may be because 1) spark-submit fail to submit application to YARN; or " +
+              "2) YARN cluster doesn't have enough resources to start the application in time. " +
+              "Please check Livy log and YARN log to know the details.")
+          } else {
+            throw lastIOE
+          }
         } else {
           Clock.sleep(pollInterval.toMillis)
           getAppIdFromTag(appTagLowerCase, pollInterval, deadline)
@@ -288,7 +307,7 @@ class SparkYarnApp private[utils] (
       Thread.currentThread().setName(s"yarnAppMonitorThread-$appId")
       listener.foreach(_.appIdKnown(appId.toString))
 
-      val pollInterval = SparkYarnApp.getYarnPollInterval(livyConf)
+      var pollInterval = SparkYarnApp.getYarnPollInterval(livyConf)
       var appInfo = AppInfo()
       while (isRunning) {
         try {
@@ -296,6 +315,9 @@ class SparkYarnApp private[utils] (
 
           // Refresh application state
           val appReport = yarnClient.getApplicationReport(appId)
+          // reset exponential backoff poll interval
+          pollInterval = SparkYarnApp.getYarnPollInterval(livyConf)
+
           yarnDiagnostics = getYarnDiagnostics(appReport)
           changeState(mapYarnState(
             appReport.getApplicationId,
@@ -332,6 +354,14 @@ class SparkYarnApp private[utils] (
               debug("Encountered YARN-4411.")
             } else {
               throw e
+            }
+          // Caused by YARN failure or network issue, should wait
+          case ioe: IOException =>
+            error(s"Error refresh YARN application state: ${ioe.getMessage}")
+            // Exponential backoff
+            pollInterval = pollInterval * 2
+            if (pollInterval > SparkYarnApp.getYarnPollBackoffMaxInterval(livyConf)) {
+              pollInterval = SparkYarnApp.getYarnPollBackoffMaxInterval(livyConf)
             }
         }
       }

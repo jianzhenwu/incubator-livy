@@ -234,6 +234,8 @@ object LivyConf {
 
   // How often Livy polls YARN to refresh YARN app state.
   val YARN_POLL_INTERVAL = Entry("livy.server.yarn.poll-interval", "5s")
+  // Max interval Livy polls YARN to refresh app state during YARN failure
+  val YARN_POLL_BACKOFF_MAX_INTERVAL = Entry("livy.server.yarn.poll-backoff-max-interval", "60s")
 
   // Days to keep Livy server request logs.
   val REQUEST_LOG_RETAIN_DAYS = Entry("livy.server.request-log-retain.days", 5)

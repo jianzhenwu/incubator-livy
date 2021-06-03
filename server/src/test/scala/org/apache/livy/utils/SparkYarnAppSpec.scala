@@ -16,6 +16,7 @@
  */
 package org.apache.livy.utils
 
+import java.io.IOException
 import java.util.ArrayList
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
@@ -33,8 +34,8 @@ import org.apache.hadoop.yarn.util.ConverterUtils
 import org.mockito.Mockito._
 import org.mockito.invocation.InvocationOnMock
 import org.mockito.stubbing.Answer
-import org.scalatest.concurrent.Eventually
 import org.scalatest.FunSpec
+import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, Utils}
@@ -173,7 +174,7 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         when(mockSparkSubmit.inputLines).thenReturn(sparkSubmitInfoLog)
         when(mockSparkSubmit.errorLines).thenReturn(sparkSubmitErrorLog)
         val waitForCalledLatch = new CountDownLatch(1)
-        when(mockSparkSubmit.waitFor()).thenAnswer(new Answer[Int]() {
+        when(mockSparkSubmit.destroy()).thenAnswer(new Answer[Int]() {
           override def answer(invocation: InvocationOnMock): Int = {
             waitForCalledLatch.countDown()
             0
@@ -194,6 +195,7 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           livyConf,
           mockYarnClient)
         cleanupThread(app.yarnAppMonitorThread) {
+          app.kill()
           waitForCalledLatch.await(TEST_TIMEOUT.toMillis, TimeUnit.MILLISECONDS)
           assert(app.log() == sparkSubmitLog, "Expect spark-submit log")
         }
@@ -321,6 +323,67 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           verify(mockListener).appIdKnown(appId.toString)
         }
       }
+    }
+
+    it("should retry get App id when IOException") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+        val mockAppReport = mock[ApplicationReport]
+
+        when(mockAppReport.getApplicationId).thenReturn(appId)
+        when(mockYarnClient.getApplications(Set("SPARK").asJava,
+          java.util.EnumSet.allOf(classOf[YarnApplicationState]), Set(appTag.toLowerCase()).asJava))
+          .thenThrow(new IOException())
+          .thenReturn(List(mockAppReport).asJava)
+
+        val mockListener = mock[SparkAppListener]
+        val mockSparkSubmit = mock[LineBufferedProcess]
+        val app = new SparkYarnApp(
+          appTag, None, Some(mockSparkSubmit), Some(mockListener), livyConf, mockYarnClient)
+
+        cleanupThread(app.yarnAppMonitorThread) {
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+          assert(!app.yarnAppMonitorThread.isAlive,
+            "YarnAppMonitorThread should terminate due to getApplicationReport not mocked.")
+
+          verify(mockYarnClient, times(2))
+            .getApplications(Set("SPARK").asJava,
+            java.util.EnumSet.allOf(classOf[YarnApplicationState]),
+              Set(appTag.toLowerCase()).asJava)
+          verify(mockListener).appIdKnown(appId.toString)
+        }
+      }
+    }
+
+    it("should retry get App until timeout when IOException") {
+      val livyConf = new LivyConf()
+      livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "1s")
+
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+
+        when(mockYarnClient.getApplications(Set("SPARK").asJava,
+          java.util.EnumSet.allOf(classOf[YarnApplicationState]), Set(appTag.toLowerCase()).asJava))
+          .thenThrow(new IOException())
+
+        val mockListener = mock[SparkAppListener]
+        val mockSparkSubmit = mock[LineBufferedProcess]
+        val app = new SparkYarnApp(
+          appTag, None, Some(mockSparkSubmit), Some(mockListener), livyConf, mockYarnClient)
+
+        cleanupThread(app.yarnAppMonitorThread) {
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+          assert(!app.yarnAppMonitorThread.isAlive,
+            "YarnAppMonitorThread should terminate due to getApplications failed and timeout.")
+
+          verify(mockYarnClient, atLeast(5))
+            .getApplications(Set("SPARK").asJava,
+              java.util.EnumSet.allOf(classOf[YarnApplicationState]),
+              Set(appTag.toLowerCase()).asJava)
+          verify(mockListener, never()).appIdKnown(appId.toString)
+        }
+      }
+
     }
 
     it("should expose driver log url and Spark UI url") {
@@ -464,6 +527,29 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
       }
     }
 
+    it("should not die on IOException when getApplicationReport") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+        val mockAppReport = mock[ApplicationReport]
+        val mockApplicationAttemptId = mock[ApplicationAttemptId]
+
+        when(mockAppReport.getApplicationId).thenReturn(appId)
+        when(mockAppReport.getYarnApplicationState).thenReturn(RUNNING)
+        when(mockAppReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.UNDEFINED)
+        when(mockAppReport.getCurrentApplicationAttemptId).thenReturn(mockApplicationAttemptId)
+        when(mockYarnClient.getApplicationReport(appId))
+          .thenThrow(new IOException())
+          .thenReturn(mockAppReport)
+
+        val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf, mockYarnClient)
+        cleanupThread(app.yarnAppMonitorThread) {
+          Thread.sleep(50)
+          verify(mockYarnClient, atLeast(2)).getApplicationReport(appId)
+          assert(app.state == SparkApp.State.RUNNING)
+        }
+      }
+    }
+
     it("should delete leak app when timeout") {
       Clock.withSleepMethod(mockSleep) {
         livyConf.set(LivyConf.YARN_APP_LEAKAGE_CHECK_INTERVAL, "100ms")
@@ -483,5 +569,6 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         }
       }
     }
+
   }
 }
