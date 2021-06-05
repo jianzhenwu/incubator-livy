@@ -36,6 +36,7 @@ import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import org.apache.livy._
+import org.apache.livy.cluster.{ClusterManager, ZookeeperClusterManager}
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.auth.LdapAuthenticationHandlerImpl
 import org.apache.livy.server.batch.BatchSessionServlet
@@ -63,6 +64,7 @@ class LivyServer extends Logging {
   private var _thriftServerFactory: Option[ThriftServerFactory] = None
 
   private var zkManager: Option[ZooKeeperManager] = None
+  private var clusterManager: Option[ClusterManager] = None
 
   private var ugi: UserGroupInformation = _
 
@@ -150,9 +152,14 @@ class LivyServer extends Logging {
       Future { SparkYarnApp.yarnClient }
     }
 
-    if (livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper") {
+    if (livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper" ||
+        livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
       zkManager = Some(new ZooKeeperManager(livyConf))
       zkManager.foreach(_.start())
+    }
+
+    if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+      clusterManager = Some(new ZookeeperClusterManager(livyConf, zkManager.get))
     }
 
     StateStore.init(livyConf, zkManager)
@@ -330,6 +337,7 @@ class LivyServer extends Logging {
     }
 
     server.start()
+    clusterManager.foreach(_.register())
 
     _thriftServerFactory.foreach {
       _.start(livyConf, interactiveSessionManager, sessionStore, accessManager)

@@ -139,6 +139,12 @@
 # The dir in zk to store the data about session.
 # livy.server.recovery.zk-state-store.key-prefix = livy
 
+# If enable Livy cluster. Disabled by default.
+# livy.server.cluster.enabled = false
+
+# The dir in zk to register servers of Livy cluster
+# livy.server.cluster.zk-server-register.key-prefix = livy/servers
+
 # If Livy can't find the yarn app within this time, consider it lost.
 # livy.server.yarn.app-lookup-timeout = 120s
 # When the cluster is busy, we may fail to launch yarn app in app-lookup-timeout, then it would

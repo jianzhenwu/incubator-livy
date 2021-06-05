@@ -20,10 +20,13 @@ package org.apache.livy.server.recovery
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-import org.apache.curator.framework.api.UnhandledErrorListener
 import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.api.UnhandledErrorListener
+import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent.Type
 import org.apache.curator.retry.RetryNTimes
+import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.NoNodeException
 
 import org.apache.livy.LivyConf
@@ -38,13 +41,6 @@ class ZooKeeperManager(
   def this(livyConf: LivyConf) {
     this(livyConf, None)
   }
-
-  private val zkAddress = Option(livyConf.get(LivyConf.ZOOKEEPER_URL)).
-    orElse(Option(livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL))).
-    map(_.trim).orNull
-
-  require(zkAddress != null && !zkAddress.isEmpty,
-    s"Please config ${LivyConf.ZOOKEEPER_URL.key}.")
 
   private val retryValue = Option(livyConf.get(LivyConf.ZK_RETRY_POLICY)).
     orElse(Option(livyConf.get(LivyConf.RECOVERY_ZK_STATE_STORE_RETRY_POLICY))).
@@ -63,6 +59,13 @@ class ZooKeeperManager(
   }
 
   private val curatorClient = mockCuratorClient.getOrElse {
+    val zkAddress = Option(livyConf.get(LivyConf.ZOOKEEPER_URL)).
+      orElse(Option(livyConf.get(LivyConf.RECOVERY_STATE_STORE_URL))).
+      map(_.trim).orNull
+
+    require(zkAddress != null && !zkAddress.isEmpty,
+      s"Please config ${LivyConf.ZOOKEEPER_URL.key}.")
+
     CuratorFrameworkFactory.newClient(zkAddress, retryPolicy)
   }
 
@@ -114,5 +117,43 @@ class ZooKeeperManager(
     } catch {
       case _: NoNodeException => warn(s"Fail to remove non-existed zookeeper node: ${key}")
     }
+  }
+
+  def watchAddChildNode[T: ClassTag](path: String, nodeAddHandler: (String, T) => Unit): Unit = {
+    watchChildrenNodes(path, nodeAddHandler, Type.CHILD_ADDED)
+  }
+
+  def watchRemoveChildNode[T: ClassTag](path: String,
+      nodeRemoveHandler: (String, T) => Unit): Unit = {
+    watchChildrenNodes(path, nodeRemoveHandler, Type.CHILD_REMOVED)
+  }
+
+  def createEphemeralNode(path: String, value: Object): Unit = {
+    val data = serializeToBytes(value)
+    curatorClient.create.creatingParentsIfNeeded.withMode(CreateMode.EPHEMERAL).forPath(path, data)
+  }
+
+  // For test
+  protected def getPathChildrenCache(path: String): PathChildrenCache = {
+    new PathChildrenCache(curatorClient, path, true)
+  }
+
+  private def watchChildrenNodes[T: ClassTag](
+                                      path: String,
+                                      nodeEventHandler: (String, T) => Unit,
+                                      eventType: PathChildrenCacheEvent.Type): Unit = {
+    val cache = getPathChildrenCache(path)
+    cache.start()
+
+    val listener = new PathChildrenCacheListener() {
+      override def childEvent(client: CuratorFramework, event: PathChildrenCacheEvent): Unit = {
+        val data = event.getData
+        if (event.getType == eventType) {
+          nodeEventHandler(data.getPath, deserialize[T](data.getData))
+        }
+      }
+    }
+
+    cache.getListenable.addListener(listener)
   }
 }
