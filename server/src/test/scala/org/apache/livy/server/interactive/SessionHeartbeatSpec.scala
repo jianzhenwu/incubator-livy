@@ -28,7 +28,7 @@ import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.LivyConf
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{Session, SessionManager}
+import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 class SessionHeartbeatSpec extends FunSpec with Matchers {
@@ -64,6 +64,7 @@ class SessionHeartbeatSpec extends FunSpec with Matchers {
         { _ => assert(false).asInstanceOf[TestSession] },
         mock[SessionStore],
         "test",
+        mock[SessionIdGenerator],
         Some(Seq.empty))
         with SessionHeartbeatWatchdog[TestSession, RecoveryMetadata] {}
 

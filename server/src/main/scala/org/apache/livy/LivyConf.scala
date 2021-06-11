@@ -226,6 +226,13 @@ object LivyConf {
   val RECOVERY_ZK_STATE_STORE_KEY_PREFIX =
     Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
 
+  val SESSION_ID_GENERATOR_CLASS = Entry("livy.server.session.id-generator.class",
+    "org.apache.livy.sessions.InMemorySessionIdGenerator")
+
+  // The dir where session id of ZookeeperSessionIdGenerator stored, default same as session store
+  val SESSION_ID_GENERATOR_ZK_KEY_PREFIX = Entry("livy.server.session.id-generator.zk.key-prefix",
+    null)
+
   // If enable Livy cluster. Disabled by default.
   val CLUSTER_ENABLED = Entry("livy.server.cluster.enabled", false)
 

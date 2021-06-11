@@ -44,7 +44,7 @@ import org.apache.livy.server.event.Events
 import org.apache.livy.server.interactive.InteractiveSessionServlet
 import org.apache.livy.server.recovery.{SessionStore, StateStore, ZooKeeperManager}
 import org.apache.livy.server.ui.{JmxJsonServlet, UIServlet}
-import org.apache.livy.sessions.{BatchSessionManager, InteractiveSessionManager}
+import org.apache.livy.sessions.{BatchSessionManager, InteractiveSessionManager, SessionIdGenerator}
 import org.apache.livy.sessions.SessionManager.SESSION_RECOVERY_MODE_OFF
 import org.apache.livy.utils.LivySparkUtils._
 import org.apache.livy.utils.SparkYarnApp
@@ -153,7 +153,9 @@ class LivyServer extends Logging {
     }
 
     if (livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper" ||
-        livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+        livyConf.getBoolean(LivyConf.CLUSTER_ENABLED) ||
+        livyConf.get(LivyConf.SESSION_ID_GENERATOR_CLASS) ==
+          "org.apache.livy.sessions.ZookeeperSessionIdGenerator") {
       zkManager = Some(new ZooKeeperManager(livyConf))
       zkManager.foreach(_.start())
     }
@@ -167,8 +169,10 @@ class LivyServer extends Logging {
     Events.init(livyConf)
 
     val sessionStore = new SessionStore(livyConf)
-    val batchSessionManager = new BatchSessionManager(livyConf, sessionStore)
-    val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore)
+    val sessionIdGenerator = SessionIdGenerator(livyConf, sessionStore, clusterManager, zkManager)
+    val batchSessionManager = new BatchSessionManager(livyConf, sessionStore, sessionIdGenerator)
+    val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore,
+      sessionIdGenerator)
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/org/apache/livy/server")

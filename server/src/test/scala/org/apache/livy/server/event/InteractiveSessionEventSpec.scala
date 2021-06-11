@@ -50,6 +50,7 @@ class InteractiveSessionEventSpec extends FunSpec
   private val accessManager = new AccessManager(livyConf)
 
   private def createSession(
+      sessionId: Int,
       sessionStore: SessionStore = mock[SessionStore],
       mockApp: Option[SparkApp] = None): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
@@ -65,7 +66,7 @@ class InteractiveSessionEventSpec extends FunSpec
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
-    InteractiveSession.create(0, None, null, None, livyConf, accessManager, req,
+    InteractiveSession.create(sessionId, None, null, None, livyConf, accessManager, req,
       sessionStore, mockApp)
   }
 
@@ -79,7 +80,7 @@ class InteractiveSessionEventSpec extends FunSpec
 
     it("should receive dead event") {
       val mockApp = mock[SparkApp]
-      val session: InteractiveSession = createSession(sessionStore, Some(mockApp))
+      val session: InteractiveSession = createSession(99, sessionStore, Some(mockApp))
       session.start()
 
       eventually(timeout(60 seconds), interval(100 millis)) {
@@ -87,7 +88,7 @@ class InteractiveSessionEventSpec extends FunSpec
       }
       Await.ready(session.stop(), 30 seconds)
 
-      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Idle,
+      assertEventBuffer(99, Array(SessionState.Starting, SessionState.Idle,
         SessionState.ShuttingDown, SessionState.Dead()))
     }
   }

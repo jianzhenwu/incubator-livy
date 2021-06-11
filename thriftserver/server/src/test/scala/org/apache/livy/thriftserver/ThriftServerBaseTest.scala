@@ -28,7 +28,7 @@ import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.event.Events
 import org.apache.livy.server.recovery.{SessionStore, StateStore}
-import org.apache.livy.sessions.InteractiveSessionManager
+import org.apache.livy.sessions.{InteractiveSessionManager, SessionIdGenerator}
 import org.apache.livy.utils.LivySparkUtils.{formatSparkVersion, sparkScalaVersion, sparkSubmitVersion}
 
 object ServerMode extends Enumeration {
@@ -69,7 +69,8 @@ abstract class ThriftServerBaseTest extends FunSuite with BeforeAndAfterAll {
     Events.init(livyConf)
 
     val ss = new SessionStore(livyConf)
-    val sessionManager = new InteractiveSessionManager(livyConf, ss)
+    val sessionIdGenerator = SessionIdGenerator(livyConf, ss, None, None)
+    val sessionManager = new InteractiveSessionManager(livyConf, ss, sessionIdGenerator)
     val accessManager = new AccessManager(livyConf)
     LivyThriftServer.start(livyConf, sessionManager, ss, accessManager)
     LivyThriftServer.thriftServerThread.join(THRIFT_SERVER_STARTUP_TIMEOUT)

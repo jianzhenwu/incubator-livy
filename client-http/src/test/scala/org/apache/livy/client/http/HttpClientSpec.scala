@@ -41,7 +41,7 @@ import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.{AccessManager, WebServer}
 import org.apache.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{InteractiveSessionManager, SessionState, Spark}
+import org.apache.livy.sessions.{InteractiveSessionManager, SessionIdGenerator, SessionState, Spark}
 import org.apache.livy.test.jobs.Echo
 import org.apache.livy.utils.AppInfo
 
@@ -268,7 +268,9 @@ private class HttpClientTestBootstrap extends LifeCycle {
   override def init(context: ServletContext): Unit = {
     val conf = new LivyConf()
     val stateStore = mock(classOf[SessionStore])
-    val sessionManager = new InteractiveSessionManager(conf, stateStore, Some(Seq.empty))
+    val sessionIdGenerator = mock(classOf[SessionIdGenerator])
+    val sessionManager = new InteractiveSessionManager(conf, stateStore, sessionIdGenerator,
+      Some(Seq.empty))
     val accessManager = new AccessManager(conf)
     val servlet = new InteractiveSessionServlet(sessionManager, stateStore, conf, accessManager) {
       override protected def createSession(req: HttpServletRequest): InteractiveSession = {

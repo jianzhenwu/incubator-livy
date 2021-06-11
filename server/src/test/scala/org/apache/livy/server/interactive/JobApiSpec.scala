@@ -36,7 +36,7 @@ import org.apache.livy.client.common.{BufferUtils, Serializer}
 import org.apache.livy.client.common.HttpMessages._
 import org.apache.livy.server.{AccessManager, RemoteUserOverride}
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{InteractiveSessionManager, SessionState}
+import org.apache.livy.sessions.{InteractiveSessionManager, SessionIdGenerator, SessionState}
 import org.apache.livy.test.jobs.{Echo, GetCurrentUser}
 
 class JobApiSpec extends BaseInteractiveServletSpec {
@@ -48,7 +48,11 @@ class JobApiSpec extends BaseInteractiveServletSpec {
   override def createServlet(): InteractiveSessionServlet = {
     val conf = createConf()
     val sessionStore = mock[SessionStore]
-    val sessionManager = new InteractiveSessionManager(conf, sessionStore, Some(Seq.empty))
+    val sessionManager = new InteractiveSessionManager(
+      conf,
+      sessionStore,
+      mock[SessionIdGenerator],
+      Some(Seq.empty))
     val accessManager = new AccessManager(conf)
     new InteractiveSessionServlet(sessionManager, sessionStore, conf, accessManager)
       with RemoteUserOverride

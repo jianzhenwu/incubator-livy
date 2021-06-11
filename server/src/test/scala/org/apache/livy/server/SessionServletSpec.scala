@@ -24,7 +24,7 @@ import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.LivyConf
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{Session, SessionManager, SessionState}
+import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager, SessionState}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 object SessionServletSpec {
@@ -55,6 +55,7 @@ object SessionServletSpec {
       { _ => assert(false).asInstanceOf[Session] },
       mock[SessionStore],
       "test",
+      mock[SessionIdGenerator],
       Some(Seq.empty))
 
     val accessManager = new AccessManager(conf)

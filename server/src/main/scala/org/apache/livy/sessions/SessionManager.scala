@@ -42,9 +42,14 @@ object SessionManager {
 class BatchSessionManager(
     livyConf: LivyConf,
     sessionStore: SessionStore,
+    sessionIdGenerator: SessionIdGenerator,
     mockSessions: Option[Seq[BatchSession]] = None)
   extends SessionManager[BatchSession, BatchRecoveryMetadata] (
-    livyConf, BatchSession.recover(_, livyConf, sessionStore), sessionStore, "batch",
+    livyConf,
+    BatchSession.recover(_, livyConf, sessionStore),
+    sessionStore,
+    "batch",
+    sessionIdGenerator,
     mockSessions) {
   Metrics().addGauge(MetricsKey.BATCH_SESSION_ACTIVE_NUM, new MetricsVariable[Integer] {
     override def getValue: Integer = sessions.size
@@ -57,12 +62,14 @@ class BatchSessionManager(
 class InteractiveSessionManager(
   livyConf: LivyConf,
   sessionStore: SessionStore,
+  sessionIdGenerator: SessionIdGenerator,
   mockSessions: Option[Seq[InteractiveSession]] = None)
   extends SessionManager[InteractiveSession, InteractiveRecoveryMetadata] (
     livyConf,
     InteractiveSession.recover(_, livyConf, sessionStore),
     sessionStore,
     "interactive",
+    sessionIdGenerator,
     mockSessions)
   with SessionHeartbeatWatchdog[InteractiveSession, InteractiveRecoveryMetadata]
   {
@@ -81,6 +88,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     sessionRecovery: R => S,
     sessionStore: SessionStore,
     sessionType: String,
+    sessionIdGenerator: SessionIdGenerator,
     mockSessions: Option[Seq[S]] = None)
   extends Logging {
 
@@ -88,7 +96,11 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
   protected implicit def executor: ExecutionContext = ExecutionContext.global
 
-  protected[this] final val idCounter = new AtomicInteger(0)
+  if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+    require(sessionIdGenerator.isGlobalUnique(),
+      "Global unique session id generator required when Livy cluster enabled")
+  }
+
   protected[this] final val sessions = mutable.LinkedHashMap[Int, S]()
   private[this] final val sessionsByName = mutable.HashMap[String, S]()
 
@@ -104,10 +116,8 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   mockSessions.getOrElse(recover()).foreach(register)
   new GarbageCollector().start()
 
-  def nextId(): Int = synchronized {
-    val id = idCounter.getAndIncrement()
-    sessionStore.saveNextSessionId(sessionType, idCounter.get())
-    id
+  def nextId(): Int = {
+    sessionIdGenerator.nextId(sessionType)
   }
 
   def register(session: S): S = {
@@ -197,17 +207,13 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   }
 
   private def recover(): Seq[S] = {
-    // Recover next session id from state store and create SessionManager.
-    idCounter.set(sessionStore.getNextSessionId(sessionType))
-
     // Retrieve session recovery metadata from state store.
     val sessionMetadata = sessionStore.getAllSessions[R](sessionType)
 
     // Recover session from session recovery metadata.
     val recoveredSessions = sessionMetadata.flatMap(_.toOption).map(sessionRecovery)
 
-    info(s"Recovered ${recoveredSessions.length} $sessionType sessions." +
-      s" Next session id: $idCounter")
+    info(s"Recovered ${recoveredSessions.length} $sessionType sessions.")
 
     // Print recovery error.
     val recoveryFailure = sessionMetadata.filter(_.isFailure).map(_.failed.get)

@@ -26,7 +26,7 @@ import scala.util.control.NonFatal
 import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
-private[recovery] case class SessionManagerState(nextSessionId: Int)
+private[livy] case class SessionManagerState(nextSessionId: Int)
 
 /**
  * SessionStore provides high level functions to get/save session state from/to StateStore.
@@ -85,7 +85,7 @@ class SessionStore(
     store.remove(sessionPath(sessionType, id))
   }
 
-  private def sessionManagerPath(sessionType: String): String =
+  private[livy] def sessionManagerPath(sessionType: String): String =
     s"$STORE_VERSION/$sessionType/state"
 
   private def sessionPath(sessionType: String): String =

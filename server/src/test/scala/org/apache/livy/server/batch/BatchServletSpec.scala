@@ -25,13 +25,14 @@ import javax.servlet.http.HttpServletResponse._
 
 import scala.concurrent.duration.Duration
 
+import org.mockito.Matchers.anyString
 import org.mockito.Mockito._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyConf, Utils}
 import org.apache.livy.server.{AccessManager, BaseSessionServletSpec}
 import org.apache.livy.server.recovery.SessionStore
-import org.apache.livy.sessions.{BatchSessionManager, SessionState}
+import org.apache.livy.sessions.{BatchSessionManager, InMemorySessionIdGenerator, SessionIdGenerator, SessionState}
 import org.apache.livy.utils.AppInfo
 
 class BatchServletSpec extends BaseSessionServletSpec[BatchSession, BatchRecoveryMetadata] {
@@ -54,9 +55,17 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, BatchRecover
   override def createServlet(): BatchSessionServlet = {
     val livyConf = createConf()
     val sessionStore = mock[SessionStore]
+    when(sessionStore.getNextSessionId(anyString())).thenReturn(0)
     val accessManager = new AccessManager(livyConf)
+    val sessionIdGenerator = new InMemorySessionIdGenerator(livyConf, sessionStore, None, None)
+    val batchSessionManager = new BatchSessionManager(
+      livyConf,
+      sessionStore,
+      sessionIdGenerator,
+      Some(Seq.empty))
+
     new BatchSessionServlet(
-      new BatchSessionManager(livyConf, sessionStore, Some(Seq.empty)),
+      batchSessionManager,
       sessionStore,
       livyConf,
       accessManager)

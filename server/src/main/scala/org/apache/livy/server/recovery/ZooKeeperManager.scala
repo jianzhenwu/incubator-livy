@@ -20,17 +20,16 @@ package org.apache.livy.server.recovery
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
-import org.apache.curator.framework.CuratorFramework
-import org.apache.curator.framework.CuratorFrameworkFactory
+import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
 import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent.Type
 import org.apache.curator.retry.RetryNTimes
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.NoNodeException
+import org.apache.zookeeper.data.Stat
 
-import org.apache.livy.LivyConf
-import org.apache.livy.Logging
+import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.utils.LivyUncaughtException
 
 class ZooKeeperManager(
@@ -86,20 +85,28 @@ class ZooKeeperManager(
 
   // TODO Make sure ZK path has proper secure permissions so that other users cannot read its
   // contents.
-  def set(key: String, value: Object): Unit = {
+  def set(key: String, value: Object, version: Option[Int] = None): Unit = {
     val data = serializeToBytes(value)
     if (curatorClient.checkExists().forPath(key) == null) {
       curatorClient.create().creatingParentsIfNeeded().forPath(key, data)
     } else {
-      curatorClient.setData().forPath(key, data)
+      if (version.isEmpty) {
+        curatorClient.setData().forPath(key, data)
+      } else {
+        curatorClient.setData().withVersion(version.get).forPath(key, data)
+      }
     }
   }
 
-  def get[T: ClassTag](key: String): Option[T] = {
+  def get[T: ClassTag](key: String, stat: Option[Stat] = None): Option[T] = {
     if (curatorClient.checkExists().forPath(key) == null) {
       None
     } else {
-      Option(deserialize[T](curatorClient.getData().forPath(key)))
+      if (stat.isEmpty) {
+        Option(deserialize[T](curatorClient.getData().forPath(key)))
+      } else {
+        Option(deserialize[T](curatorClient.getData().storingStatIn(stat.get).forPath(key)))
+      }
     }
   }
 

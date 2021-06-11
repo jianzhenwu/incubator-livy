@@ -22,12 +22,14 @@ import scala.concurrent.duration._
 import scala.language.postfixOps
 import scala.util.{Failure, Try}
 
-import org.mockito.Mockito.{doReturn, never, verify, when}
+import org.mockito.Matchers.anyString
+import org.mockito.Mockito.{never, verify, when}
 import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
+import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import org.apache.livy.server.event.Events
 import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
@@ -35,16 +37,21 @@ import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuite {
+  Metrics.init(new LivyConf())
   implicit def executor: ExecutionContext = ExecutionContext.global
 
   private def createSessionManager(livyConf: LivyConf = new LivyConf())
     : (LivyConf, SessionManager[MockSession, RecoveryMetadata]) = {
     livyConf.set(LivyConf.SESSION_TIMEOUT, "100ms")
+    val sessionStore = mock[SessionStore]
+    when(sessionStore.getNextSessionId("test")).thenReturn(0)
+    val sessionIdGenerator = new InMemorySessionIdGenerator(livyConf, sessionStore, None, None)
     val manager = new SessionManager[MockSession, RecoveryMetadata](
       livyConf,
       { _ => assert(false).asInstanceOf[MockSession] },
-      mock[SessionStore],
+      sessionStore,
       "test",
+      sessionIdGenerator,
       Some(Seq.empty))
     (livyConf, manager)
   }
@@ -100,13 +107,53 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       }
     }
 
+    it("should fail if local session id generator associated with cluster") {
+      intercept[IllegalArgumentException] {
+        val livyConf = new LivyConf()
+          .set(LivyConf.CLUSTER_ENABLED, true)
+          .set(LivyConf.SESSION_ID_GENERATOR_CLASS,
+            "org.apache.livy.sessions.InMemorySessionIdGenerator")
+        val sessionStore = mock[SessionStore]
+        val sessionIdGenerator = SessionIdGenerator(livyConf, sessionStore, None, None)
+
+        new SessionManager[MockSession, RecoveryMetadata](
+          livyConf,
+          { _ => assert(false).asInstanceOf[MockSession] },
+          sessionStore,
+          "test",
+          sessionIdGenerator,
+          Some(Seq.empty))
+      }
+    }
+
+    it("session id should increment") {
+      val livyConf = new LivyConf()
+        .set(LivyConf.SESSION_ID_GENERATOR_CLASS,
+          "org.apache.livy.sessions.InMemorySessionIdGenerator")
+      val sessionStore = mock[SessionStore]
+      when(sessionStore.getNextSessionId(anyString())).thenReturn(0)
+      val sessionIdGenerator = SessionIdGenerator(livyConf, sessionStore, None, None)
+
+      val sessionManager = new SessionManager[MockSession, RecoveryMetadata](
+        livyConf,
+        { _ => assert(false).asInstanceOf[MockSession] },
+        sessionStore,
+        "test",
+        sessionIdGenerator,
+        Some(Seq.empty))
+
+      sessionManager.nextId() should be(0)
+      sessionManager.nextId() should be(1)
+      sessionManager.nextId() should be(2)
+    }
+
     it("batch session should not be gc-ed until application is finished") {
       var sessionId = 24
       val conf = new LivyConf().set(LivyConf.SESSION_STATE_RETAIN_TIME, "1s")
       val sessionStore = mock[SessionStore]
       when(sessionStore.getAllSessions[BatchRecoveryMetadata]("batch"))
         .thenReturn(Seq.empty)
-      val sm = new BatchSessionManager(conf, sessionStore)
+      val sm = new BatchSessionManager(conf, sessionStore, mock[SessionIdGenerator])
 
       // Batch session should not be gc-ed when alive
       for (s <- Seq(SessionState.Running,
@@ -147,7 +194,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val sessionStore = mock[SessionStore]
       when(sessionStore.getAllSessions[InteractiveRecoveryMetadata]("interactive"))
         .thenReturn(Seq.empty)
-      val sm = new InteractiveSessionManager(conf, sessionStore)
+      val sm = new InteractiveSessionManager(conf, sessionStore, mock[SessionIdGenerator])
 
       // Batch session should not be gc-ed when alive
       for (s <- Seq(SessionState.Running,
@@ -215,7 +262,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       when(sessionStore.getAllSessions[BatchRecoveryMetadata]("batch"))
         .thenReturn(Seq.empty)
 
-      val sm = new BatchSessionManager(conf, sessionStore)
+      val sm = new BatchSessionManager(conf, sessionStore, mock[SessionIdGenerator])
       sm.nextId() shouldBe 0
     }
 
@@ -232,8 +279,9 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       when(sessionStore.getNextSessionId(sessionType)).thenReturn(nextId)
       when(sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType))
         .thenReturn(validMetadata ++ invalidMetadata)
+      val sessionIdGenerator = new InMemorySessionIdGenerator(conf, sessionStore, None, None)
 
-      val sm = new BatchSessionManager(conf, sessionStore)
+      val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator)
       sm.nextId() shouldBe nextId
       validMetadata.foreach { m =>
         sm.get(m.get.id) shouldBe defined
@@ -249,7 +297,8 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val sessionStore = mock[SessionStore]
       val session = mockSession(sessionId)
 
-      val sm = new BatchSessionManager(conf, sessionStore, Some(Seq(session)))
+      val sm = new BatchSessionManager(conf, sessionStore, mock[SessionIdGenerator],
+        Some(Seq(session)))
       sm.get(sessionId) shouldBe defined
 
       Await.ready(sm.delete(sessionId).get, 30 seconds)
@@ -262,9 +311,10 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val conf = new LivyConf()
       val sessionId = 24
       val sessionStore = mock[SessionStore]
+      val sessionIdGenerator = mock[SessionIdGenerator]
       val session = mockSession(sessionId)
 
-      val sm = new BatchSessionManager(conf, sessionStore, Some(Seq(session)))
+      val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator, Some(Seq(session)))
       sm.get(sessionId) shouldBe defined
       sm.shutdown()
 
@@ -277,9 +327,10 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       val sessionId = 24
       val sessionStore = mock[SessionStore]
+      val sessionIdGenerator = mock[SessionIdGenerator]
       val session = mockSession(sessionId)
 
-      val sm = new BatchSessionManager(conf, sessionStore, Some(Seq(session)))
+      val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator, Some(Seq(session)))
       sm.get(sessionId) shouldBe defined
       sm.shutdown()
 
