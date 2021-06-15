@@ -46,6 +46,10 @@ class SessionStore(
     store.set(sessionPath(sessionType, m.id), m)
   }
 
+  def get[T: ClassTag](sessionType: String, sessionId: Int): Option[T] = {
+    store.get[T](sessionPath(sessionType, sessionId))
+  }
+
   def saveNextSessionId(sessionType: String, id: Int): Unit = {
     store.set(sessionManagerPath(sessionType), SessionManagerState(id))
   }

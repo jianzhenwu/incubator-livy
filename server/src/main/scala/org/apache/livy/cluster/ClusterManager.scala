@@ -19,7 +19,19 @@ package org.apache.livy.cluster
 
 import scala.collection.immutable.Set
 
-case class ServiceNode(host: String, port: Int, UUID: String)
+import org.apache.livy.ServerMetadata
+
+case class ServerNode(host: String, port: Int, timestamp: Long) {
+  def serverMetadata: ServerMetadata = ServerMetadata(host, port)
+}
+
+object ServerNode {
+  def apply(meta: ServerMetadata, timestamp: Long): ServerNode =
+    new ServerNode(meta.host, meta.port, timestamp)
+
+  def apply(meta: ServerMetadata): ServerNode =
+    ServerNode(meta, System.currentTimeMillis())
+}
 
 /**
  * Interface for cluster management.
@@ -35,17 +47,17 @@ abstract class ClusterManager {
    * Get the nodes in the cluster.
    * @return
    */
-  def getNodes(): Set[ServiceNode]
+  def getNodes(): Set[ServerNode]
 
   /**
    * Add a listener which will be notified when a new node join the cluster.
    * @param listener
    */
-  def registerNodeJoinListener(listener : ServiceNode => Unit): Unit
+  def registerNodeJoinListener(listener : ServerNode => Unit): Unit
 
   /**
    * Add a listener which will be notified when a node leave the cluster.
    * @param listener
    */
-  def registerNodeLeaveListener(listener : ServiceNode => Unit): Unit
+  def registerNodeLeaveListener(listener : ServerNode => Unit): Unit
 }

@@ -29,6 +29,8 @@ import org.json4s.jackson.JsonMethods.parse
 import org.mockito.{Matchers => MockitoMatchers}
 import org.mockito.Matchers._
 import org.mockito.Mockito.{atLeastOnce, verify, when}
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.{BeforeAndAfterAll, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
@@ -58,7 +60,8 @@ class InteractiveSessionSpec extends FunSpec
 
   private def createSession(
       sessionStore: SessionStore = mock[SessionStore],
-      mockApp: Option[SparkApp] = None): InteractiveSession = {
+      mockApp: Option[SparkApp] = None,
+      conf: LivyConf = livyConf): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
 
     val req = new CreateInteractiveRequest()
@@ -72,7 +75,7 @@ class InteractiveSessionSpec extends FunSpec
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
-    InteractiveSession.create(0, None, null, None, livyConf, accessManager, req,
+    InteractiveSession.create(0, None, null, None, conf, accessManager, req,
       sessionStore, mockApp)
   }
 
@@ -178,6 +181,35 @@ class InteractiveSessionSpec extends FunSpec
       session.state should (be(SessionState.Starting) or be(SessionState.Idle))
     }
 
+    it("should save ServerMetadata into session store") {
+      val conf = new LivyConf()
+      conf.setAll(livyConf)
+      conf.set(LivyConf.SERVER_HOST, "127.0.0.1")
+      conf.set(LivyConf.SERVER_PORT, 8999)
+
+      val mockApp = mock[SparkApp]
+      val sessionStore = mock[SessionStore]
+      when(sessionStore.save(MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE),
+        anyObject()))
+        .thenAnswer(new Answer[Unit]() {
+          override def answer(invocation: InvocationOnMock): Unit = {
+            val recoveryMetadata = invocation.getArgumentAt(1,
+              classOf[InteractiveRecoveryMetadata])
+            recoveryMetadata.serverMetadata.host should be ("127.0.0.1")
+            recoveryMetadata.serverMetadata.port should be (8999)
+          }
+        })
+
+      session = createSession(sessionStore, Some(mockApp), conf)
+      session.start()
+
+      val expectedAppId = "APPID"
+      session.appIdKnown(expectedAppId)
+
+      verify(sessionStore, atLeastOnce()).save(
+        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
     it("should propagate RSC configuration properties") {
       val livyConf = new LivyConf(false)
         .set(LivyConf.REPL_JARS, "dummy.jar")
@@ -278,8 +310,8 @@ class InteractiveSessionSpec extends FunSpec
       val sessionStore = mock[SessionStore]
       val mockClient = mock[RSCClient]
       when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
-      val m = InteractiveRecoveryMetadata(
-          78, Some("Test session"), None, "appTag", Spark, 0, null, None, Some(URI.create("")))
+      val m = InteractiveRecoveryMetadata(78, Some("Test session"), None, "appTag",
+        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata())
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
       s.start()
 
@@ -295,8 +327,8 @@ class InteractiveSessionSpec extends FunSpec
       val sessionStore = mock[SessionStore]
       val mockClient = mock[RSCClient]
       when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
-      val m = InteractiveRecoveryMetadata(
-          78, None, None, "appTag", Spark, 0, null, None, Some(URI.create("")))
+      val m = InteractiveRecoveryMetadata(78, None, None, "appTag",
+        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata())
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
       s.start()
 
@@ -311,7 +343,7 @@ class InteractiveSessionSpec extends FunSpec
       val conf = new LivyConf()
       val sessionStore = mock[SessionStore]
       val m = InteractiveRecoveryMetadata(
-        78, None, Some("appId"), "appTag", Spark, 0, null, None, None)
+        78, None, Some("appId"), "appTag", Spark, 0, null, None, None, conf.serverMetadata())
       val s = InteractiveSession.recover(m, conf, sessionStore, None)
       s.start()
       s.state shouldBe a[SessionState.Dead]

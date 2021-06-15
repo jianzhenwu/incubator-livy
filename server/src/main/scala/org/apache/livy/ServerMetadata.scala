@@ -15,29 +15,6 @@
  * limitations under the License.
  */
 
-package org.apache.livy.sessions
+package org.apache.livy
 
-import org.apache.livy.{LivyConf, ServerMetadata}
-
-class MockSession(id: Int, owner: String, conf: LivyConf, name: Option[String] = None)
-  extends Session(id, name, owner, conf) {
-  case class RecoveryMetadata(
-      id: Int,
-      serverMetadata: ServerMetadata) extends Session.RecoveryMetadata
-
-  override val proxyUser = None
-
-  override def start(): Unit = ()
-
-  var stopped = false
-  override protected def stopSession(): Unit = {
-    stopped = true
-  }
-
-  override def logLines(): IndexedSeq[String] = IndexedSeq()
-
-  var serverState: SessionState = SessionState.Idle
-  override def state: SessionState = serverState
-
-  override def recoveryMetadata: RecoveryMetadata = RecoveryMetadata(0, conf.serverMetadata())
-}
+case class ServerMetadata(var host: String, var port: Int)

@@ -36,7 +36,7 @@ import org.scalatra.metrics.MetricsSupportExtensions._
 import org.scalatra.servlet.{MultipartConfig, ServletApiImplicits}
 
 import org.apache.livy._
-import org.apache.livy.cluster.{ClusterManager, ZookeeperClusterManager}
+import org.apache.livy.cluster.{ClusterManager, SessionAllocator, ZookeeperClusterManager}
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.auth.LdapAuthenticationHandlerImpl
 import org.apache.livy.server.batch.BatchSessionServlet
@@ -65,6 +65,7 @@ class LivyServer extends Logging {
 
   private var zkManager: Option[ZooKeeperManager] = None
   private var clusterManager: Option[ClusterManager] = None
+  private var sessionAllocator: Option[SessionAllocator] = None
 
   private var ugi: UserGroupInformation = _
 
@@ -160,19 +161,23 @@ class LivyServer extends Logging {
       zkManager.foreach(_.start())
     }
 
-    if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
-      clusterManager = Some(new ZookeeperClusterManager(livyConf, zkManager.get))
-    }
-
     StateStore.init(livyConf, zkManager)
     Metrics.init(livyConf)
     Events.init(livyConf)
 
     val sessionStore = new SessionStore(livyConf)
+
+    if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+      clusterManager = Some(new ZookeeperClusterManager(livyConf, zkManager.get))
+      sessionAllocator = Some(SessionAllocator(livyConf, clusterManager.get, sessionStore))
+    }
+
     val sessionIdGenerator = SessionIdGenerator(livyConf, sessionStore, clusterManager, zkManager)
     val batchSessionManager = new BatchSessionManager(livyConf, sessionStore, sessionIdGenerator)
     val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore,
       sessionIdGenerator)
+
+
 
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/org/apache/livy/server")

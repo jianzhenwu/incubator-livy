@@ -22,7 +22,7 @@ import javax.servlet.http.HttpServletResponse._
 
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.LivyConf
+import org.apache.livy.{LivyConf, ServerMetadata}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager, SessionState}
 import org.apache.livy.sessions.Session.RecoveryMetadata
@@ -34,9 +34,12 @@ object SessionServletSpec {
   class MockSession(id: Int, owner: String, val proxyUser: Option[String], livyConf: LivyConf)
     extends Session(id, None, owner, livyConf) {
 
-    case class MockRecoveryMetadata(id: Int) extends RecoveryMetadata()
+    case class MockRecoveryMetadata(
+        id: Int,
+        serverMetadata: ServerMetadata) extends RecoveryMetadata
 
-    override def recoveryMetadata: RecoveryMetadata = MockRecoveryMetadata(0)
+    override def recoveryMetadata: RecoveryMetadata =
+      MockRecoveryMetadata(0, livyConf.serverMetadata())
 
     override def state: SessionState = SessionState.Idle
 

@@ -28,11 +28,14 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
-import org.apache.livy.{LivyConf, Logging, Utils}
+import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
 import org.apache.livy.utils.AppInfo
 
 object Session {
-  trait RecoveryMetadata { val id: Int }
+  trait RecoveryMetadata {
+    val id: Int
+    val serverMetadata: ServerMetadata
+  }
 
   lazy val configBlackList: Set[String] = {
     val url = getClass.getResource("/spark-blacklist.conf")

@@ -58,6 +58,7 @@ case class InteractiveRecoveryMetadata(
     owner: String,
     proxyUser: Option[String],
     rscDriverUri: Option[URI],
+    serverMetadata: ServerMetadata,
     version: Int = 1)
   extends RecoveryMetadata
 
@@ -467,8 +468,8 @@ class InteractiveSession(
   override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
 
   override def recoveryMetadata: RecoveryMetadata =
-    InteractiveRecoveryMetadata(id, name, appId, appTag, kind,
-      heartbeatTimeout.toSeconds.toInt, owner, proxyUser, rscDriverUri)
+    InteractiveRecoveryMetadata(id, name, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt,
+      owner, proxyUser, rscDriverUri, livyConf.serverMetadata())
 
   override def state: SessionState = {
     if (serverSideState == SessionState.Running) {

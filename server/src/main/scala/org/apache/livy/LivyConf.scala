@@ -19,6 +19,7 @@ package org.apache.livy
 
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
+import java.net.InetAddress
 import java.util.{Map => JMap}
 
 import scala.collection.JavaConverters._
@@ -226,6 +227,7 @@ object LivyConf {
   val RECOVERY_ZK_STATE_STORE_KEY_PREFIX =
     Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
 
+  // The id generator for Livy session, note: global unique generator required for Livy cluster
   val SESSION_ID_GENERATOR_CLASS = Entry("livy.server.session.id-generator.class",
     "org.apache.livy.sessions.InMemorySessionIdGenerator")
 
@@ -239,6 +241,14 @@ object LivyConf {
   // The dir in zk to register servers of Livy cluster
   val CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX =
     Entry("livy.server.cluster.zk-server-register.key-prefix", "livy/servers")
+
+  // The session allocator class for Livy cluster
+  val CLUSTER_SESSION_ALLOCATOR_CLASS = Entry("livy.server.cluster.session-allocator.class",
+    "org.apache.livy.cluster.StateStoreMappingSessionAllocator")
+
+  // The algo for state store session allocator, e.g. RANDOM, HASH, ROUND-ROBIN
+  val CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO =
+    Entry("livy.server.cluster.session-allocator.state-store.algo", "RANDOM")
 
   // Livy will cache the max no of logs specified. 0 means don't cache the logs.
   val SPARK_LOGS_SIZE = Entry("livy.cache-log.size", 200)
@@ -379,6 +389,15 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
       .map(Utils.getPropertiesFromFile)
       .foreach(loadFromMap)
     this
+  }
+
+  def serverMetadata(): ServerMetadata = {
+    val serverHost = get(SERVER_HOST)
+    if (serverHost == SERVER_HOST.dflt) {
+      ServerMetadata(InetAddress.getLocalHost.getHostAddress, getInt(SERVER_PORT))
+    } else {
+      ServerMetadata(serverHost, getInt(SERVER_PORT))
+    }
   }
 
   /** Return true if spark master starts with yarn. */

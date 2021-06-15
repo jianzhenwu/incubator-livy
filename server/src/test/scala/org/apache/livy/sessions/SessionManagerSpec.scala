@@ -241,7 +241,9 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
     implicit def executor: ExecutionContext = ExecutionContext.global
 
     def makeMetadata(id: Int, appTag: String): BatchRecoveryMetadata = {
-      BatchRecoveryMetadata(id, Some(s"test-session-$id"), None, appTag, null, None)
+      val conf = new LivyConf()
+      BatchRecoveryMetadata(id, Some(s"test-session-$id"), None, appTag,
+        null, None, conf.serverMetadata())
     }
 
     def mockSession(id: Int): BatchSession = {

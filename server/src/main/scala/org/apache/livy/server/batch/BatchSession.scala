@@ -26,7 +26,7 @@ import scala.util.Random
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 
-import org.apache.livy.{LivyConf, Logging, Utils}
+import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
@@ -43,6 +43,7 @@ case class BatchRecoveryMetadata(
     appTag: String,
     owner: String,
     proxyUser: Option[String],
+    serverMetadata: ServerMetadata,
     version: Int = 1)
   extends RecoveryMetadata
 
@@ -221,7 +222,7 @@ class BatchSession(
   override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
 
   override def recoveryMetadata: RecoveryMetadata =
-    BatchRecoveryMetadata(id, name, appId, appTag, owner, proxyUser)
+    BatchRecoveryMetadata(id, name, appId, appTag, owner, proxyUser, livyConf.serverMetadata())
 
   private def triggerSessionEvent(): Unit = {
     val event: Event = new SessionEvent(SessionType.Batch, id, name, appId, appTag, owner,

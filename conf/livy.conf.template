@@ -139,6 +139,9 @@
 # The dir in zk to store the data about session.
 # livy.server.recovery.zk-state-store.key-prefix = livy
 
+# The id generator for Livy session, note: global unique generator required for Livy cluster
+# livy.server.session.id-generator.class = org.apache.livy.sessions.InMemorySessionIdGenerator
+
 # If enable Livy cluster. Disabled by default.
 # livy.server.cluster.enabled = false
 

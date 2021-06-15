@@ -24,12 +24,14 @@ import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("SessionStore") {
-    case class TestRecoveryMetadata(id: Int) extends RecoveryMetadata
+    case class TestRecoveryMetadata(
+        id: Int,
+        serverMetadata: ServerMetadata) extends RecoveryMetadata
 
     val sessionType = "test"
     val sessionPath = s"v1/$sessionType"
@@ -40,16 +42,16 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       val stateStore = mock[StateStore]
       val sessionStore = new SessionStore(conf, stateStore)
 
-      val m = TestRecoveryMetadata(99)
+      val m = TestRecoveryMetadata(99, conf.serverMetadata())
       sessionStore.save(sessionType, m)
       verify(stateStore).set(s"$sessionPath/99", m)
     }
 
     it("should return existing sessions") {
       val validMetadata = Map(
-        "0" -> Some(TestRecoveryMetadata(0)),
+        "0" -> Some(TestRecoveryMetadata(0, conf.serverMetadata())),
         "5" -> None,
-        "77" -> Some(TestRecoveryMetadata(77)))
+        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
       val corruptedMetadata = Map(
         "7" -> new RuntimeException("Test"),
         "11212" -> new RuntimeException("Test")

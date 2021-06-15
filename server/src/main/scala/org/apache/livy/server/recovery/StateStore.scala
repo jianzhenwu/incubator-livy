@@ -22,7 +22,6 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
 
 import org.apache.livy.{LivyConf, Logging}
-import org.apache.livy.server.recovery.ZooKeeperManager
 import org.apache.livy.sessions.SessionKindModule
 import org.apache.livy.sessions.SessionManager._
 

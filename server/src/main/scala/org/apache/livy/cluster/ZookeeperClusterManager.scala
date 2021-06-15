@@ -17,28 +17,16 @@
 
 package org.apache.livy.cluster
 
-import java.net.InetAddress
-import java.util.UUID
-
 import scala.collection.immutable.Set
 import scala.collection.mutable.{ArrayBuffer, HashSet}
 
 import org.apache.livy.{LivyConf, Logging}
-import org.apache.livy.LivyConf.{CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX, SERVER_HOST, SERVER_PORT}
+import org.apache.livy.LivyConf.{CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX, SERVER_PORT}
 import org.apache.livy.server.recovery.ZooKeeperManager
 
 class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
   extends ClusterManager with Logging {
-  private val serverIP: String = {
-    val serverHost = livyConf.get(SERVER_HOST)
-    if (serverHost == SERVER_HOST.dflt) {
-      InetAddress.getLocalHost.getHostAddress
-    } else {
-      serverHost
-    }
-  }
-
-  private val port = livyConf.getInt(SERVER_PORT)
+  private val serverMetadata = livyConf.serverMetadata()
   private val serverRegisterKeyPrefix: String = {
     val configKeyPrefix = livyConf.get(CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX)
     if (configKeyPrefix.startsWith("/")) {
@@ -48,12 +36,12 @@ class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
     }
   }
 
-  private val nodes = new HashSet[ServiceNode]()
-  private val nodeJoinListeners = new ArrayBuffer[ServiceNode => Unit]()
-  private val nodeLeaveListeners = new ArrayBuffer[ServiceNode => Unit]()
+  private val nodes = new HashSet[ServerNode]()
+  private val nodeJoinListeners = new ArrayBuffer[ServerNode => Unit]()
+  private val nodeLeaveListeners = new ArrayBuffer[ServerNode => Unit]()
 
   zkManager.getChildren(serverRegisterKeyPrefix).foreach(node => {
-    val serviceNode = zkManager.get[ServiceNode](serverRegisterKeyPrefix + "/" + node).get
+    val serviceNode = zkManager.get[ServerNode](serverRegisterKeyPrefix + "/" + node).get
     nodes.add(serviceNode)
   })
 
@@ -62,29 +50,30 @@ class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
   zkManager.watchRemoveChildNode(serverRegisterKeyPrefix, nodeRemoveHandler)
 
   override def register(): Unit = {
-    val node = ServiceNode(serverIP, port, UUID.randomUUID().toString)
-    zkManager.createEphemeralNode(serverRegisterKeyPrefix + "/" + serverIP + ":" + port, node)
+    val node = ServerNode(serverMetadata, System.currentTimeMillis())
+    zkManager.createEphemeralNode(serverRegisterKeyPrefix + "/" + serverMetadata.host + ":"
+      + serverMetadata.port, node)
   }
 
-  override def getNodes(): Set[ServiceNode] = {
+  override def getNodes(): Set[ServerNode] = {
     nodes.toSet
   }
 
-  override def registerNodeJoinListener(listener: ServiceNode => Unit): Unit = {
+  override def registerNodeJoinListener(listener: ServerNode => Unit): Unit = {
     nodeJoinListeners.append(listener)
   }
 
-  override def registerNodeLeaveListener(listener : ServiceNode => Unit): Unit = {
+  override def registerNodeLeaveListener(listener : ServerNode => Unit): Unit = {
     nodeLeaveListeners.append(listener)
   }
 
-  private def nodeAddHandler(path: String, node: ServiceNode): Unit = {
+  private def nodeAddHandler(path: String, node: ServerNode): Unit = {
     logger.info("Detect new node join: " + node)
     nodes.add(node)
     nodeJoinListeners.foreach(_(node))
   }
 
-  private def nodeRemoveHandler(path: String, node: ServiceNode): Unit = {
+  private def nodeRemoveHandler(path: String, node: ServerNode): Unit = {
     logger.info("Detect node leave: " + node)
     nodes.remove(node)
     nodeLeaveListeners.foreach(_(node))

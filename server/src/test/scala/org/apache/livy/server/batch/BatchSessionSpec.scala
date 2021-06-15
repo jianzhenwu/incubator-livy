@@ -26,12 +26,16 @@ import scala.concurrent.duration.Duration
 import org.mockito.Matchers
 import org.mockito.Matchers.anyObject
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.{BeforeAndAfter, FunSpec}
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, Utils}
+import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.event.Events
+import org.apache.livy.server.interactive.InteractiveSession
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.SessionState
 import org.apache.livy.utils.{AppInfo, Clock, SparkApp}
@@ -75,6 +79,7 @@ class BatchSessionSpec
   }
 
   describe("A Batch process") {
+    Metrics.init(new LivyConf())
     var sessionStore: SessionStore = null
 
     before {
@@ -140,12 +145,39 @@ class BatchSessionSpec
       }) should be (true)
     }
 
+    it("should save ServerMetadata into session store") {
+      val conf = new LivyConf()
+      conf.set(LivyConf.SERVER_HOST, "127.0.0.1")
+      conf.set(LivyConf.SERVER_PORT, 8999)
+      val req = new CreateBatchRequest()
+      val mockApp = mock[SparkApp]
+      val accessManager = new AccessManager(conf)
+
+      when(sessionStore.save(Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject()))
+        .thenAnswer(new Answer[Unit]() {
+          override def answer(invocation: InvocationOnMock): Unit = {
+            val recoveryMetadata = invocation.getArgumentAt(1, classOf[BatchRecoveryMetadata])
+            recoveryMetadata.serverMetadata.host should be ("127.0.0.1")
+            recoveryMetadata.serverMetadata.port should be (8999)
+          }
+        })
+
+      val batch = BatchSession.create(
+        0, None, req, conf, accessManager, null, None, sessionStore, Some(mockApp))
+      batch.start()
+      val expectedAppId = "APPID"
+      batch.appIdKnown(expectedAppId)
+
+      verify(sessionStore, atLeastOnce()).save(
+        Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
     def testRecoverSession(name: Option[String]): Unit = {
       val conf = new LivyConf()
       val req = new CreateBatchRequest()
       val name = Some("Test Batch Session")
       val mockApp = mock[SparkApp]
-      val m = BatchRecoveryMetadata(99, name, None, "appTag", null, None)
+      val m = BatchRecoveryMetadata(99, name, None, "appTag", null, None, conf.serverMetadata())
       val batch = BatchSession.recover(m, conf, sessionStore, Some(mockApp))
 
       batch.state shouldBe (SessionState.Recovering)
