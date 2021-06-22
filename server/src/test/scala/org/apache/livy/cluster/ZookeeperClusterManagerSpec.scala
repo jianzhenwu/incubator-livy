@@ -132,6 +132,15 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
       }
     }
 
+    it("should return correct if node is online") {
+      withMock { f =>
+        mockExistingServices(f.curatorClient)
+        val zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager)
+        zkClusterManager.isNodeOnline(new ServerNode("host1", 8998, -1)) should be(true)
+        zkClusterManager.isNodeOnline(new ServerNode("host3", 8998, -1)) should be(false)
+      }
+    }
+
     it("register should use curatorClient") {
       withMock { f =>
         mockEmptyServices(f.curatorClient)

@@ -20,9 +20,12 @@ package org.apache.livy.server
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse._
 
+import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyConf, ServerMetadata}
+import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
+import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSession, MockSessionView}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager, SessionState}
 import org.apache.livy.sessions.Session.RecoveryMetadata
@@ -31,12 +34,12 @@ object SessionServletSpec {
 
   val PROXY_USER = "proxyUser"
 
+  case class MockRecoveryMetadata(
+       id: Int,
+       serverMetadata: ServerMetadata) extends RecoveryMetadata
+
   class MockSession(id: Int, owner: String, val proxyUser: Option[String], livyConf: LivyConf)
     extends Session(id, None, owner, livyConf) {
-
-    case class MockRecoveryMetadata(
-        id: Int,
-        serverMetadata: ServerMetadata) extends RecoveryMetadata
 
     override def recoveryMetadata: RecoveryMetadata =
       MockRecoveryMetadata(0, livyConf.serverMetadata())
@@ -62,17 +65,105 @@ object SessionServletSpec {
       Some(Seq.empty))
 
     val accessManager = new AccessManager(conf)
-    new SessionServlet(sessionManager, conf, accessManager) with RemoteUserOverride {
-      override protected def createSession(req: HttpServletRequest): Session = {
+    new SessionServlet(sessionManager, None, None, conf, accessManager) with RemoteUserOverride {
+      override protected def createSession(sessionId: Int, req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
         val owner = remoteUser(req)
         val impersonatedUser = accessManager.checkImpersonation(
           proxyUser(req, params.get(PROXY_USER)), owner)
-        new MockSession(sessionManager.nextId(), owner, impersonatedUser, conf)
+        new MockSession(sessionId, owner, impersonatedUser, conf)
       }
 
       override protected def clientSessionView(
           session: Session,
+          req: HttpServletRequest): Any = {
+        val hasViewAccess = accessManager.hasViewAccess(session.owner,
+                                                        effectiveUser(req),
+                                                        session.proxyUser.getOrElse(""))
+        val logs = if (hasViewAccess) {
+          session.logLines()
+        } else {
+          Nil
+        }
+        MockSessionView(session.id, session.owner, session.proxyUser, logs)
+      }
+    }
+  }
+
+  def createClusterEnabledServlet(conf: LivyConf)
+      : SessionServlet[MockSession, MockRecoveryMetadata] = {
+
+    val sessionStore = mock[SessionStore]
+    val sessionIdGenerator = mock[SessionIdGenerator]
+    when(sessionIdGenerator.isGlobalUnique()).thenReturn(true)
+    val sessionManager = new SessionManager[MockSession, MockRecoveryMetadata](
+      conf,
+      { recoveryMetadata => new MockSession(recoveryMetadata.id, "alice", None, conf) },
+      sessionStore,
+      "test",
+      sessionIdGenerator,
+      Some(Seq(new MockSession(1, "bob", None, conf))))
+
+    when(sessionIdGenerator.nextId(sessionManager.sessionType()))
+      .thenReturn(200)
+      .thenReturn(201)
+      .thenReturn(202)
+
+    val accessManager = new AccessManager(conf)
+    val sessionAllocator = mock[SessionAllocator]
+    val clusterManager = mock[ClusterManager]
+    val serverNode127 = ServerNode(ServerMetadata("127.0.0.1", 8998))
+    val serverNode128 = ServerNode(ServerMetadata("128.0.0.1", 8998))
+    when(clusterManager.isNodeOnline(serverNode127)).thenReturn(true)
+    when(clusterManager.isNodeOnline(serverNode128)).thenReturn(false)
+
+    when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 100))
+      .thenReturn(Some(MockRecoveryMetadata(100, conf.serverMetadata())))
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 100))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 101))
+      .thenReturn(None)
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 102))
+      .thenReturn(Some(serverNode127))
+
+    when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 103))
+      .thenReturn(Some(MockRecoveryMetadata(103, conf.serverMetadata())))
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 103))
+      .thenReturn(Some(serverNode128))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 200))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 201))
+      .thenReturn(Some(serverNode127))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 202))
+      .thenReturn(Some(serverNode128))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 210))
+      .thenReturn(None)
+
+    new SessionServlet(sessionManager,
+                       Some(sessionAllocator),
+                       Some(clusterManager),
+                       conf,
+                       accessManager) with RemoteUserOverride {
+
+      override protected def createSession(sessionId: Int, req: HttpServletRequest): MockSession = {
+        val params = bodyAs[Map[String, String]](req)
+        val owner = remoteUser(req)
+        val impersonatedUser = accessManager.checkImpersonation(
+          proxyUser(req, params.get(PROXY_USER)), owner)
+        new MockSession(sessionId, owner, impersonatedUser, conf)
+      }
+
+      override protected def clientSessionView(
+          session: MockSession,
           req: HttpServletRequest): Any = {
         val hasViewAccess = accessManager.hasViewAccess(session.owner,
                                                         effectiveUser(req),
@@ -352,3 +443,82 @@ class AclsEnabledSessionServletSpec extends BaseSessionServletSpec[Session, Reco
     }
   }
 }
+
+class ClusterEnabledSessionServletSpec
+  extends BaseSessionServletSpec[MockSession, MockRecoveryMetadata] {
+
+  override protected def createConf(): LivyConf = {
+    val livyConf = super.createConf()
+    livyConf.set(LivyConf.CLUSTER_ENABLED, true)
+    livyConf
+  }
+
+  override def createServlet(): SessionServlet[MockSession, MockRecoveryMetadata] = {
+    SessionServletSpec.createClusterEnabledServlet(createConf())
+  }
+
+  describe("SessionServlet") {
+    it("should create session") {
+      val headers = Map(BaseSessionServletSpec.REMOTE_USER_HEADER -> "emma")
+
+      // allocated to this server node
+      jpost[MockSessionView]("/", Map(), headers = headers) { res =>
+        res.id should be(200)
+        res.owner should be("emma")
+        header("Location") === "/sessions/200"
+      }
+
+      // allocated to another online server node
+      post("/", headers = headers) {
+        status should be(SC_TEMPORARY_REDIRECT)
+        header.get("Location") should be(Some("http://127.0.0.1:8998/201"))
+      }
+      jpost[MockSessionView]("/201", Map(), headers = headers) { res =>
+        res.id should be(201)
+        res.owner should be("emma")
+        header("Location") === "/sessions/201"
+      }
+
+      // allocated to another offline server node, and then allocated to this server
+      jpost[MockSessionView]("/", Map(), headers = headers) { res =>
+        res.id should be(202)
+        res.owner should be("emma")
+        header("Location") === "/sessions/202"
+      }
+
+      // unknown session id specified
+      post("/210", headers = headers) {
+        status should be(SC_BAD_REQUEST)
+      }
+    }
+
+    it("should get session") {
+      jget[MockSessionView](s"/1") { res =>
+        res.id should be(1)
+        res.owner should be("bob")
+      }
+    }
+
+    it("should recover session") {
+      jget[MockSessionView](s"/100") { res =>
+        res.id should be(100)
+        res.owner should be("alice")
+      }
+
+      get("/101") {
+        status should be(SC_NOT_FOUND)
+      }
+
+      get("/102") {
+        status should be(SC_TEMPORARY_REDIRECT)
+        header.get("Location") should be(Some("http://127.0.0.1:8998/102"))
+      }
+
+      jget[MockSessionView](s"/103") { res =>
+        res.id should be(103)
+        res.owner should be("alice")
+      }
+    }
+  }
+}
+

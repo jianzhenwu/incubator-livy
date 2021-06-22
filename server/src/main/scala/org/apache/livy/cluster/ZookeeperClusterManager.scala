@@ -21,7 +21,7 @@ import scala.collection.immutable.Set
 import scala.collection.mutable.{ArrayBuffer, HashSet}
 
 import org.apache.livy.{LivyConf, Logging}
-import org.apache.livy.LivyConf.{CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX, SERVER_PORT}
+import org.apache.livy.LivyConf.CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX
 import org.apache.livy.server.recovery.ZooKeeperManager
 
 class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
@@ -57,6 +57,10 @@ class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
 
   override def getNodes(): Set[ServerNode] = {
     nodes.toSet
+  }
+
+  override def isNodeOnline(serverNode: ServerNode): Boolean = {
+    getNodes().find(_.serverMetadata == serverNode.serverMetadata).isDefined
   }
 
   override def registerNodeJoinListener(listener: ServerNode => Unit): Unit = {

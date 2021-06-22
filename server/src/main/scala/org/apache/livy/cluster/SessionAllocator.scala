@@ -89,22 +89,14 @@ class StateStoreMappingSessionAllocator(
       sessionType: String,
       sessionId: Int)(implicit t: ClassTag[T]): Option[ServerNode] = {
 
-    val serverNode = sessionStore.get[T](sessionType, sessionId).map(recoveryMetadata => {
+    sessionStore.get[T](sessionType, sessionId).map(recoveryMetadata => {
       require(Option(recoveryMetadata.serverMetadata.host).forall(_.isEmpty) != true,
         s"Server host inside state store of $sessionType with id $sessionId is null")
       require(recoveryMetadata.serverMetadata.port > 0,
         s"Server port inside state store of $sessionType with id $sessionId not valid")
 
-      clusterManager.getNodes().find(server => {
-        server.serverMetadata == recoveryMetadata.serverMetadata
-      }).orNull
+      ServerNode(recoveryMetadata.serverMetadata)
     })
-
-    if (serverNode.isEmpty || serverNode.get == null) {
-      None
-    } else {
-      serverNode
-    }
   }
 
   override def allocateServer[T <: RecoveryMetadata](

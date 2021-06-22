@@ -119,14 +119,15 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       })
     }
 
-    it("findServer should return None when server node is offline") {
+    it("findServer should return even when server node is offline") {
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata = new MockRecoveryMetadata(1, "dummy-name",
           new ServerMetadata("127.0.0.3", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata)
 
         val serverNode = sessionAllocator.findServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode should be(None)
+        serverNode.get.host should be ("127.0.0.3")
+        serverNode.get.port should be (8999)
       })
     }
 

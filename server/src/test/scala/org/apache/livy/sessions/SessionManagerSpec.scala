@@ -28,12 +28,12 @@ import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import org.apache.livy.server.event.Events
 import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession}
-import org.apache.livy.server.recovery.SessionStore
+import org.apache.livy.server.recovery.{SessionStore, StateStore, ZooKeeperManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuite {
@@ -240,10 +240,13 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
   describe("BatchSessionManager") {
     implicit def executor: ExecutionContext = ExecutionContext.global
 
-    def makeMetadata(id: Int, appTag: String): BatchRecoveryMetadata = {
+    def makeMetadata(
+        id: Int,
+        appTag: String,
+        serverMetadata: ServerMetadata): BatchRecoveryMetadata = {
       val conf = new LivyConf()
       BatchRecoveryMetadata(id, Some(s"test-session-$id"), None, appTag,
-        null, None, conf.serverMetadata())
+        null, None, serverMetadata)
     }
 
     def mockSession(id: Int): BatchSession = {
@@ -275,7 +278,11 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val sessionType = "batch"
       val nextId = 99
 
-      val validMetadata = List(makeMetadata(0, "t1"), makeMetadata(77, "t2")).map(Try(_))
+      val validMetadata = List(
+        makeMetadata(0, "t1", null),
+        makeMetadata(1, "t1", ServerMetadata(null, 0)),
+        makeMetadata(2, "t1", ServerMetadata("127.0.0.1", 8998)),
+        makeMetadata(77, "t2", conf.serverMetadata())).map(Try(_))
       val invalidMetadata = List(Failure(new Exception("Fake invalid metadata")))
       val sessionStore = mock[SessionStore]
       when(sessionStore.getNextSessionId(sessionType)).thenReturn(nextId)
@@ -289,6 +296,69 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
         sm.get(m.get.id) shouldBe defined
       }
       sm.size shouldBe validMetadata.size
+    }
+
+    it("should recover sessions of specific server only in cluster mode") {
+      val conf = new LivyConf()
+      conf.set(LivyConf.LIVY_SPARK_MASTER.key, "yarn-cluster")
+      conf.set(LivyConf.CLUSTER_ENABLED, true)
+
+      val sessionType = "batch"
+      val sessionPath = s"v1/$sessionType"
+
+      val validMetadata = Map(
+        "0" -> Some(makeMetadata(0, "t1", ServerMetadata("127.0.0.1", 8998))),
+        "77" -> Some(makeMetadata(77, "t2", conf.serverMetadata())))
+      val stateStore = mock[StateStore]
+      when(stateStore.getChildren(sessionPath))
+        .thenReturn((validMetadata).keys.toList)
+      validMetadata.foreach { case (id, m) =>
+        when(stateStore.get[BatchRecoveryMetadata](s"$sessionPath/$id")).thenReturn(m)
+      }
+
+      val sessionStore = new SessionStore(conf, stateStore)
+      val zooKeeperManager = mock[ZooKeeperManager]
+      val sessionIdGenerator = new ZookeeperSessionIdGenerator(conf, sessionStore,
+        None, Option(zooKeeperManager))
+
+      val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator)
+      sm.get(0) shouldBe None
+      sm.get(77) shouldBe defined
+      sm.size shouldBe 1
+    }
+
+    it("should recover specific session") {
+      val conf = new LivyConf()
+      conf.set(LivyConf.LIVY_SPARK_MASTER.key, "yarn-cluster")
+
+      val sessionType = "batch"
+
+      val validMetadata = List().map(Try(_))
+      val sessionStore = mock[SessionStore]
+      when(sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType))
+        .thenReturn(validMetadata)
+      val sessionIdGenerator = new InMemorySessionIdGenerator(conf, sessionStore, None, None)
+
+      val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator)
+      sm.size shouldBe validMetadata.size
+
+      when(sessionStore.get[BatchRecoveryMetadata](sessionType, 0))
+        .thenReturn(Option(makeMetadata(0, "t0", conf.serverMetadata())))
+      when(sessionStore.get[BatchRecoveryMetadata](sessionType, 1))
+        .thenReturn(Option(makeMetadata(1, "t1", ServerMetadata("127.0.0.1", 8998))))
+
+      sm.recover(0)
+      sm.recover(1)
+
+      sm.get(0) shouldBe defined
+      sm.get(1) shouldBe defined
+      sm.size shouldBe 2
+
+      intercept[IllegalArgumentException] {
+        when(sessionStore.get[BatchRecoveryMetadata](sessionType, 100))
+          .thenReturn(None)
+        sm.recover(100)
+      }
     }
 
     it("should delete sessions from state store") {

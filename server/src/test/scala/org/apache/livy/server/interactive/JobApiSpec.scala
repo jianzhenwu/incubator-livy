@@ -54,7 +54,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
       mock[SessionIdGenerator],
       Some(Seq.empty))
     val accessManager = new AccessManager(conf)
-    new InteractiveSessionServlet(sessionManager, sessionStore, conf, accessManager)
+    new InteractiveSessionServlet(sessionManager, None, None, sessionStore, conf, accessManager)
       with RemoteUserOverride
   }
 

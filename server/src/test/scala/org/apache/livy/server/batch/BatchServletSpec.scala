@@ -66,6 +66,8 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, BatchRecover
 
     new BatchSessionServlet(
       batchSessionManager,
+      None,
+      None,
       sessionStore,
       livyConf,
       accessManager)

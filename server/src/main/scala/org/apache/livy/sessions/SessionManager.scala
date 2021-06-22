@@ -18,7 +18,6 @@
 package org.apache.livy.sessions
 
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicInteger
 
 import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContext, Future}
@@ -116,6 +115,8 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
   mockSessions.getOrElse(recover()).foreach(register)
   new GarbageCollector().start()
 
+  def sessionType(): String = sessionType
+
   def nextId(): Int = {
     sessionIdGenerator.nextId(sessionType)
   }
@@ -208,7 +209,11 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
   private def recover(): Seq[S] = {
     // Retrieve session recovery metadata from state store.
-    val sessionMetadata = sessionStore.getAllSessions[R](sessionType)
+    val sessionMetadata = if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+      sessionStore.getAllSessions[R](sessionType, Option(livyConf.serverMetadata()))
+    } else {
+      sessionStore.getAllSessions[R](sessionType)
+    }
 
     // Recover session from session recovery metadata.
     val recoveredSessions = sessionMetadata.flatMap(_.toOption).map(sessionRecovery)
@@ -220,6 +225,15 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     recoveryFailure.foreach(ex => error(ex.getMessage, ex.getCause))
 
     recoveredSessions
+  }
+
+  def recover(sessionId: Int): S = {
+    sessionStore.get[R](sessionType(), sessionId).map(recoveryMetadata => {
+      register(sessionRecovery(recoveryMetadata))
+    }).orElse({
+      throw new IllegalArgumentException(s"Recovery metadata of $sessionId not found")
+    })
+    .get
   }
 
   private class GarbageCollector extends Thread("session gc thread") {

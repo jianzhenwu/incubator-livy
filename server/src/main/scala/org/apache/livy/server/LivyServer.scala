@@ -178,8 +178,6 @@ class LivyServer extends Logging {
     val interactiveSessionManager = new InteractiveSessionManager(livyConf, sessionStore,
       sessionIdGenerator)
 
-
-
     server = new WebServer(livyConf, host, port)
     server.context.setResourceBase("src/main/org/apache/livy/server")
 
@@ -240,11 +238,13 @@ class LivyServer extends Logging {
             context.initParameters(org.scalatra.EnvironmentKey) = livyConf.get(ENVIRONMENT)
 
             val interactiveServlet = new InteractiveSessionServlet(
-              interactiveSessionManager, sessionStore, livyConf, accessManager)
+              interactiveSessionManager, sessionAllocator, clusterManager,
+              sessionStore, livyConf, accessManager)
             mount(context, interactiveServlet, "/sessions/*")
 
             val batchServlet =
-              new BatchSessionServlet(batchSessionManager, sessionStore, livyConf, accessManager)
+              new BatchSessionServlet(batchSessionManager, sessionAllocator, clusterManager,
+                sessionStore, livyConf, accessManager)
             mount(context, batchServlet, "/batches/*")
 
             val hdfsServlet =

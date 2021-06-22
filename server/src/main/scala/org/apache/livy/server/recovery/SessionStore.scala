@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 import scala.util.control.NonFatal
 
-import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.{LivyConf, Logging, ServerMetadata}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 private[livy] case class SessionManagerState(nextSessionId: Int)
@@ -57,7 +57,9 @@ class SessionStore(
   /**
    * Return all sessions stored in the store with specified session type.
    */
-  def getAllSessions[T <: RecoveryMetadata : ClassTag](sessionType: String): Seq[Try[T]] = {
+  def getAllSessions[T <: RecoveryMetadata : ClassTag](
+      sessionType: String,
+      serverMetadata: Option[ServerMetadata] = None): Seq[Try[T]] = {
     store.getChildren(sessionPath(sessionType))
       .flatMap { c => Try(c.toInt).toOption } // Ignore all non numerical keys
       .flatMap { id =>
@@ -67,6 +69,16 @@ class SessionStore(
         } catch {
           case NonFatal(e) => Some(Failure(new IOException(s"Error getting session $p", e)))
         }
+      }
+      .filter { t: Try[T] =>
+        serverMetadata.map(serverMetadata => {
+          t match {
+            case Success(recoveryMetadata: RecoveryMetadata) =>
+              serverMetadata == recoveryMetadata.serverMetadata
+            case Failure(_) =>
+              true
+          }
+        }).orElse(Option(true)).get
       }
   }
 

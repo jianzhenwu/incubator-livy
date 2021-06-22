@@ -32,6 +32,7 @@ import org.scalatra.servlet.FileUploadSupport
 import org.apache.livy.{CompletionRequest, ExecuteRequest, JobHandle, LivyConf, Logging}
 import org.apache.livy.client.common.HttpMessages
 import org.apache.livy.client.common.HttpMessages._
+import org.apache.livy.cluster.{ClusterManager, SessionAllocator}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.server.{AccessManager, SessionServlet}
@@ -42,10 +43,12 @@ object InteractiveSessionServlet extends Logging
 
 class InteractiveSessionServlet(
     sessionManager: InteractiveSessionManager,
+    sessionAllocator: Option[SessionAllocator],
+    clusterManager: Option[ClusterManager],
     sessionStore: SessionStore,
     livyConf: LivyConf,
     accessManager: AccessManager)
-  extends SessionServlet(sessionManager, livyConf, accessManager)
+  extends SessionServlet(sessionManager, sessionAllocator, clusterManager, livyConf, accessManager)
   with SessionHeartbeatNotifier[InteractiveSession, InteractiveRecoveryMetadata]
   with FileUploadSupport
 {
@@ -53,13 +56,15 @@ class InteractiveSessionServlet(
   mapper.registerModule(new SessionKindModule())
     .registerModule(new Json4sScalaModule())
 
-  override protected def createSession(req: HttpServletRequest): InteractiveSession = {
+  override protected def createSession(
+      sessionId: Int,
+      req: HttpServletRequest): InteractiveSession = {
     val createRequest = bodyAs[CreateInteractiveRequest](req)
 
     Metrics().incrementCounter(MetricsKey.INTERACTIVE_SESSION_TOTAL_COUNT)
 
     InteractiveSession.create(
-      sessionManager.nextId(),
+      sessionId,
       createRequest.name,
       remoteUser(req),
       proxyUser(req, createRequest.proxyUser),

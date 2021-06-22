@@ -30,7 +30,7 @@ object ServerNode {
     new ServerNode(meta.host, meta.port, timestamp)
 
   def apply(meta: ServerMetadata): ServerNode =
-    ServerNode(meta, System.currentTimeMillis())
+    ServerNode(meta, -1)
 }
 
 /**
@@ -48,6 +48,14 @@ abstract class ClusterManager {
    * @return
    */
   def getNodes(): Set[ServerNode]
+
+
+  /**
+   * Return if node is online and in the cluster
+   * @param serverNode
+   * @return
+   */
+  def isNodeOnline(serverNode: ServerNode): Boolean
 
   /**
    * Add a listener which will be notified when a new node join the cluster.

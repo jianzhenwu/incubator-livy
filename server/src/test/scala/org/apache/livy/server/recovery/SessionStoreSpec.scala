@@ -49,7 +49,9 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
 
     it("should return existing sessions") {
       val validMetadata = Map(
-        "0" -> Some(TestRecoveryMetadata(0, conf.serverMetadata())),
+        "0" -> Some(TestRecoveryMetadata(0, null)),
+        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0))),
+        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0))),
         "5" -> None,
         "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
       val corruptedMetadata = Map(
@@ -74,6 +76,36 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       s.filter(_.isSuccess) should contain theSameElementsAs
         validMetadata.values.filter(_.isDefined).map(m => Success(m.get))
       // Verify exceptions are wrapped as in Try and are returned.
+      s.filter(_.isFailure) should have size corruptedMetadata.size
+    }
+
+    it("should filter existing sessions by server metadata") {
+      val validMetadata = Map(
+        "0" -> Some(TestRecoveryMetadata(0, null)),
+        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0))),
+        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0))),
+        "3" -> Some(TestRecoveryMetadata(1, ServerMetadata("127.0.0.1", 8998))),
+        "5" -> None,
+        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
+      val corruptedMetadata = Map(
+        "7" -> new RuntimeException("Test"),
+        "11212" -> new RuntimeException("Test")
+      )
+
+      val stateStore = mock[StateStore]
+      val sessionStore = new SessionStore(conf, stateStore)
+      when(stateStore.getChildren(sessionPath))
+        .thenReturn((validMetadata ++ corruptedMetadata).keys.toList)
+      validMetadata.foreach { case (id, m) =>
+        when(stateStore.get[TestRecoveryMetadata](s"$sessionPath/$id")).thenReturn(m)
+      }
+      corruptedMetadata.foreach { case (id, ex) =>
+        when(stateStore.get[TestRecoveryMetadata](s"$sessionPath/$id")).thenThrow(ex)
+      }
+      val s = sessionStore.getAllSessions[TestRecoveryMetadata](sessionType,
+        Option(conf.serverMetadata()))
+
+      s.filter(_.isSuccess) should have size 1
       s.filter(_.isFailure) should have size corruptedMetadata.size
     }
 

@@ -17,14 +17,17 @@
 
 package org.apache.livy.server
 
+import java.net.{URI, URL}
 import java.security.AccessControlException
 import javax.servlet.http.HttpServletRequest
 
 import org.scalatra._
 import scala.concurrent._
 import scala.concurrent.duration._
+import scala.reflect.ClassTag
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.RSCClientFactory
 import org.apache.livy.server.batch.BatchSession
@@ -42,8 +45,10 @@ object SessionServlet extends Logging
  */
 abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     private[livy] val sessionManager: SessionManager[S, R],
+    val sessionAllocator: Option[SessionAllocator],
+    val clusterManager: Option[ClusterManager],
     val livyConf: LivyConf,
-    accessManager: AccessManager)
+    accessManager: AccessManager)(implicit c: ClassTag[R])
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
@@ -54,7 +59,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    * Creates a new session based on the current request. The implementation is responsible for
    * parsing the body of the request.
    */
-  protected def createSession(req: HttpServletRequest): S
+  protected def createSession(sessionId: Int, req: HttpServletRequest): S
 
   /**
    * Returns a object representing the session data to be sent back to the client.
@@ -129,22 +134,54 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     totalChildProceses >= livyConf.getInt(LivyConf.SESSION_MAX_CREATION)
   }
 
-  post("/") {
-    synchronized {
-      if (tooManySessions) {
-        BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
-      } else {
-        Metrics().startStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
-        val session = sessionManager.register(createSession(request))
-        Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
-        // Because it may take some time to establish the session, update the last activity
-        // time before returning the session info to the client.
-        session.recordActivity()
-        Created(clientSessionView(session, request),
-          headers = Map("Location" ->
-            (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString))))
+  private def createSessionInternal(sessionId: Int): ActionResult = {
+    val serverNode = sessionAllocator
+      .flatMap(_.findServer[R](sessionManager.sessionType(), sessionId))
+      // allocate to current server if in standalone mode
+      .orElse(Some(ServerNode(livyConf.serverMetadata())))
+
+    if(serverNode.isEmpty) {
+      // in cluster mode, but session allocator does not know the id
+      BadRequest(ResponseMessage(s"Unknown session id $sessionId"))
+    } else if (serverNode.get.serverMetadata == livyConf.serverMetadata()) {
+      // session allocated to current server or in standalone mode
+      synchronized {
+        if (tooManySessions) {
+          BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
+        } else {
+          Metrics().startStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
+          val session = sessionManager.register(createSession(sessionId, request))
+          Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
+          // Because it may take some time to establish the session, update the last activity
+          // time before returning the session info to the client.
+          session.recordActivity()
+          Created(clientSessionView(session, request),
+            headers = Map("Location" ->
+              (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString))))
+        }
       }
+    } else if (clusterManager.map(_.isNodeOnline(serverNode.get)).orElse(Some(false)).get) {
+      // session allocated to another online server
+      val uri = new URI(url(createSpecificSession, "id" -> sessionId.toString))
+      TemporaryRedirect(new URI(request.getScheme, null,
+        serverNode.get.host, serverNode.get.port,
+        uri.getPath, uri.getQuery, null).toString)
+    } else {
+      // session allocated to another offline server
+      sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(), sessionId))
+      createSessionInternal(sessionId)
     }
+  }
+
+  post("/") {
+    val sessionId = sessionManager.nextId()
+    sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(), sessionId))
+    createSessionInternal(sessionId)
+  }
+
+  val createSpecificSession = post("/:id") {
+    val sessionId = params("id").toInt
+    createSessionInternal(sessionId)
   }
 
   private def getRequestPathInfo(request: HttpServletRequest): String = {
@@ -214,12 +251,12 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       allowAll: Boolean,
       checkFn: Option[(String, String, String) => Boolean]): Any = {
     val idOrNameParam: String = params("id")
-    val session = if (idOrNameParam.forall(_.isDigit)) {
+    val (sessionId: Option[Int], session) = if (idOrNameParam.forall(_.isDigit)) {
       val sessionId = idOrNameParam.toInt
-      sessionManager.get(sessionId)
+      (Some(sessionId), sessionManager.get(sessionId))
     } else {
       val sessionName = idOrNameParam
-      sessionManager.get(sessionName)
+      (None, sessionManager.get(sessionName))
     }
     session match {
       case Some(session) =>
@@ -233,7 +270,30 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
           Forbidden()
         }
       case None =>
-        NotFound(ResponseMessage(s"Session '$idOrNameParam' not found."))
+        val serverNode = sessionId.flatMap(sid => {
+          sessionAllocator
+            .flatMap(_.findServer(sessionManager.sessionType(), sid))
+            .orElse(None)
+        }).orElse(None)
+
+        if(serverNode.isEmpty) {
+          // session id is None, session allocator is None or cannot recognize session id
+          NotFound(ResponseMessage(s"Session '$idOrNameParam' not found."))
+        } else {
+          if (serverNode.get.serverMetadata == livyConf.serverMetadata()) {
+            sessionManager.recover(sessionId.get)
+            doWithSession(fn, allowAll, checkFn)
+          } else if (clusterManager.map(_.isNodeOnline(serverNode.get)).orElse(Some(false)).get) {
+            TemporaryRedirect(new URI(request.getScheme, null,
+              serverNode.get.host, serverNode.get.port,
+              request.getPathInfo, request.getQueryString, null).toString)
+          } else {
+            sessionAllocator.foreach({
+              _.allocateServer[R](sessionManager.sessionType(), sessionId.get)
+            })
+            doWithSession(fn, allowAll, checkFn)
+          }
+        }
     }
   }
 
