@@ -106,7 +106,10 @@ class ZookeeperSessionIdGenerator(
   private def sessionManagerPath(sessionType: String): String = {
     Option(livyConf.get(LivyConf.SESSION_ID_GENERATOR_ZK_KEY_PREFIX))
       .map(c => s"${c}/$sessionType")
-      .getOrElse(sessionStore.sessionManagerPath(sessionType))
+      .getOrElse({
+        val stateStoreKeyPrefix = livyConf.get(LivyConf.RECOVERY_ZK_STATE_STORE_KEY_PREFIX)
+        s"/$stateStoreKeyPrefix/${sessionStore.sessionManagerPath(sessionType)}"
+      })
   }
 
   override def nextId(sessionType: String): Int = synchronized {

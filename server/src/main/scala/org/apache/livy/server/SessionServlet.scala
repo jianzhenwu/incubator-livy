@@ -17,7 +17,7 @@
 
 package org.apache.livy.server
 
-import java.net.{URI, URL}
+import java.net.URI
 import java.security.AccessControlException
 import javax.servlet.http.HttpServletRequest
 
@@ -135,10 +135,11 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   }
 
   private def createSessionInternal(sessionId: Int): ActionResult = {
-    val serverNode = sessionAllocator
-      .flatMap(_.findServer[R](sessionManager.sessionType(), sessionId))
-      // allocate to current server if in standalone mode
-      .orElse(Some(ServerNode(livyConf.serverMetadata())))
+    val serverNode = if (sessionAllocator.isDefined) {
+      sessionAllocator.flatMap(_.findServer[R](sessionManager.sessionType(), sessionId))
+    } else {
+      Some(ServerNode(livyConf.serverMetadata()))
+    }
 
     if(serverNode.isEmpty) {
       // in cluster mode, but session allocator does not know the id
@@ -157,7 +158,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
           session.recordActivity()
           Created(clientSessionView(session, request),
             headers = Map("Location" ->
-              (getRequestPathInfo(request) + url(getSession, "id" -> session.id.toString))))
+              url(getSession, "id" -> session.id.toString)))
         }
       }
     } else if (clusterManager.map(_.isNodeOnline(serverNode.get)).orElse(Some(false)).get) {
@@ -286,7 +287,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
           } else if (clusterManager.map(_.isNodeOnline(serverNode.get)).orElse(Some(false)).get) {
             TemporaryRedirect(new URI(request.getScheme, null,
               serverNode.get.host, serverNode.get.port,
-              request.getPathInfo, request.getQueryString, null).toString)
+              request.getRequestURI, request.getQueryString, null).toString)
           } else {
             sessionAllocator.foreach({
               _.allocateServer[R](sessionManager.sessionType(), sessionId.get)

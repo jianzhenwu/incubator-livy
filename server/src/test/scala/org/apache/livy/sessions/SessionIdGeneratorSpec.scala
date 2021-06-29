@@ -67,7 +67,7 @@ class SessionIdGeneratorSpec extends FunSpec with Matchers with LivyBaseUnitTest
             override def answer(invocation: InvocationOnMock): String = {
               val args = invocation.getArguments
               val sessionType = args(0).asInstanceOf[String]
-              s"/livy/$sessionType/state"
+              s"$sessionType/state"
             }
           })
         val zkManager = new ZooKeeperManager(livyConf)
