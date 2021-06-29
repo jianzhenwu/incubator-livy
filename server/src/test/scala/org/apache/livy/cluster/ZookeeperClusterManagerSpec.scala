@@ -18,7 +18,6 @@
 package org.apache.livy.cluster
 
 import java.util
-import java.util.UUID
 
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.module.scala.DefaultScalaModule
@@ -57,6 +56,7 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
       // conf.set(LivyConf.HA_MODE, LivyConf.HA_MODE_MULTI_ACTIVE)
       // conf.set(LivyConf.RECOVERY_STATE_STORE_URL, "host")
       conf.set(LivyConf.SERVER_HOST, "host")
+      conf.set(LivyConf.SERVER_PORT, 9000)
       conf.set(LivyConf.CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX, defaultZkServerRegisterKeyPrefix)
 
       val listenerCapture = ArgumentCaptor.forClass(
@@ -80,7 +80,7 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
       when(curatorClient.checkExists()).thenReturn(existsBuilder)
     }
 
-    def mockExistingServices(curatorClient: CuratorFramework): Unit = {
+    def mockExistingServices(curatorClient: CuratorFramework, cServerNode: ServerNode): Unit = {
       val existsBuilder = mock[ExistsBuilder]
       when(curatorClient.checkExists()).thenReturn(existsBuilder)
       val stat = mock[Stat]
@@ -90,6 +90,9 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
       val nodeList = new util.ArrayList[String]()
       nodeList.add("host1:8998")
       nodeList.add("host2:8999")
+      val cHost = cServerNode.host
+      val cPort = cServerNode.port
+      nodeList.add(s"$cHost:$cPort")
       when(getChildrenBuilder.forPath(defaultZkServerRegisterKeyPrefix)).thenReturn(nodeList)
 
       val getDataBuilder = mock[GetDataBuilder]
@@ -99,6 +102,8 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
         .thenReturn(generateNodeBytes("host1", 8998))
       when(getDataBuilder.forPath(s"$defaultZkServerRegisterKeyPrefix/host2:8999"))
         .thenReturn(generateNodeBytes("host2", 8999))
+      when(getDataBuilder.forPath(s"$defaultZkServerRegisterKeyPrefix/$cHost:$cPort"))
+        .thenReturn(mapper.writeValueAsBytes(cServerNode))
     }
 
     def mockCreateEphemeralNode(
@@ -121,20 +126,22 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
         var zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager)
         zkClusterManager.getNodes().size shouldBe 0
 
-        mockExistingServices(f.curatorClient)
+        mockExistingServices(f.curatorClient, ServerNode(f.conf.serverMetadata()))
         zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager)
         val nodeList = zkClusterManager.getNodes().toList.sortWith(_.port < _.port)
-        nodeList.size shouldBe 2
+        nodeList.size shouldBe 3
         nodeList(0).host shouldBe "host1"
         nodeList(0).port shouldBe 8998
         nodeList(1).host shouldBe "host2"
         nodeList(1).port shouldBe 8999
+        nodeList(2).host shouldBe f.conf.serverMetadata().host
+        nodeList(2).port shouldBe f.conf.serverMetadata().port
       }
     }
 
     it("should return correct if node is online") {
       withMock { f =>
-        mockExistingServices(f.curatorClient)
+        mockExistingServices(f.curatorClient, ServerNode(f.conf.serverMetadata()))
         val zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager)
         zkClusterManager.isNodeOnline(new ServerNode("host1", 8998, -1)) should be(true)
         zkClusterManager.isNodeOnline(new ServerNode("host3", 8998, -1)) should be(false)
@@ -152,10 +159,10 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
         val data = ArgumentCaptor.forClass(new Array[Byte](0).getClass)
         verify(path).forPath(dir.capture(), data.capture())
 
-        dir.getValue shouldBe s"$defaultZkServerRegisterKeyPrefix/host:8998"
+        dir.getValue shouldBe s"$defaultZkServerRegisterKeyPrefix/host:9000"
         val node = mapper.readValue(data.getValue, classOf[ServerNode])
         node.host shouldBe "host"
-        node.port shouldBe 8998
+        node.port shouldBe 9000
       }
     }
 
@@ -187,8 +194,9 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
 
     it("register node leave listener") {
       withMock { f =>
-        mockExistingServices(f.curatorClient)
-        val zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager)
+        val cServerNode = ServerNode(f.conf.serverMetadata())
+        mockExistingServices(f.curatorClient, cServerNode)
+        val zkClusterManager = new ZookeeperClusterManager(f.conf, f.zkManager, Some(cServerNode))
         var nodeList = zkClusterManager.getNodes().toList
         val nodeToBeDelete = nodeList(0)
 
@@ -201,11 +209,15 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
           s"$defaultZkServerRegisterKeyPrefix/host1:8998",
           mock[Stat],
           mapper.writeValueAsBytes(nodeToBeDelete))
-        f.listenerCapture.getAllValues.get(1).childEvent(
+        f.listenerCapture.getAllValues.get(0).childEvent(
           f.curatorClient,
           new PathChildrenCacheEvent(PathChildrenCacheEvent.Type.CHILD_REMOVED, childData))
 
-        counter shouldBe 1
+        f.listenerCapture.getAllValues.get(0).childEvent(
+          f.curatorClient,
+          new PathChildrenCacheEvent(PathChildrenCacheEvent.Type.CONNECTION_LOST, null))
+
+        counter shouldBe 2
         nodeList = zkClusterManager.getNodes().toList
         nodeList.size shouldBe 1
       }

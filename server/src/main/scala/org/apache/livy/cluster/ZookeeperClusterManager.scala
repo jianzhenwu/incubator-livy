@@ -20,11 +20,14 @@ package org.apache.livy.cluster
 import scala.collection.immutable.Set
 import scala.collection.mutable.{ArrayBuffer, HashSet}
 
+import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent.Type
+
 import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.LivyConf.CLUSTER_ZK_SERVER_REGISTER_KEY_PREFIX
 import org.apache.livy.server.recovery.ZooKeeperManager
 
-class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
+class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager,
+    mockServerNode: Option[ServerNode] = None)
   extends ClusterManager with Logging {
   private val serverMetadata = livyConf.serverMetadata()
   private val serverRegisterKeyPrefix: String = {
@@ -35,24 +38,34 @@ class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
       s"/$configKeyPrefix"
     }
   }
+  private val serverPath = serverRegisterKeyPrefix + "/" +
+    serverMetadata.host + ":" + serverMetadata.port
+  private val serverNode = mockServerNode
+    .getOrElse(ServerNode(serverMetadata, System.currentTimeMillis()))
 
   private val nodes = new HashSet[ServerNode]()
   private val nodeJoinListeners = new ArrayBuffer[ServerNode => Unit]()
   private val nodeLeaveListeners = new ArrayBuffer[ServerNode => Unit]()
+
+  // Start listening
+  zkManager.watchChildrenNodes(serverRegisterKeyPrefix,
+    (eType: Type, ePath: Option[String], eData: Option[ServerNode]) => {
+      if (eType == Type.CHILD_ADDED) {
+        nodeAddHandler(ePath.get, eData.get)
+      } else if (eType == Type.CHILD_REMOVED) {
+        nodeRemoveHandler(ePath.get, eData.get)
+      } else if (eType == Type.CONNECTION_LOST) {
+        nodeRemoveHandler(serverPath, serverNode)
+      }
+    })
 
   zkManager.getChildren(serverRegisterKeyPrefix).foreach(node => {
     val serviceNode = zkManager.get[ServerNode](serverRegisterKeyPrefix + "/" + node).get
     nodes.add(serviceNode)
   })
 
-  // Start listening
-  zkManager.watchAddChildNode(serverRegisterKeyPrefix, nodeAddHandler)
-  zkManager.watchRemoveChildNode(serverRegisterKeyPrefix, nodeRemoveHandler)
-
   override def register(): Unit = {
-    val node = ServerNode(serverMetadata, System.currentTimeMillis())
-    zkManager.createEphemeralNode(serverRegisterKeyPrefix + "/" + serverMetadata.host + ":"
-      + serverMetadata.port, node)
+    zkManager.createEphemeralNode(serverPath, serverNode)
   }
 
   override def getNodes(): Set[ServerNode] = {
@@ -65,6 +78,7 @@ class ZookeeperClusterManager(livyConf: LivyConf, zkManager: ZooKeeperManager)
 
   override def registerNodeJoinListener(listener: ServerNode => Unit): Unit = {
     nodeJoinListeners.append(listener)
+    nodes.foreach(listener)
   }
 
   override def registerNodeLeaveListener(listener : ServerNode => Unit): Unit = {

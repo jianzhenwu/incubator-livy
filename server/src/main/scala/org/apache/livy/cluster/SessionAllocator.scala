@@ -25,22 +25,27 @@ import scala.util.Random
 import scala.util.hashing.MurmurHash3
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata}
-import org.apache.livy.server.recovery.SessionStore
+import org.apache.livy.server.recovery.{SessionStore, ZooKeeperManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 object SessionAllocator extends Logging {
   def apply(
       livyConf: LivyConf,
       clusterManager: ClusterManager,
-      sessionStore: SessionStore): SessionAllocator = {
+      sessionStore: SessionStore,
+      zkManager: ZooKeeperManager): SessionAllocator = {
     try {
       val clz: Class[_] = Class.forName(livyConf.get(LivyConf.CLUSTER_SESSION_ALLOCATOR_CLASS))
       val constructor: Constructor[_] = clz.getConstructor(classOf[LivyConf],
-        classOf[ClusterManager], classOf[SessionStore])
-      constructor.newInstance(livyConf, clusterManager, sessionStore)
-        .asInstanceOf[SessionAllocator]
+        classOf[ClusterManager], classOf[SessionStore], classOf[ZooKeeperManager])
+      val sessionAllocator = constructor.newInstance(livyConf, clusterManager, sessionStore,
+        zkManager).asInstanceOf[SessionAllocator]
+      clusterManager.registerNodeJoinListener(sessionAllocator.onServerJoin)
+      clusterManager.registerNodeLeaveListener(sessionAllocator.onServerLeave)
+      sessionAllocator
     } catch {
       case e@(_: NoSuchMethodException | _: InstantiationException
               | _: IllegalAccessException | _: InvocationTargetException
@@ -55,11 +60,27 @@ object SessionAllocator extends Logging {
 abstract class SessionAllocator(
     livyConf: LivyConf,
     clusterManager: ClusterManager,
-    sessionStore: SessionStore) {
+    sessionStore: SessionStore,
+    zkManager: ZooKeeperManager) {
+
+  /**
+   * Return ServerNode of the session, no matter if server is online;
+   * return None if session not found
+   * @param sessionType
+   * @param sessionId
+   * @return
+   */
   def findServer[T <: RecoveryMetadata](
       sessionType: String,
       sessionId: Int)(implicit t: ClassTag[T]): Option[ServerNode]
 
+  /**
+   * Allocate server for the session and return the ServerNode.
+   * How offline server handled depends on allocation algo
+   * @param sessionType
+   * @param sessionId
+   * @return
+   */
   def allocateServer[T <: RecoveryMetadata](
       sessionType: String,
       sessionId: Int)(implicit t: ClassTag[T]): ServerNode
@@ -72,7 +93,9 @@ abstract class SessionAllocator(
 class StateStoreMappingSessionAllocator(
     livyConf: LivyConf,
     clusterManager: ClusterManager,
-    sessionStore: SessionStore) extends SessionAllocator(livyConf, clusterManager, sessionStore) {
+    sessionStore: SessionStore,
+    zkManager: ZooKeeperManager)
+  extends SessionAllocator(livyConf, clusterManager, sessionStore, zkManager) with Logging {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   case class StateStoreMappingRecoveryMetadata(
@@ -82,8 +105,29 @@ class StateStoreMappingSessionAllocator(
     def this(id: Int) = this(id, ServerMetadata("", -1))
   }
 
-  val algo = livyConf.get(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO)
-  val roundRobinCount = new AtomicInteger(-1)
+  private val lockCount = livyConf.getInt(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_COUNT)
+  private val lockZkPath: String = {
+    val configLockPath = livyConf.get(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_ZK_PATH)
+    if (configLockPath.startsWith("/")) {
+      configLockPath
+    } else {
+      s"/$configLockPath"
+    }
+  }
+  private val locks = {
+    val locks = scala.collection.mutable.Map[Int, InterProcessSemaphoreMutex]()
+    for (i <- 0 until lockCount) {
+      locks(i) = zkManager.createLock(s"$lockZkPath/$i")
+    }
+    locks.toMap
+  }
+
+  private def lockOf(sessionId: Int): InterProcessSemaphoreMutex = {
+    locks(sessionId % lockCount)
+  }
+
+  private val algo = livyConf.get(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO)
+  private val roundRobinCount = new AtomicInteger(-1)
 
   override def findServer[T <: RecoveryMetadata](
       sessionType: String,
@@ -112,16 +156,32 @@ class StateStoreMappingSessionAllocator(
         roundRobinCount.incrementAndGet() % serverNodes.size
     }
 
-    val serverNode: ServerNode = serverNodes.toArray[ServerNode].apply(index)
+    val serverNode: ServerNode = serverNodes.toArray[ServerNode]
+      .sortWith(_.timestamp < _.timestamp).apply(index)
 
-    val recoveryMetadata: RecoveryMetadata = sessionStore.get[T](sessionType, sessionId).getOrElse({
-      new StateStoreMappingRecoveryMetadata(sessionId)
-    })
-    recoveryMetadata.serverMetadata.host = serverNode.serverMetadata.host
-    recoveryMetadata.serverMetadata.port = serverNode.serverMetadata.port
-    sessionStore.save(sessionType, recoveryMetadata)
+    val lock = lockOf(sessionId)
+    try {
+      lock.acquire()
 
-    serverNode
+      val recoveryMetadata: RecoveryMetadata = sessionStore.get[T](sessionType, sessionId)
+        .getOrElse({
+          new StateStoreMappingRecoveryMetadata(sessionId)
+        })
+      val recoveryServerMetadata = recoveryMetadata.serverMetadata
+      if (recoveryServerMetadata.isValid
+          && clusterManager.isNodeOnline(ServerNode(recoveryServerMetadata))) {
+        warn(s"$sessionType session $sessionId is on online server: $recoveryServerMetadata, " +
+          s"probably relocate by another request or offline server is back")
+        ServerNode(recoveryServerMetadata)
+      } else {
+        recoveryServerMetadata.host = serverNode.serverMetadata.host
+        recoveryServerMetadata.port = serverNode.serverMetadata.port
+        sessionStore.save(sessionType, recoveryMetadata)
+        serverNode
+      }
+    } finally {
+      lock.release()
+    }
   }
 
   override def onServerJoin(serverNode: ServerNode): Unit = {
@@ -129,7 +189,14 @@ class StateStoreMappingSessionAllocator(
   }
 
   override def onServerLeave(serverNode: ServerNode): Unit = {
-    // Do nothing
+    // If this server leaves cluster, sessions of this server may be taken by other server,
+    // but SessionManager of this server still has sessions, we need to clear them.
+    // Remove session from SessionManage need to clear state of SparkApp which involve many changes,
+    // so just shutdown this server to simplify logic
+    if (serverNode.serverMetadata == livyConf.serverMetadata()) {
+      error("Server leaves cluster, exit to reset SessionManager")
+      System.exit(-1)
+    }
   }
 }
 

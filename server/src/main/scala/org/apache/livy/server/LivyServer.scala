@@ -170,7 +170,8 @@ class LivyServer extends Logging {
 
     if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
       clusterManager = Some(new ZookeeperClusterManager(livyConf, zkManager.get))
-      sessionAllocator = Some(SessionAllocator(livyConf, clusterManager.get, sessionStore))
+      sessionAllocator = Some(SessionAllocator(livyConf, clusterManager.get, sessionStore,
+        zkManager.get))
     }
 
     val sessionIdGenerator = SessionIdGenerator(livyConf, sessionStore, clusterManager, zkManager)

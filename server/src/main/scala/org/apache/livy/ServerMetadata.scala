@@ -17,4 +17,11 @@
 
 package org.apache.livy
 
-case class ServerMetadata(var host: String, var port: Int)
+import com.fasterxml.jackson.annotation.JsonIgnore
+
+case class ServerMetadata(var host: String, var port: Int) {
+  @JsonIgnore
+  def isValid: Boolean = {
+    host != null && !host.trim.isEmpty && port > 0
+  }
+}

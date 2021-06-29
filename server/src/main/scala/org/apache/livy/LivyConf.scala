@@ -250,6 +250,15 @@ object LivyConf {
   val CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO =
     Entry("livy.server.cluster.session-allocator.state-store.algo", "RANDOM")
 
+  // The zk path of distribute lock for state store session allocator
+  val CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_ZK_PATH =
+    Entry("livy.server.cluster.session-allocator.state-store.lock.zk-path",
+      "livy/session-allocator/state-store/lock")
+
+  // The number of distribute lock for state store session allocator
+  val CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_COUNT =
+    Entry("livy.server.cluster.session-allocator.state-store.lock.count", 10)
+
   // Livy will cache the max no of logs specified. 0 means don't cache the logs.
   val SPARK_LOGS_SIZE = Entry("livy.cache-log.size", 200)
 

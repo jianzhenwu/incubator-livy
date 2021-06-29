@@ -23,7 +23,9 @@ import scala.reflect.ClassTag
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
 import org.apache.curator.framework.api.UnhandledErrorListener
 import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
+import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent.Type
+import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
 import org.apache.curator.retry.RetryNTimes
 import org.apache.zookeeper.CreateMode
 import org.apache.zookeeper.KeeperException.NoNodeException
@@ -126,15 +128,6 @@ class ZooKeeperManager(
     }
   }
 
-  def watchAddChildNode[T: ClassTag](path: String, nodeAddHandler: (String, T) => Unit): Unit = {
-    watchChildrenNodes(path, nodeAddHandler, Type.CHILD_ADDED)
-  }
-
-  def watchRemoveChildNode[T: ClassTag](path: String,
-      nodeRemoveHandler: (String, T) => Unit): Unit = {
-    watchChildrenNodes(path, nodeRemoveHandler, Type.CHILD_REMOVED)
-  }
-
   def createEphemeralNode(path: String, value: Object): Unit = {
     val data = serializeToBytes(value)
     curatorClient.create.creatingParentsIfNeeded.withMode(CreateMode.EPHEMERAL).forPath(path, data)
@@ -145,22 +138,28 @@ class ZooKeeperManager(
     new PathChildrenCache(curatorClient, path, true)
   }
 
-  private def watchChildrenNodes[T: ClassTag](
-                                      path: String,
-                                      nodeEventHandler: (String, T) => Unit,
-                                      eventType: PathChildrenCacheEvent.Type): Unit = {
+  def watchChildrenNodes[T: ClassTag](
+      path: String,
+      nodeEventHandler: (Type, Option[String], Option[T]) => Unit): Unit = {
     val cache = getPathChildrenCache(path)
-    cache.start()
+    cache.start(StartMode.BUILD_INITIAL_CACHE)
 
     val listener = new PathChildrenCacheListener() {
       override def childEvent(client: CuratorFramework, event: PathChildrenCacheEvent): Unit = {
-        val data = event.getData
-        if (event.getType == eventType) {
-          nodeEventHandler(data.getPath, deserialize[T](data.getData))
+        val eData = event.getData
+        val eType = event.getType
+        if (List(Type.CHILD_ADDED, Type.CHILD_UPDATED, Type.CHILD_REMOVED).contains(eType)) {
+          nodeEventHandler(eType, Some(eData.getPath), Some(deserialize[T](eData.getData)))
+        } else {
+          nodeEventHandler(eType, None, None)
         }
       }
     }
 
     cache.getListenable.addListener(listener)
+  }
+
+  def createLock(lockDir: String): InterProcessSemaphoreMutex = {
+    new InterProcessSemaphoreMutex(curatorClient, lockDir)
   }
 }
