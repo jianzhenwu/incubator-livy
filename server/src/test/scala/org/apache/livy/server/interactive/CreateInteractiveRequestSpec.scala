@@ -47,6 +47,7 @@ class CreateInteractiveRequestSpec extends FunSpec with LivyBaseUnitTestSuite {
       assert(req.archives === List())
       assert(req.queue === None)
       assert(req.name === None)
+      assert(req.sparkVersion === None)
       assert(req.conf === Map())
     }
 

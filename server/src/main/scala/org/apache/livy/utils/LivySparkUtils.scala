@@ -50,8 +50,8 @@ object LivySparkUtils extends Logging {
   /**
    * Test that Spark home is configured and configured Spark home is a directory.
    */
-  def testSparkHome(livyConf: LivyConf): Unit = {
-    val sparkHome = livyConf.sparkHome().getOrElse {
+  def testSparkHome(livyConf: LivyConf, versionConfKey: Option[String] = None): Unit = {
+    val sparkHome = livyConf.sparkHome(versionConfKey).getOrElse {
       throw new IllegalArgumentException("Livy requires the SPARK_HOME environment variable")
     }
 
@@ -63,9 +63,9 @@ object LivySparkUtils extends Logging {
    *
    * @param livyConf
    */
-   def testSparkSubmit(livyConf: LivyConf): Unit = {
+   def testSparkSubmit(livyConf: LivyConf, versionConfKey: Option[String] = None): Unit = {
     try {
-      testSparkVersion(sparkSubmitVersion(livyConf)._1)
+      testSparkVersion(sparkSubmitVersion(livyConf, versionConfKey)._1)
     } catch {
       case e: IOException =>
         throw new IOException("Failed to run spark-submit executable", e)
@@ -90,11 +90,17 @@ object LivySparkUtils extends Logging {
    * @param livyConf
    * @return Tuple with Spark and Scala version
    */
-  def sparkSubmitVersion(livyConf: LivyConf): (String, Option[String]) = {
-    val sparkSubmit = livyConf.sparkSubmit()
+  def sparkSubmitVersion(livyConf: LivyConf,
+                         versionConfKey: Option[String] = None): (String, Option[String]) = {
+    val sparkSubmit = livyConf.sparkSubmit(versionConfKey)
+
     val pb = new ProcessBuilder(sparkSubmit, "--version")
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)
+    val env = pb.environment()
+    if (livyConf.sparkVersions.nonEmpty) {
+      env.put("SPARK_HOME", livyConf.sparkHome(versionConfKey).get)
+    }
 
     if (LivyConf.TEST_MODE) {
       pb.environment().put("LIVY_TEST_CLASSPATH", sys.props("java.class.path"))
@@ -122,10 +128,18 @@ object LivySparkUtils extends Logging {
   def sparkScalaVersion(
       formattedSparkVersion: (Int, Int),
       scalaVersionFromSparkSubmit: Option[String],
-      livyConf: LivyConf): String = {
-    val scalaVersionInLivyConf = Option(livyConf.get(LIVY_SPARK_SCALA_VERSION))
-      .filter(_.nonEmpty)
-      .map(formatScalaVersion)
+      livyConf: LivyConf,
+      versionConfKey: Option[String] = None): String = {
+
+    val scalaVersionInLivyConf = if (versionConfKey.isEmpty) {
+      Option(livyConf.get(LIVY_SPARK_SCALA_VERSION))
+        .filter(_.nonEmpty)
+        .map(formatScalaVersion)
+    } else {
+      Option(livyConf.get(LIVY_SPARK_SCALA_VERSION.key + "." + versionConfKey))
+        .filter(_.nonEmpty)
+        .map(formatScalaVersion)
+    }
 
     for (vSparkSubmit <- scalaVersionFromSparkSubmit; vLivyConf <- scalaVersionInLivyConf) {
       require(vSparkSubmit == vLivyConf,

@@ -23,9 +23,10 @@ import scala.collection.mutable.ArrayBuffer
 
 import org.apache.livy.{LivyConf, Logging}
 
-class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
+class SparkProcessBuilder(livyConf: LivyConf,
+                          reqSparkVersion: Option[String] = None) extends Logging {
 
-  private[this] var _executable: String = livyConf.sparkSubmit()
+  private[this] var _executable: String = livyConf.sparkSubmit(reqSparkVersion)
   private[this] var _master: Option[String] = None
   private[this] var _deployMode: Option[String] = None
   private[this] var _className: Option[String] = None
@@ -206,6 +207,15 @@ class SparkProcessBuilder(livyConf: LivyConf) extends Logging {
 
     for ((key, value) <- _env) {
       env.put(key, value)
+    }
+
+    if (livyConf.sparkVersions.nonEmpty) {
+      val sparkHome = livyConf.sparkHome(reqSparkVersion).get
+      env.put("SPARK_HOME", sparkHome)
+      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
+      if (sparkConfDir.nonEmpty) {
+        env.put("SPARK_CONF_DIR", sparkConfDir.get)
+      }
     }
 
     _redirectOutput.foreach(pb.redirectOutput)

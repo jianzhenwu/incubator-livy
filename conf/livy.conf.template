@@ -194,3 +194,15 @@
 # livy.server.auth.<custom>.class = <class of custom auth filter>
 # livy.server.auth.<custom>.param.<foo1> = <bar1>
 # livy.server.auth.<custom>.param.<foo2> = <bar2>
+
+# Spark multiple version path configurations.
+# livy.server.spark.versions = v2_4, v3_1
+# livy.server.spark.versions.default = v2_4
+# livy.server.spark-home.v2_4 =
+# livy.server.spark-home.v3_1 =
+# livy.server.spark-conf-dir.v2_4 =
+# livy.server.spark-conf-dir.v3_1 =
+# livy.rsc.sparkr.package.v2_4 =
+# livy.rsc.sparkr.package.v3_1 =
+# livy.rsc.pyspark.archives.v2_4 =
+# livy.rsc.pyspark.archives.v3_1 =

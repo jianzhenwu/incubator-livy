@@ -81,29 +81,54 @@ class LivyServer extends Logging {
         maxFileSize = Some(livyConf.getLong(LivyConf.FILE_UPLOAD_MAX_SIZE))
       ).toMultipartConfigElement
 
-    // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
-    testSparkHome(livyConf)
+    // get spark an scalar version from execute "spark-submit --version"
+    def setSparkScalaVersion(versionConfKey: Option[String] = None): Unit = {
+      // Make sure the `spark-submit` program exists, otherwise much of livy won't work.
+      testSparkHome(livyConf, versionConfKey)
 
-    // Test spark-submit and get Spark Scala version accordingly.
-    val (sparkVersion, scalaVersionFromSparkSubmit) = sparkSubmitVersion(livyConf)
-    testSparkVersion(sparkVersion)
+      // Test spark-submit and get Spark Scala version accordingly.
+      val (sparkVersion, scalaVersionFromSparkSubmit) = sparkSubmitVersion(livyConf, versionConfKey)
+      testSparkVersion(sparkVersion)
 
-    // If Spark and Scala version is set manually, should verify if they're consistent with
-    // ones parsed from "spark-submit --version"
-    val formattedSparkVersion = formatSparkVersion(sparkVersion)
-    Option(livyConf.get(LIVY_SPARK_VERSION)).map(formatSparkVersion).foreach { version =>
-      require(formattedSparkVersion == version,
-        s"Configured Spark version $version is not equal to Spark version $formattedSparkVersion " +
-          "got from spark-submit -version")
+      val formattedSparkVersion = formatSparkVersion(sparkVersion)
+      if (versionConfKey.isEmpty) {
+        // If Spark and Scala version is set manually, should verify if they're consistent with
+        // ones parsed from "spark-submit --version"
+        Option(livyConf.get(LIVY_SPARK_VERSION)).map(formatSparkVersion).foreach { version =>
+          require(formattedSparkVersion == version,
+            s"Configured Spark version $version is not equal to Spark version " +
+              s"$formattedSparkVersion " + "got from spark-submit -version")
+        }
+
+        // Set formatted Spark and Scala version into livy configuration, this will be used by
+        // session creation.
+        // TODO Create a new class to pass variables from LivyServer to sessions and remove these
+        // internal LivyConfs.
+        livyConf.set(LIVY_SPARK_VERSION.key, formattedSparkVersion.productIterator.mkString("."))
+        livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
+          sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
+      } else {
+        Option(livyConf.get(LIVY_SPARK_VERSION.key + "." + versionConfKey.get))
+          .map(formatSparkVersion).foreach { version =>
+          require(formattedSparkVersion == version,
+            s"Configured Spark version $version is not equal to Spark version " +
+              s"$formattedSparkVersion got from spark-submit -version")
+        }
+
+        livyConf.set(LIVY_SPARK_VERSION.key + "." + versionConfKey.get,
+          formattedSparkVersion.productIterator.mkString("."))
+        livyConf.set(LIVY_SPARK_SCALA_VERSION.key + "." + versionConfKey.get,
+          sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit,
+            livyConf, versionConfKey))
+      }
     }
 
-    // Set formatted Spark and Scala version into livy configuration, this will be used by
-    // session creation.
-    // TODO Create a new class to pass variables from LivyServer to sessions and remove these
-    // internal LivyConfs.
-    livyConf.set(LIVY_SPARK_VERSION.key, formattedSparkVersion.productIterator.mkString("."))
-    livyConf.set(LIVY_SPARK_SCALA_VERSION.key,
-      sparkScalaVersion(formattedSparkVersion, scalaVersionFromSparkSubmit, livyConf))
+    setSparkScalaVersion()
+    if (livyConf.sparkVersions.nonEmpty) {
+      livyConf.sparkVersions.foreach(v => {
+        setSparkScalaVersion(Some(v))
+      })
+    }
 
     if (livyConf.getBoolean(LivyConf.THRIFT_SERVER_ENABLED)) {
       _thriftServerFactory = Some(ThriftServerFactory.getInstance)

@@ -46,6 +46,8 @@ import org.apache.livy.sessions._
 import org.apache.livy.sessions.Session._
 import org.apache.livy.sessions.SessionState.Dead
 import org.apache.livy.utils._
+import org.apache.livy.LivyConf.{LIVY_SPARK_SCALA_VERSION}
+
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class InteractiveRecoveryMetadata(
@@ -85,7 +87,8 @@ object InteractiveSession extends Logging {
       val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
         request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
-      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf)
+      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf,
+        request.sparkVersion)
 
       val userOpts: Map[String, Option[String]] = Map(
         "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -103,14 +106,18 @@ object InteractiveSession extends Logging {
 
       builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
 
-      info(s"Creating Interactive session $id: [owner: $owner, request: $request]")
+      val sparkHome = livyConf.sparkHome(request.sparkVersion)
+      val sparkConfDir = livyConf.sparkConfDir(request.sparkVersion)
+      info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
+        s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
         .setConf("livy.client.session-id", id.toString)
         .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "org.apache.livy.repl.ReplDriver")
         .setConf(RSCConf.Entry.PROXY_USER.key(), impersonatedUser.orNull)
         .setURI(new URI("rsc:/"))
-
+        .setConf("livy.rsc.spark-home", sparkHome.get)
+        .setConf("livy.rsc.spark-conf-dir", sparkConfDir.orNull)
       Option(builder.build().asInstanceOf[RSCClient])
     }
 
@@ -160,10 +167,17 @@ object InteractiveSession extends Logging {
   private[interactive] def prepareBuilderProp(
     conf: Map[String, String],
     kind: Kind,
-    livyConf: LivyConf): mutable.Map[String, String] = {
+    livyConf: LivyConf,
+    reqSparkVersion: Option[String] = None): mutable.Map[String, String] = {
 
     val builderProperties = mutable.Map[String, String]()
     builderProperties ++= conf
+
+    if (reqSparkVersion.isDefined) {
+      if (!livyConf.sparkVersions.contains(reqSparkVersion.get)) {
+        throw new IllegalArgumentException("spark version is not support")
+      }
+    }
 
     def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
       Option(livyConf.get(LivyConf.REPL_JARS)).map { jars =>
@@ -185,27 +199,12 @@ object InteractiveSession extends Logging {
       }
     }
 
-    def findSparkRArchive(): Option[String] = {
-      Option(livyConf.get(RSCConf.Entry.SPARKR_PACKAGE.key())).orElse {
-        sys.env.get("SPARK_HOME").flatMap { case sparkHome =>
-          val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
-          val rArchivesFile = new File(path)
-          if (rArchivesFile.exists()) {
-            Some(rArchivesFile.getAbsolutePath)
-          } else {
-            warn("sparkr.zip not found; cannot start R interpreter.")
-            None
-          }
-        }
-      }
-    }
-
     def datanucleusJars(livyConf: LivyConf, sparkMajorVersion: Int): Seq[String] = {
       if (sys.env.getOrElse("LIVY_INTEGRATION_TEST", "false").toBoolean) {
         // datanucleus jars has already been in classpath in integration test
         Seq.empty
       } else {
-        val sparkHome = livyConf.sparkHome().get
+        val sparkHome = livyConf.sparkHome(reqSparkVersion).get
         val libdir = sparkMajorVersion match {
           case 2 | 3 =>
             if (new File(sparkHome, "RELEASE").isFile) {
@@ -251,33 +250,6 @@ object InteractiveSession extends Logging {
       }
     }
 
-    def findPySparkArchives(): Seq[String] = {
-      Option(livyConf.get(RSCConf.Entry.PYSPARK_ARCHIVES))
-        .map(_.split(",").toSeq)
-        .getOrElse {
-          sys.env.get("SPARK_HOME") .map { case sparkHome =>
-            val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
-            val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
-            val py4jFile = Try {
-              Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
-                .iterator()
-                .next()
-                .toFile
-            }.toOption
-
-            if (!pyArchivesFile.exists()) {
-              warn("pyspark.zip not found; cannot start pyspark interpreter.")
-              Seq.empty
-            } else if (py4jFile.isEmpty || !py4jFile.get.exists()) {
-              warn("py4j-*-src.zip not found; can start pyspark interpreter.")
-              Seq.empty
-            } else {
-              Seq(pyArchivesFile.getAbsolutePath, py4jFile.get.getAbsolutePath)
-            }
-          }.getOrElse(Seq())
-        }
-    }
-
     def mergeConfList(list: Seq[String], key: String): Unit = {
       if (list.nonEmpty) {
         builderProperties.get(key) match {
@@ -308,7 +280,7 @@ object InteractiveSession extends Logging {
     }
 
     val pySparkFiles = if (!LivyConf.TEST_MODE) {
-      findPySparkArchives()
+      livyConf.findPySparkArchives(reqSparkVersion)
     } else {
       Nil
     }
@@ -319,7 +291,11 @@ object InteractiveSession extends Logging {
 
     mergeConfList(pySparkFiles, LivyConf.SPARK_PY_FILES)
 
-    val sparkRArchive = if (!LivyConf.TEST_MODE) findSparkRArchive() else None
+    val sparkRArchive = if (!LivyConf.TEST_MODE) {
+      livyConf.findSparkRArchive(reqSparkVersion)
+    } else {
+      None
+    }
     sparkRArchive.foreach { archive =>
       builderProperties.put(RSCConf.Entry.SPARKR_PACKAGE.key(), archive + "#sparkr")
     }
@@ -333,9 +309,21 @@ object InteractiveSession extends Logging {
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
 
-    val (sparkMajorVersion, _) =
+    val (sparkMajorVersion, _) = if (livyConf.sparkVersions.isEmpty) {
       LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
-    val scalaVersion = livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
+    } else {
+      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
+        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+      val sparkVersion = livyConf.get(confKey)
+      info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
+      LivySparkUtils.formatSparkVersion(sparkVersion)
+    }
+
+    val scalaVersion = if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
+      livyConf.get(LIVY_SPARK_SCALA_VERSION.key + "." + reqSparkVersion.get)
+    } else {
+      livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
+    }
 
     mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)

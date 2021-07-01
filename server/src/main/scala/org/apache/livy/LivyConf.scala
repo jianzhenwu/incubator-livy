@@ -20,14 +20,19 @@ package org.apache.livy
 import java.io.File
 import java.lang.{Boolean => JBoolean, Long => JLong}
 import java.net.InetAddress
+import java.nio.file.{Files, Paths}
 import java.util.{Map => JMap}
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
 
 import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
+import org.apache.livy.rsc.RSCConf
+import org.apache.livy.server.interactive.InteractiveSession.warn
+
 
 object LivyConf {
 
@@ -42,8 +47,14 @@ object LivyConf {
   val TEST_MODE = ClientConf.TEST_MODE
 
   val SPARK_HOME = Entry("livy.server.spark-home", null)
+  val SPARK_CONF_DIR = Entry("livy.server.spark-conf-dir", null)
   val LIVY_SPARK_MASTER = Entry("livy.spark.master", "local")
   val LIVY_SPARK_DEPLOY_MODE = Entry("livy.spark.deploy-mode", null)
+
+  // Allow user use different versions of spark, it is required to set supported spark versions
+  // by this configuration
+  val LIVY_SPARK_VERSIONS = Entry("livy.server.spark.versions", null)
+  val LIVY_SPARK_DEFAULT_VERSION = Entry("livy.server.spark.versions.default", null)
 
   // Two configurations to specify Spark and related Scala version. These are internal
   // configurations will be set by LivyServer and used in session creation. It is not required to
@@ -389,6 +400,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   lazy val sparkFileLists = HARDCODED_SPARK_FILE_LISTS ++ configToSeq(SPARK_FILE_LISTS)
 
+  lazy val sparkVersions = configToSeq(LIVY_SPARK_VERSIONS)
+
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
    * @return
@@ -422,14 +435,87 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
   def sparkDeployMode(): Option[String] = Option(get(LIVY_SPARK_DEPLOY_MODE)).filterNot(_.isEmpty)
 
   /** Return the location of the spark home directory */
-  def sparkHome(): Option[String] = Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+  def sparkHome(versionConfKey: Option[String] = None): Option[String] = {
+    if (versionConfKey.nonEmpty){
+      Option(get(SPARK_HOME.key + "." + versionConfKey.get))
+        .orElse(throw new Exception(s"Cannot find spark home for version ${versionConfKey.get}"))
+    } else {
+      Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+    }
+  }
+
+  /** Return the location of the spark conf directory */
+  def sparkConfDir(versionConfKey: Option[String] = None): Option[String] = {
+    if (versionConfKey.nonEmpty){
+      Option(get(SPARK_CONF_DIR.key + "." + versionConfKey.get))
+    } else {
+      Option(get(SPARK_CONF_DIR)).orElse(Option(System.getenv("SPARK_CONF_DIR")))
+    }
+  }
+
+  /** Return the location of the PySparkArchives directory */
+  def findPySparkArchives(versionConfKey: Option[String] = None): Seq[String] = {
+    val pysparkArchives = if (versionConfKey.nonEmpty) {
+      Option(get(RSCConf.Entry.PYSPARK_ARCHIVES.key() + "."
+        + versionConfKey.get))
+    } else {
+      Option(get(RSCConf.Entry.PYSPARK_ARCHIVES))
+    }
+    pysparkArchives
+      .map(_.split(",").toSeq)
+      .getOrElse {
+         sparkHome(versionConfKey).map { case sparkHome =>
+          val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
+          val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
+          val py4jFile = Try {
+            Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
+              .iterator()
+              .next()
+              .toFile
+          }.toOption
+
+          if (!pyArchivesFile.exists()) {
+            warn("pyspark.zip not found; cannot start pyspark interpreter.")
+            Seq.empty
+          } else if (py4jFile.isEmpty || !py4jFile.get.exists()) {
+            warn("py4j-*-src.zip not found; can start pyspark interpreter.")
+            Seq.empty
+          } else {
+            Seq(pyArchivesFile.getAbsolutePath, py4jFile.get.getAbsolutePath)
+          }
+        }.getOrElse(Seq())
+      }
+  }
+
+  /** Return the location of the SparkRArchive directory */
+  def findSparkRArchive(versionConfKey: Option[String] = None): Option[String] = {
+    val rPackage = if (versionConfKey.nonEmpty) {
+      Option(get(RSCConf.Entry.SPARKR_PACKAGE.key() + "." + versionConfKey.get))
+    } else {
+      Option(get(RSCConf.Entry.SPARKR_PACKAGE))
+    }
+    rPackage
+      .orElse {
+        sparkHome(versionConfKey).flatMap { case sparkHome =>
+          val path = Seq(sparkHome, "R", "lib", "sparkr.zip").mkString(File.separator)
+          val rArchivesFile = new File(path)
+          if (rArchivesFile.exists()) {
+            Some(rArchivesFile.getAbsolutePath)
+          } else {
+            warn("sparkr.zip not found; cannot start R interpreter.")
+            None
+          }
+        }
+      }
+  }
 
   /** Return the spark master Livy sessions should use. */
   def sparkMaster(): String = get(LIVY_SPARK_MASTER)
 
   /** Return the path to the spark-submit executable. */
-  def sparkSubmit(): String = {
-    sparkHome().map { _ + File.separator + "bin" + File.separator + "spark-submit" }.get
+  def sparkSubmit(versionConfKey: Option[String] = None): String = {
+    sparkHome(versionConfKey).map { _ + File.separator + "bin" + File.separator +
+      "spark-submit" }.get
   }
 
   private val configDir: Option[File] = {

@@ -172,6 +172,56 @@ class BatchSessionSpec
         Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
     }
 
+    it("should init spark environment by request spark version") {
+      val req = new CreateBatchRequest()
+      req.file = script.toString
+      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
+      req.sparkVersion = Some("v3_0")
+      val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v3_0", "3.0")
+        .set(LivyConf.SPARK_HOME.key + ".v2_0", "file:///dummy-path/spark2")
+        .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v2_0", "2.11")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
+
+      val accessManager = new AccessManager(conf)
+      val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
+
+      batch.start()
+
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be(true)
+    }
+
+    it("should failed when unsupported request spark version") {
+      val req = new CreateBatchRequest()
+      req.file = script.toString
+      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
+      req.sparkVersion = Some("v3.2")
+      val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v3_0", "3.0")
+        .set(LivyConf.SPARK_HOME.key + ".v2_0", "file:///dummy-path/spark2")
+        .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v2_0", "2.11")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
+
+      val accessManager = new AccessManager(conf)
+      val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
+
+      val caught =
+        intercept[IllegalArgumentException] {
+          batch.start()
+        }
+      assert(caught.getMessage == "spark version is not support")
+    }
+
     def testRecoverSession(name: Option[String]): Unit = {
       val conf = new LivyConf()
       val req = new CreateBatchRequest()

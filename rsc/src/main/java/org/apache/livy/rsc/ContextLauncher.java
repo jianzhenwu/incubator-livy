@@ -239,7 +239,13 @@ class ContextLauncher {
       return new ChildProcess(conf, promise, child, confFile);
     } else {
       final SparkLauncher launcher = new SparkLauncher();
-      launcher.setSparkHome(System.getenv(SPARK_HOME_ENV));
+
+      String sparkHome = conf.get("livy.rsc.spark-home");
+      // unit test need get spark home from system env
+      if (sparkHome == null) {
+        sparkHome = System.getenv(SPARK_HOME_ENV);
+      }
+      launcher.setSparkHome(sparkHome);
       launcher.setAppResource(SparkLauncher.NO_RESOURCE);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
       launcher.setMainClass(RSCDriverBootstrapper.class.getName());
@@ -248,6 +254,7 @@ class ContextLauncher {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
 
+      LOG.debug("spark launcher launch with spark home {}.", sparkHome);
       return new ChildProcess(conf, promise, launcher.launch(), confFile);
     }
   }
@@ -277,9 +284,9 @@ class ContextLauncher {
     }
 
     // Load the default Spark configuration.
-    String confDir = System.getenv("SPARK_CONF_DIR");
-    if (confDir == null && System.getenv(SPARK_HOME_ENV) != null) {
-      confDir = System.getenv(SPARK_HOME_ENV) + File.separator + "conf";
+    String confDir = conf.get("livy.rsc.spark-conf-dir");
+    if (confDir == null && conf.get("livy.rsc.spark-home") != null) {
+      confDir = conf.get("livy.rsc.spark-home") + File.separator + "conf";
     }
 
     if (confDir != null) {
