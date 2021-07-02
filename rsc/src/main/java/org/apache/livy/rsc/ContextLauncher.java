@@ -32,6 +32,7 @@ import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -238,7 +239,14 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      final SparkLauncher launcher = new SparkLauncher();
+      // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+      Map<String, String> env = new HashMap<>();
+      if (conf.get("livy.rsc.hadoop-user-name") != null
+          && conf.get("livy.rsc.hadoop-user-rpcpassword") != null) {
+        env.put("HADOOP_USER_NAME", conf.get("livy.rsc.hadoop-user-name"));
+        env.put("HADOOP_USER_RPCPASSWORD", conf.get("livy.rsc.hadoop-user-rpcpassword"));
+      }
+      final SparkLauncher launcher = new SparkLauncher(env);
 
       String sparkHome = conf.get("livy.rsc.spark-home");
       // unit test need get spark home from system env

@@ -46,7 +46,8 @@ import org.apache.livy.sessions._
 import org.apache.livy.sessions.Session._
 import org.apache.livy.sessions.SessionState.Dead
 import org.apache.livy.utils._
-import org.apache.livy.LivyConf.{LIVY_SPARK_SCALA_VERSION}
+import org.apache.livy.LivyConf.LIVY_SPARK_SCALA_VERSION
+import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
 
 
 @JsonIgnoreProperties(ignoreUnknown = true)
@@ -118,6 +119,18 @@ object InteractiveSession extends Logging {
         .setURI(new URI("rsc:/"))
         .setConf("livy.rsc.spark-home", sparkHome.get)
         .setConf("livy.rsc.spark-conf-dir", sparkConfDir.orNull)
+
+      // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+      if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
+        HttpBasicAuthenticationHolder.get().fold {
+          builder.setConf("livy.rsc.hadoop-user-name", "")
+          builder.setConf("livy.rsc.hadoop-user-rpcpassword", "")
+        } { case (username, password) =>
+          builder.setConf("livy.rsc.hadoop-user-name", username)
+          builder.setConf("livy.rsc.hadoop-user-rpcpassword", password)
+        }
+      }
+
       Option(builder.build().asInstanceOf[RSCClient])
     }
 

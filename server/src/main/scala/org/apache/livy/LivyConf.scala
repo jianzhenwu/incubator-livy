@@ -83,6 +83,9 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
+  // If designation enabled, will export HADOOP_USER_NAME as session owner
+  val DESIGNATION_ENABLED = Entry("livy.designation.enabled", false)
+
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   // Allowed users to access Livy, by default any user is allowed to access Livy. If user want to
   // limit who could access Livy, user should list all the permitted users with comma

@@ -20,7 +20,7 @@ package org.apache.livy.server.hdfs
 import scala.sys.process.{Process, ProcessIO}
 
 import org.apache.livy.{LivyConf, Logging}
-
+import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
 
 class CmdManager(livyConf: LivyConf) extends Logging {
   def run(req: HdfsCommandRequest, curDir: String): HdfsCommandResponse = {
@@ -29,7 +29,20 @@ class CmdManager(livyConf: LivyConf) extends Logging {
     val stderrLen = livyConf.getInt(LivyConf.HDFS_COMMAND_STDERR_MAX_MESSAGE_SIZE)
     var outStr = new Array[Char](stdoutLen)
     var errStr = new Array[Char](stderrLen)
-    val pb = Process(req.cmd.mkString, new java.io.File(curDir))
+
+    // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+    val envs = collection.mutable.Map[String, String]()
+    if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
+      HttpBasicAuthenticationHolder.get().fold {
+        envs("HADOOP_USER_NAME") = ""
+        envs("HADOOP_USER_RPCPASSWORD") = ""
+      } { case (username, password) =>
+        envs("HADOOP_USER_NAME") = username
+        envs("HADOOP_USER_RPCPASSWORD") = password
+      }
+    }
+
+    val pb = Process(req.cmd.mkString, new java.io.File(curDir), envs.toSeq: _*)
     val pio = new ProcessIO(_ => (),
       stdout =>
         scala.io.Source.fromInputStream(stdout).copyToArray(outStr, 0, stdoutLen),

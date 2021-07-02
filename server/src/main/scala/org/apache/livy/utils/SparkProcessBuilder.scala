@@ -22,6 +22,7 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
 
 class SparkProcessBuilder(livyConf: LivyConf,
                           reqSparkVersion: Option[String] = None) extends Logging {
@@ -215,6 +216,17 @@ class SparkProcessBuilder(livyConf: LivyConf,
       val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
       if (sparkConfDir.nonEmpty) {
         env.put("SPARK_CONF_DIR", sparkConfDir.get)
+      }
+    }
+
+    // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+    if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
+      HttpBasicAuthenticationHolder.get().fold {
+        env.put("HADOOP_USER_NAME", "")
+        env.put("HADOOP_USER_RPCPASSWORD", "")
+      } { case (username, password) =>
+        env.put("HADOOP_USER_NAME", username)
+        env.put("HADOOP_USER_RPCPASSWORD", password)
       }
     }
 
