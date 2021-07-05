@@ -261,6 +261,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     }
     session match {
       case Some(session) =>
+        Metrics().incrementCounter(MetricsKey.REST_SESSION_FOUND_IN_MANAGER_COUNT)
         if (allowAll ||
             checkFn.map(_(session.owner,
                           effectiveUser(request),
@@ -278,9 +279,11 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
         }).orElse(None)
 
         if(serverNode.isEmpty) {
+          Metrics().incrementCounter(MetricsKey.REST_SESSION_FOUND_IN_NOWHERE_COUNT)
           // session id is None, session allocator is None or cannot recognize session id
           NotFound(ResponseMessage(s"Session '$idOrNameParam' not found."))
         } else {
+          Metrics().incrementCounter(MetricsKey.REST_SESSION_FOUND_IN_ALLOCATOR_COUNT)
           if (serverNode.get.serverMetadata == livyConf.serverMetadata()) {
             sessionManager.recover(sessionId.get)
             doWithSession(fn, allowAll, checkFn)
