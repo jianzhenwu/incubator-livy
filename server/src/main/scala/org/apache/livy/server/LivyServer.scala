@@ -180,9 +180,7 @@ class LivyServer extends Logging {
     }
 
     if (livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper" ||
-        livyConf.getBoolean(LivyConf.CLUSTER_ENABLED) ||
-        livyConf.get(LivyConf.SESSION_ID_GENERATOR_CLASS) ==
-          "org.apache.livy.sessions.ZookeeperSessionIdGenerator") {
+        livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
       zkManager = Some(new ZooKeeperManager(livyConf))
       zkManager.foreach(_.start())
     }

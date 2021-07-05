@@ -34,7 +34,13 @@ object SessionIdGenerator extends Logging {
   def apply(livyConf: LivyConf, sessionStore: SessionStore, clusterManager: Option[ClusterManager],
       zooKeeperManager: Option[ZooKeeperManager]): SessionIdGenerator = {
     try {
-      val clz: Class[_] = Class.forName(livyConf.get(LivyConf.SESSION_ID_GENERATOR_CLASS))
+      val clz: Class[_] = if (livyConf.get(LivyConf.SESSION_ID_GENERATOR_CLASS) != null) {
+        Class.forName(livyConf.get(LivyConf.SESSION_ID_GENERATOR_CLASS))
+      } else if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+        classOf[ZookeeperStateStoreSessionIdGenerator]
+      } else {
+        classOf[InMemorySessionIdGenerator]
+      }
       val constructor: Constructor[_] = clz.getConstructor(classOf[LivyConf], classOf[SessionStore],
         classOf[Option[ClusterManager]], classOf[Option[ZooKeeperManager]])
       constructor.newInstance(livyConf, sessionStore, clusterManager, zooKeeperManager)
@@ -91,7 +97,7 @@ class InMemorySessionIdGenerator(
   }
 }
 
-class ZookeeperSessionIdGenerator(
+class ZookeeperStateStoreSessionIdGenerator(
     livyConf: LivyConf,
     sessionStore: SessionStore,
     clusterManager: Option[ClusterManager],
@@ -100,16 +106,15 @@ class ZookeeperSessionIdGenerator(
     clusterManager, optionZooKeeperManager)
   with Logging {
 
-  require(optionZooKeeperManager.isDefined, "ZookeeperSessionIdGenerator requires zooKeeperManager")
+  require(optionZooKeeperManager.isDefined,
+    "ZookeeperStateStoreSessionIdGenerator requires zooKeeperManager")
+  require(livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper",
+    "ZookeeperStateStoreSessionIdGenerator only works with ZookeeperSateStore")
   val zooKeeperManager = optionZooKeeperManager.get
 
   private def sessionManagerPath(sessionType: String): String = {
-    Option(livyConf.get(LivyConf.SESSION_ID_GENERATOR_ZK_KEY_PREFIX))
-      .map(c => s"${c}/$sessionType")
-      .getOrElse({
-        val stateStoreKeyPrefix = livyConf.get(LivyConf.RECOVERY_ZK_STATE_STORE_KEY_PREFIX)
-        s"/$stateStoreKeyPrefix/${sessionStore.sessionManagerPath(sessionType)}"
-      })
+    val stateStoreKeyPrefix = livyConf.get(LivyConf.RECOVERY_ZK_STATE_STORE_KEY_PREFIX)
+    s"/$stateStoreKeyPrefix/${sessionStore.sessionManagerPath(sessionType)}"
   }
 
   override def nextId(sessionType: String): Int = synchronized {

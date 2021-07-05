@@ -302,6 +302,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val conf = new LivyConf()
       conf.set(LivyConf.LIVY_SPARK_MASTER.key, "yarn-cluster")
       conf.set(LivyConf.CLUSTER_ENABLED, true)
+      conf.set(LivyConf.RECOVERY_STATE_STORE, "zookeeper")
 
       val sessionType = "batch"
       val sessionPath = s"v1/$sessionType"
@@ -318,7 +319,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       val sessionStore = new SessionStore(conf, stateStore)
       val zooKeeperManager = mock[ZooKeeperManager]
-      val sessionIdGenerator = new ZookeeperSessionIdGenerator(conf, sessionStore,
+      val sessionIdGenerator = new ZookeeperStateStoreSessionIdGenerator(conf, sessionStore,
         None, Option(zooKeeperManager))
 
       val sm = new BatchSessionManager(conf, sessionStore, sessionIdGenerator)

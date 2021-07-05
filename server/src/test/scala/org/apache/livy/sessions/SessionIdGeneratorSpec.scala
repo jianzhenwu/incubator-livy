@@ -55,12 +55,13 @@ class SessionIdGeneratorSpec extends FunSpec with Matchers with LivyBaseUnitTest
     }
   }
 
-  describe("ZookeeperSessionIdGenerator") {
+  describe("ZookeeperStateStoreSessionIdGenerator") {
     it("session id should increment based on different type") {
       val server = new TestingServer(3131)
       try {
         val livyConf = new LivyConf()
           .set(LivyConf.ZOOKEEPER_URL, "localhost:3131")
+          .set(LivyConf.RECOVERY_STATE_STORE, "zookeeper")
         val sessionStore = mock[SessionStore]
         when(sessionStore.sessionManagerPath(anyString())).thenAnswer(
           new Answer[String]() {
@@ -73,8 +74,8 @@ class SessionIdGeneratorSpec extends FunSpec with Matchers with LivyBaseUnitTest
         val zkManager = new ZooKeeperManager(livyConf)
         zkManager.start()
 
-        val sessionIdGenerator = new ZookeeperSessionIdGenerator(livyConf, sessionStore, None,
-          Option(zkManager))
+        val sessionIdGenerator = new ZookeeperStateStoreSessionIdGenerator(livyConf, sessionStore,
+          None, Option(zkManager))
 
         sessionIdGenerator.nextId("type1") should be(0)
         sessionIdGenerator.nextId("type2") should be(0)
@@ -83,29 +84,6 @@ class SessionIdGeneratorSpec extends FunSpec with Matchers with LivyBaseUnitTest
 
         zkManager.get[SessionManagerState]("/livy/type1/state").get.nextSessionId should be(2)
         zkManager.get[SessionManagerState]("/livy/type2/state").get.nextSessionId should be(2)
-
-        zkManager.stop()
-      } finally {
-        server.stop()
-      }
-    }
-    it("session id should to config path") {
-      val server = new TestingServer(3131)
-      try {
-        val livyConf = new LivyConf()
-          .set(LivyConf.ZOOKEEPER_URL, "localhost:3131")
-          .set(LivyConf.SESSION_ID_GENERATOR_ZK_KEY_PREFIX, "/livy/session-ids")
-        val sessionStore = mock[SessionStore]
-        val zkManager = new ZooKeeperManager(livyConf)
-        zkManager.start()
-
-        val sessionIdGenerator = new ZookeeperSessionIdGenerator(livyConf, sessionStore, None,
-          Option(zkManager))
-
-        sessionIdGenerator.nextId("type1") should be(0)
-        sessionIdGenerator.nextId("type1") should be(1)
-
-        zkManager.get[SessionManagerState]("/livy/session-ids/type1").get.nextSessionId should be(2)
 
         zkManager.stop()
       } finally {
