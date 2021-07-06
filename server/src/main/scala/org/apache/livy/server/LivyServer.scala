@@ -41,7 +41,7 @@ import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.auth.LdapAuthenticationHandlerImpl
 import org.apache.livy.server.batch.BatchSessionServlet
 import org.apache.livy.server.event.Events
-import org.apache.livy.server.hdfs.{CmdManager, HdfsServlet}
+import org.apache.livy.server.hdfs.HdfsServlet
 import org.apache.livy.server.interactive.InteractiveSessionServlet
 import org.apache.livy.server.recovery.{SessionStore, StateStore, ZooKeeperManager}
 import org.apache.livy.server.ui.{JmxJsonServlet, UIServlet}
@@ -272,7 +272,7 @@ class LivyServer extends Logging {
             mount(context, batchServlet, "/batches/*")
 
             val hdfsServlet =
-              new HdfsServlet(livyConf, new CmdManager(livyConf))
+              new HdfsServlet(livyConf)
             mount(context, hdfsServlet, "/hdfs/*")
 
             if (livyConf.getBoolean(UI_ENABLED)) {

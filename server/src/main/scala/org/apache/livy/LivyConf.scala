@@ -315,10 +315,8 @@ object LivyConf {
     "org.apache.livy.server.event.LoggingEventListener")
 
   // Hdfs command support configuration
-  val HDFS_COMMAND_STDOUT_MAX_MESSAGE_SIZE =
-    Entry("livy.server.hdfs.stdout.max.size", 1 * 1024 * 1024)
-  val HDFS_COMMAND_STDERR_MAX_MESSAGE_SIZE =
-    Entry("livy.server.hdfs.stderr.max.size", 1 * 1024 * 1024)
+  val HDFS_COMMAND_LOGS_SIZE =
+    Entry("livy.server.hdfs.log.size", 1 * 1024 * 1024)
 
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"

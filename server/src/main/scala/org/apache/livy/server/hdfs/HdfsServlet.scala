@@ -17,7 +17,8 @@
 
 package org.apache.livy.server.hdfs
 
-import org.scalatra.{BadRequest, ContentEncodingSupport, InternalServerError, MethodOverride, Ok, UrlGeneratorSupport}
+import org.scalatra.{BadRequest, ContentEncodingSupport, InternalServerError,
+  MethodOverride, Ok, UrlGeneratorSupport}
 
 import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.server.{ApiVersioningSupport, JsonServlet}
@@ -25,13 +26,14 @@ import org.apache.livy.server.{ApiVersioningSupport, JsonServlet}
 object HdfsServlet extends Logging
 
 class HdfsServlet(
-    livyConf: LivyConf,
-    cmdManager: CmdManager)
+    livyConf: LivyConf)
   extends JsonServlet
     with ApiVersioningSupport
     with MethodOverride
     with UrlGeneratorSupport
     with ContentEncodingSupport {
+
+  val HDFS_COMMAND_REGEX = "^(hadoop fs|hadoop dfs|hdfs dfs) (.*)".r
 
   error {
     case e: IllegalArgumentException =>
@@ -42,18 +44,30 @@ class HdfsServlet(
       InternalServerError(e.toString)
   }
 
-  def validation(req: HdfsCommandRequest): Unit = {
-    val cmd = req.cmd.mkString.trim
-
-    require(req.cmd != "", "No command provided.")
-    require(cmd.startsWith("hadoop fs") || cmd.startsWith("hdfs"), "Invalid operation: " + cmd)
-  }
-
   jpost[HdfsCommandRequest]("/cmd") { req =>
-    validation(req)
+    val cmd = req.cmd.trim
 
-    val hadoopHome = sys.env.get("HADOOP_HOME")
-    val res = cmdManager.run(req, hadoopHome.mkString)
+    if (!LivyConf.TEST_MODE) {
+      cmd match {
+        case HDFS_COMMAND_REGEX(_, _) =>
+        case _ => throw new IllegalArgumentException("Invalid operation: " + cmd)
+      }
+    }
+
+    val builder = new HdfsCmdProcessBuilder(livyConf)
+    val hdfsProcess = builder.start(cmd)
+
+    val exitCode = hdfsProcess.waitFor()
+    exitCode match {
+      case 0 =>
+      case exitCode =>
+        HdfsServlet.warn(s"hadoop exited with code $exitCode")
+    }
+
+    val output = hdfsProcess.inputIterator.mkString("\n")
+    val err = hdfsProcess.errorIterator.mkString("\n")
+
+    val res = HdfsCommandResponse(exitCode, output, err)
     Ok(res)
   }
 }

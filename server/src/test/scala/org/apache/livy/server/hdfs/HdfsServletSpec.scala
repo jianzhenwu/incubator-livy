@@ -17,12 +17,9 @@
 
 package org.apache.livy.server.hdfs
 
-import javax.servlet.http.HttpServletResponse.{SC_BAD_REQUEST, SC_OK}
+import javax.servlet.http.HttpServletResponse
 
-import org.mockito.Matchers.any
-import org.mockito.Mockito._
 import org.scalatest.BeforeAndAfterAll
-import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.LivyConf
 import org.apache.livy.server.BaseJsonServletSpec
@@ -34,11 +31,10 @@ class HdfsServletSpec
     new LivyConf()
   }
 
-  val mockCmdManager = mock[CmdManager]
 
   def createServlet(): HdfsServlet = {
     val livyConf = createConf()
-    new HdfsServlet(livyConf, mockCmdManager)
+    new HdfsServlet(livyConf)
   }
 
   protected val servlet = createServlet
@@ -46,20 +42,11 @@ class HdfsServletSpec
   addServlet(servlet, "/hdfs/*")
 
   describe("HdfsServlet") {
-    it("should run successfully with hdfs command") {
-      when(mockCmdManager.run(any(), any()))
-        .thenReturn(new HdfsCommandResponse(0, "", ""))
-      val hdfsCommand = new HdfsCommandRequest("hadoop fs -ls /")
-      jpost[HdfsCommandResponse]("/hdfs/cmd", hdfsCommand, SC_OK) { res =>
+    it("should run command successfully") {
+      val hdfsCommand = new HdfsCommandRequest("ls /tmp")
+      jpost[HdfsCommandResponse]("/hdfs/cmd", hdfsCommand, HttpServletResponse.SC_OK) { res =>
         res.exitCode should equal (0)
       }
     }
-
-    it("should run failed with invalid hdfs command") {
-      val invalidCmd = new HdfsCommandRequest("sudo su")
-      jpost[HdfsCommandResponse]("/hdfs/cmd", invalidCmd, SC_BAD_REQUEST) { _ =>
-      }
-    }
-
   }
 }
