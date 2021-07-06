@@ -22,6 +22,7 @@ import java.io.File
 import scala.collection.mutable.ArrayBuffer
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
 import org.apache.livy.utils.LineBufferedProcess
 
 
@@ -37,7 +38,21 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
 
   def start(cmd: String): LineBufferedProcess = {
     info(s"executing ${cmd}")
+
     val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
+
+    // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+    val env = pb.environment()
+    if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
+      HttpBasicAuthenticationHolder.get().fold {
+        env.put("HADOOP_USER_NAME", "")
+        env.put("HADOOP_USER_RPCPASSWORD", "")
+      } { case (username, password) =>
+        env.put("HADOOP_USER_NAME", username)
+        env.put("HADOOP_USER_RPCPASSWORD", password)
+      }
+    }
+
     pb.directory(new File(sys.env.getOrElse("HADOOP_HOME",
       throw new Exception("HADOOP_HOME env not found")) + File.separator + "bin"))
     pb.redirectErrorStream(true)
