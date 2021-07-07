@@ -48,7 +48,6 @@ class CreateBatchRequestSpec extends FunSpec with LivyBaseUnitTestSuite {
       assert(req.queue === None)
       assert(req.name === None)
       assert(req.conf === Map())
-      assert(req.sparkVersion === None)
     }
 
   }

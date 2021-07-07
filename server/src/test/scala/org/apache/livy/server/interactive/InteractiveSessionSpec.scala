@@ -76,7 +76,10 @@ class InteractiveSessionSpec extends FunSpec
       SparkLauncher.DRIVER_EXTRA_CLASSPATH -> sys.props("java.class.path"),
       RSCConf.Entry.LIVY_JARS.key() -> ""
     )
-    req.sparkVersion = reqSparkVersion
+    if (reqSparkVersion.isDefined) {
+      req.conf ++= Map("spark.livy.spark_version_name" -> reqSparkVersion.get)
+    }
+
     InteractiveSession.create(0, None, null, None, conf, accessManager, req,
       sessionStore, mockApp)
   }

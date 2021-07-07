@@ -77,13 +77,10 @@ object BatchSession extends Logging {
           request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
       require(request.file != null, "File is required.")
 
-      val reqSparkVersion = if (request.sparkVersion.isDefined) {
-        if (!livyConf.sparkVersions.contains(request.sparkVersion.get)) {
+      val reqSparkVersion = request.conf.get("spark.livy.spark_version_name")
+      if (reqSparkVersion.isDefined &&
+        !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
           throw new IllegalArgumentException("spark version is not support")
-        }
-        request.sparkVersion
-      } else {
-        None
       }
 
       val builder = new SparkProcessBuilder(livyConf, reqSparkVersion)

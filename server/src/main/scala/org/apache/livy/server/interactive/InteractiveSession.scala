@@ -84,12 +84,18 @@ object InteractiveSession extends Logging {
     val appTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
+    val reqSparkVersion = request.conf.get("spark.livy.spark_version_name")
+    if (reqSparkVersion.isDefined &&
+      !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
+      throw new IllegalArgumentException("spark version is not support")
+    }
+
     val client = mockClient.orElse {
       val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
         request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
       val builderProperties = prepareBuilderProp(conf, request.kind, livyConf,
-        request.sparkVersion)
+        reqSparkVersion)
 
       val userOpts: Map[String, Option[String]] = Map(
         "spark.driver.cores" -> request.driverCores.map(_.toString),
@@ -107,8 +113,8 @@ object InteractiveSession extends Logging {
 
       builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
 
-      val sparkHome = livyConf.sparkHome(request.sparkVersion)
-      val sparkConfDir = livyConf.sparkConfDir(request.sparkVersion)
+      val sparkHome = livyConf.sparkHome(reqSparkVersion)
+      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
       info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
         s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
       val builder = new LivyClientBuilder()

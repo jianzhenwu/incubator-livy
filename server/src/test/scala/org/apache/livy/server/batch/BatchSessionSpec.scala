@@ -175,8 +175,10 @@ class BatchSessionSpec
     it("should init spark environment by request spark version") {
       val req = new CreateBatchRequest()
       req.file = script.toString
-      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
-      req.sparkVersion = Some("v3_0")
+      req.conf = Map(
+        "spark.driver.extraClassPath" -> sys.props("java.class.path"),
+        "spark.livy.spark_version_name" -> "v3_0"
+      )
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
         .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
         .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
@@ -201,8 +203,10 @@ class BatchSessionSpec
     it("should failed when unsupported request spark version") {
       val req = new CreateBatchRequest()
       req.file = script.toString
-      req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
-      req.sparkVersion = Some("v3.2")
+      req.conf = Map(
+        "spark.driver.extraClassPath" -> sys.props("java.class.path"),
+        "spark.livy.spark_version_name" -> "v3.2"
+      )
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
         .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
         .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
