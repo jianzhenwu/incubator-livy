@@ -21,7 +21,7 @@ import java.lang.reflect.{Constructor, InvocationTargetException}
 import java.util.concurrent.atomic.AtomicInteger
 
 import scala.reflect.ClassTag
-import scala.util.Random
+import scala.util.{Random, Try}
 import scala.util.hashing.MurmurHash3
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
@@ -88,6 +88,10 @@ abstract class SessionAllocator(
   def onServerJoin(serverNode: ServerNode): Unit
 
   def onServerLeave(serverNode: ServerNode): Unit
+
+  def getAllSessions[T <: RecoveryMetadata : ClassTag](
+        sessionType: String,
+        serverMetadata: Option[ServerMetadata] = None): Seq[Try[T]]
 }
 
 class StateStoreMappingSessionAllocator(
@@ -197,6 +201,12 @@ class StateStoreMappingSessionAllocator(
       error("Server leaves cluster, exit to reset SessionManager")
       System.exit(-1)
     }
+  }
+
+  override def getAllSessions[T <: RecoveryMetadata : ClassTag](
+      sessionType: String,
+      serverMetadata: Option[ServerMetadata]): Seq[Try[T]] = {
+    sessionStore.getAllSessions(sessionType, serverMetadata)
   }
 }
 

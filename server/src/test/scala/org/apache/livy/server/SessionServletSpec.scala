@@ -20,12 +20,16 @@ package org.apache.livy.server
 import javax.servlet.http.HttpServletRequest
 import javax.servlet.http.HttpServletResponse._
 
+import scala.collection.mutable.ArrayBuffer
+import scala.util.Success
+
+import com.squareup.okhttp.{CacheControl, Request}
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{LivyConf, ServerMetadata}
 import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
-import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSession, MockSessionView}
+import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSession, MockSessionView, MockSessionViews}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager, SessionState}
 import org.apache.livy.sessions.Session.RecoveryMetadata
@@ -54,6 +58,8 @@ object SessionServletSpec {
   }
 
   case class MockSessionView(id: Int, owner: String, proxyUser: Option[String], logs: Seq[String])
+
+  case class MockSessionViews(total: Int, from: Int, sessions: Seq[MockSessionView])
 
   def createServlet(conf: LivyConf): SessionServlet[Session, RecoveryMetadata] = {
     val sessionManager = new SessionManager[Session, RecoveryMetadata](
@@ -86,6 +92,18 @@ object SessionServletSpec {
           Nil
         }
         MockSessionView(session.id, session.owner, session.proxyUser, logs)
+      }
+
+      override protected def filterBySearchKey(recoveryMetadata: RecoveryMetadata,
+                                               searchKey: Option[String]): Boolean = {
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
+          None, recoveryMetadata.serverMetadata, searchKey.get)
+      }
+
+      override protected def filterBySearchKey(session: Session,
+                                               searchKey: Option[String]): Boolean = {
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
+          session.name, session.recoveryMetadata.serverMetadata, searchKey.get)
       }
     }
   }
@@ -148,6 +166,12 @@ object SessionServletSpec {
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 210))
       .thenReturn(None)
 
+    when(sessionAllocator.getAllSessions[MockRecoveryMetadata](
+      sessionManager.sessionType(), serverMetadata = None))
+      .thenReturn(ArrayBuffer(Success[MockRecoveryMetadata](MockRecoveryMetadata(100,
+        serverNode127.serverMetadata))))
+
+
     new SessionServlet(sessionManager,
                        Some(sessionAllocator),
                        Some(clusterManager),
@@ -174,6 +198,39 @@ object SessionServletSpec {
           Nil
         }
         MockSessionView(session.id, session.owner, session.proxyUser, logs)
+      }
+
+      override protected def clientSessionView(recoverMetadata: MockRecoveryMetadata,
+                                               req: HttpServletRequest): Any = {
+        try {
+          val scheme = req.getScheme
+          val host = req.serverName
+          val port = req.serverPort
+          val path = url(getSession, "id" -> recoverMetadata.id.toString)
+          val requestUrl = s"$scheme://$host:$port$path"
+          val res = httpClient.newCall(new Request.Builder()
+            .url(requestUrl).cacheControl(CacheControl.FORCE_NETWORK).build()).execute()
+
+          return objectMapper.readValue(res.body().string(), classOf[MockSessionView])
+        } catch {
+          case e: Throwable =>
+            SessionServlet.error(s"Error when executing request: ${req.getRequestURL}\n" +
+              s"SessionId: ${recoverMetadata.id}\n" +
+              s"Error message: ${e.getMessage}")
+        }
+        MockSessionView(recoverMetadata.id, "", Option(""), Seq.empty[String])
+      }
+
+      override protected def filterBySearchKey(recoveryMetadata: MockRecoveryMetadata,
+                                               searchKey: Option[String]): Boolean = {
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
+          None, recoveryMetadata.serverMetadata, searchKey.get)
+      }
+
+      override protected def filterBySearchKey(session: MockSession,
+                                               searchKey: Option[String]): Boolean = {
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
+          session.name, session.recoveryMetadata.serverMetadata, searchKey.get)
       }
     }
   }
@@ -520,6 +577,24 @@ class ClusterEnabledSessionServletSpec
       jget[MockSessionView](s"/mocks/103") { res =>
         res.id should be(103)
         res.owner should be("alice")
+      }
+    }
+
+    it("should get sessions in cluster") {
+      jget[MockSessionViews]("/mocks") { res =>
+        res.total should be(1)
+        res.from should be(0)
+        res.sessions.head.id should be(100)
+        res.sessions.head.owner should be("alice")
+      }
+    }
+
+    it("should get sessions in cluster with filter") {
+      jget[MockSessionViews]("/mocks?searchKey=127.0.0.1") { res =>
+        res.total should be(1)
+        res.from should be(0)
+        res.sessions.head.id should be(100)
+        res.sessions.head.owner should be("alice")
       }
     }
   }

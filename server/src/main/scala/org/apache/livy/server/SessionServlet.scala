@@ -21,12 +21,16 @@ import java.net.URI
 import java.security.AccessControlException
 import javax.servlet.http.HttpServletRequest
 
-import org.scalatra._
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.reflect.ClassTag
+import scala.reflect.{classTag, ClassTag}
+import scala.util.{Failure, Success, Try}
 
-import org.apache.livy.{LivyConf, Logging}
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.squareup.okhttp.{OkHttpClient, Request}
+import org.scalatra._
+
+import org.apache.livy.{LivyConf, Logging, ServerMetadata}
 import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.RSCClientFactory
@@ -55,6 +59,12 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   with UrlGeneratorSupport
   with ContentEncodingSupport
 {
+  val httpClient: OkHttpClient = new OkHttpClient()
+  val objectMapper: ObjectMapper = new ObjectMapper()
+    .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
+
+
+
   /**
    * Creates a new session based on the current request. The implementation is responsible for
    * parsing the body of the request.
@@ -65,6 +75,18 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    * Returns a object representing the session data to be sent back to the client.
    */
   protected def clientSessionView(session: S, req: HttpServletRequest): Any = session
+
+  protected def clientSessionView(recoverMetadata: R, req: HttpServletRequest): Any = session
+
+  /**
+   * Return true when one of appId, name, serverMetadata matches searchKey.
+   */
+  protected def filterBySearchKey(recoveryMetadata: R, searchKey: Option[String]): Boolean
+
+  /**
+   * Return true when one of appId, name, serverMetadata matches searchKey.
+   */
+  protected def filterBySearchKey(session: S, searchKey: Option[String]): Boolean
 
   override def shutdown(): Unit = {
     sessionManager.shutdown()
@@ -77,16 +99,34 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   get("/") {
     val from = params.get("from").map(_.toInt).getOrElse(0)
     val size = params.get("size").map(_.toInt).getOrElse(100)
-
+    val searchKey = params.get("searchKey")
     Metrics().startStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
-    val sessions = sessionManager.all()
-    Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+    if(livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
 
-    Map(
-      "from" -> from,
-      "total" -> sessionManager.size(),
-      "sessions" -> sessions.view(from, from + size).map(clientSessionView(_, request))
-    )
+      val sessions = sessionAllocator.map(e => {
+        e.getAllSessions[R](sessionManager.sessionType(), None)
+      }).orElse(Some(Seq(Failure(null))))
+        .get
+        .filter(e => e.isSuccess && filterBySearchKey(e.get, searchKey))
+
+      Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+      Map(
+        "from" -> from,
+        "total" -> sessions.size,
+        "sessions" -> sessions.view(from, from + size)
+          .map(e => clientSessionView(e.get, request))
+      )
+    } else {
+      val sessions = sessionManager.all().filter(filterBySearchKey(_, searchKey))
+      Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+      Map(
+        "from" -> from,
+        "total" -> sessionManager.size(),
+        "sessions" -> sessions.view(from, from + size)
+          .map(e => clientSessionView(e, request))
+      )
+    }
+
   }
 
   val getSession = get("/:id") {
@@ -316,4 +356,41 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
 
     (from, lines.length, lines.view(from, until))
   }
+
+
+  protected def remoteSessionView[T: ClassTag](
+      recoveryMetadata: R,
+      req: HttpServletRequest) : Try[T] = {
+    val serverNode: Option[ServerNode] = sessionAllocator.get
+      .findServer(sessionManager.sessionType(), recoveryMetadata.id)
+    val host = serverNode.get.host
+    val port = serverNode.get.port
+    val path = url(getSession, "id" -> recoveryMetadata.id.toString)
+    val scheme = req.getScheme
+    val requestUrl = s"$scheme://$host:$port$path"
+    val res = httpClient.newCall(new Request.Builder().url(requestUrl).build()).execute()
+    try {
+      Success(objectMapper.readValue(res.body().string(), classTag[T].runtimeClass).asInstanceOf[T])
+    } catch {
+      case exception: Throwable => Failure(exception)
+    }
+  }
+
+
+  /**
+   * Return true when appId, name or serverMetadata match searchKey which is not empty.
+   */
+  protected def filterBySearchKey(
+      appId: Option[String],
+      name: Option[String],
+      serverMetadata: ServerMetadata,
+      searchKey: String): Boolean = {
+
+    def matchSearchKey(value: Option[String], searchKey: String): Boolean = {
+      value.exists(_.trim.nonEmpty) && value.get.trim.contains(searchKey.trim)
+    }
+    matchSearchKey(appId, searchKey) || matchSearchKey(name, searchKey) ||
+      (serverMetadata != null && matchSearchKey(Option(serverMetadata.toString()), searchKey))
+  }
+
 }

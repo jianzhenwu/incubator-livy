@@ -24,6 +24,7 @@ import javax.servlet.http.HttpServletRequest
 import scala.collection.JavaConverters._
 import scala.concurrent._
 import scala.concurrent.duration._
+import scala.util.Try
 
 import org.json4s.jackson.Json4sScalaModule
 import org.scalatra._
@@ -38,6 +39,7 @@ import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.server.{AccessManager, SessionServlet}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions._
+import org.apache.livy.utils.AppInfo
 
 object InteractiveSessionServlet extends Logging
 
@@ -97,6 +99,32 @@ class InteractiveSessionServlet(
     new SessionInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
       session.proxyUser.orNull, session.state.toString, session.kind.toString,
       session.appInfo.asJavaMap, logs.asJava)
+  }
+
+  override protected[interactive] def clientSessionView(
+      meta: InteractiveRecoveryMetadata,
+      req: HttpServletRequest): Any = {
+    if (accessManager.hasViewAccess(meta.owner,
+      effectiveUser(req),
+      meta.proxyUser.getOrElse(""))) {
+
+      val sessionView: Try[SessionInfo] = remoteSessionView[SessionInfo](meta, req)
+      if (sessionView.isSuccess) {
+        return sessionView.get
+      }
+      InteractiveSessionServlet.error(s"Error when executing request: ${req.getRequestURL}\n" +
+        s"SessionId: ${meta.id}\n" +
+        s"Error message: ${sessionView.failed.get.getMessage}")
+    }
+    new SessionInfo(meta.id,
+      meta.name.getOrElse(""),
+      meta.appId.getOrElse(""),
+      meta.owner,
+      meta.proxyUser.getOrElse(""),
+      "",
+      meta.kind.toString,
+      new AppInfo().asJavaMap,
+      new java.util.ArrayList[String]())
   }
 
   post("/:id/stop") {
@@ -274,4 +302,21 @@ class InteractiveSessionServlet(
     val uri = new URI(req.uri)
     session.addJar(uri)
   }
+
+  protected def filterBySearchKey(
+      recoveryMetadata: InteractiveRecoveryMetadata,
+      searchKey: Option[String]): Boolean = {
+    !searchKey.exists(_.trim.nonEmpty) ||
+      filterBySearchKey(recoveryMetadata.appId, recoveryMetadata.name,
+        recoveryMetadata.serverMetadata, searchKey.get)
+  }
+
+  protected def filterBySearchKey(
+      session: InteractiveSession,
+      searchKey: Option[String]): Boolean = {
+    !searchKey.exists(_.trim.nonEmpty) ||
+      filterBySearchKey(session.appId, session.name,
+        session.recoveryMetadata.serverMetadata, searchKey.get)
+  }
+
 }

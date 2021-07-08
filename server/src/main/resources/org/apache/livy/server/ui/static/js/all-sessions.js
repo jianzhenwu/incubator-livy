@@ -19,68 +19,99 @@ function escapeHtml(unescapedText) {
   return $("<div>").text(unescapedText).html()
 }
 
-function loadSessionsTable(sessions) {
-  $.each(sessions, function(index, session) {
-    $("#interactive-sessions .sessions-table-body").append(
-      "<tr>" +
-        tdWrap(uiLink("session/" + session.id, session.id)) +
-        tdWrap(appIdLink(session)) +
-        tdWrap(escapeHtml(session.name)) +
-        tdWrap(session.owner) +
-        tdWrap(session.proxyUser) +
-        tdWrap(session.kind) +
-        tdWrap(session.state) +
-        tdWrap(logLinks(session, "session")) +
-        "</tr>"
-    );
+function loadSessionsTable() {
+  $("#interactive-sessions-table").DataTable({
+    autoWidth: true,
+    paging: true,
+    bLengthChange: true,
+    bFilter: true,
+    serverSide: true,
+    ajax: function (data, callback, settings) {
+      let params = {
+        from: data.start,
+        size: data.length,
+        searchKey: data.search.value
+      }
+      $.ajax({
+        type: "GET",
+        url: "/sessions",
+        cache: false,
+        data: params,
+        dataType: "json",
+        success: function (res) {
+          let returnData = {};
+          returnData.recordsTotal = res.total;
+          returnData.recordsFiltered = res.total;
+          returnData.data = res.sessions;
+          if (res.total === 0) {
+            $("#all-sessions").append('<h4>No Sessions have been created yet.</h4>');
+          }
+          callback(returnData)
+        }
+      });
+    },
+    columns: [
+      {data: "id", render: function (data, type, row, meta) {return uiLink("session/" + row.id, row.id)}},
+      {data: "id", render: function (data, type, row, meta) { return appIdLink(row)}},
+      {data: "name", render: function (data, type, row, meta) { return escapeHtml(data)}},
+      {data: "owner", "defaultContent": "NULL"},
+      {data: "proxyUser", "defaultContent": "NULL"},
+      {data: "kind", "defaultContent": "NULL"},
+      {data: "state"},
+      {data: "id", render: function (data, type, row, meta) {return logLinks(row, "session")}},
+    ]
   });
 }
 
-function loadBatchesTable(sessions) {
-  $.each(sessions, function(index, session) {
-    $("#batches .sessions-table-body").append(
-      "<tr>" +
-        tdWrap(session.id) +
-        tdWrap(appIdLink(session)) +
-        tdWrap(escapeHtml(session.name)) +
-        tdWrap(session.owner) +
-        tdWrap(session.proxyUser) +
-        tdWrap(session.state) +
-        tdWrap(logLinks(session, "batch")) +
-        "</tr>"
-    );
+function loadBatchesTable() {
+  $("#batches-table").DataTable({
+    autoWidth: true,
+    paging: true,
+    bLengthChange: true,
+    bFilter: true,
+    serverSide: true,
+    ajax: function (data, callback, settings) {
+      let params = {
+        from: data.start,
+        size: data.length,
+        searchKey: data.search.value
+      }
+      $.ajax({
+        type: "GET",
+        url: "/batches",
+        cache: false,
+        data: params,
+        dataType: "json",
+        success: function (res) {
+          let returnData = {};
+          returnData.recordsTotal = res.total;
+          returnData.recordsFiltered = res.total;
+          returnData.data = res.sessions;
+          if (res.total === 0) {
+            $("#all-sessions").append('<h4>No Batches have been created yet.</h4>');
+          }
+          callback(returnData)
+        }
+      });
+    },
+    columns: [
+      {data: "id"},
+      {data: "id", render: function (data, type, row, meta) { return appIdLink(row)}},
+      {data: "name", render: function (data, type, row, meta) { return escapeHtml(data)}},
+      {data: "owner", "defaultContent": "NULL"},
+      {data: "proxyUser", "defaultContent": "NULL"},
+      {data: "state"},
+      {data: "id", render: function (data, type, row, meta) {return logLinks(row, "batch")}},
+    ]
   });
 }
-
-var numSessions = 0;
-var numBatches = 0;
 
 $(document).ready(function () {
-  var sessionsReq = $.getJSON(location.origin + prependBasePath("/sessions"), function(response) {
-    if (response && response.total > 0) {
-      $("#interactive-sessions").load(prependBasePath("/static/html/sessions-table.html .sessions-template"), function() {
-        loadSessionsTable(response.sessions);
-        $("#interactive-sessions-table").DataTable();
-        $('#interactive-sessions [data-toggle="tooltip"]').tooltip();
-      });
-    }
-    numSessions = response.total;
-  });
+  $("#interactive-sessions").load(prependBasePath("/static/html/sessions-table.html .sessions-template"), function () {
+    loadSessionsTable();
+  })
 
-  var batchesReq = $.getJSON(location.origin + prependBasePath("/batches?size=6000"), function(response) {
-    if (response && response.total > 0) {
-      $("#batches").load(prependBasePath("/static/html/batches-table.html .sessions-template"), function() {
-        loadBatchesTable(response.sessions);
-        $("#batches-table").DataTable();
-        $('#batches [data-toggle="tooltip"]').tooltip();
-      });
-    }
-    numBatches = response.total;
-  });
-
-  $.when(sessionsReq, batchesReq).done(function () {
-    if (numSessions + numBatches == 0) {
-      $("#all-sessions").append('<h4>No Sessions or Batches have been created yet.</h4>');
-    }
-  });
+  $("#batches").load(prependBasePath("/static/html/batches-table.html .sessions-template"), function (){
+    loadBatchesTable();
+  })
 });

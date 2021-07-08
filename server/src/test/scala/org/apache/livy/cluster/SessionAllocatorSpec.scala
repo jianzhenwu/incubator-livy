@@ -19,6 +19,7 @@ package org.apache.livy.cluster
 
 import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
+import scala.util.Try
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties
 import org.apache.curator.test.TestingServer
@@ -61,6 +62,12 @@ class MockSessionAllocator(
   }
 
   override def onServerLeave(serverNode: ServerNode): Unit = {
+  }
+
+  override def getAllSessions[T <: RecoveryMetadata : ClassTag](
+      sessionType: String,
+      serverMetadata: Option[ServerMetadata]): Seq[Try[T]] = {
+    Seq.empty
   }
 }
 
@@ -274,6 +281,38 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
         zkManager.remove("/livy/servers/127.0.0.3:8999")
         Thread.sleep(100)
         serverNodes.size should be(2)
+      })
+    }
+
+    it("getAllSessions should return all session in cluster") {
+      withTestingZkServer((zkManager, sessionAllocator) => {
+        val mockRecoveryMetadata1 = new MockRecoveryMetadata(1, "dummy-name",
+          new ServerMetadata("127.0.0.1", 8999))
+        zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata1)
+
+        val mockRecoveryMetadata2 = new MockRecoveryMetadata(2, "dummy-name",
+          new ServerMetadata("127.0.0.2", 8999))
+        zkManager.set("/livy/sessions/v1/dummy-type/2", mockRecoveryMetadata2)
+
+        val sessions = sessionAllocator.getAllSessions[MockRecoveryMetadata]("dummy-type", None)
+        sessions.size should be(2)
+
+        var s1 = sessions.head.get
+        var s2 = sessions(1).get
+        if (s1.id != 1) {
+          val tmp = s1
+          s1 = s2
+          s2 = tmp
+        }
+        s1.id should be(1)
+        s1.name should be("dummy-name")
+        s1.serverMetadata.host should be("127.0.0.1")
+        s1.serverMetadata.port should be(8999)
+
+        s2.id should be(2)
+        s2.name should be("dummy-name")
+        s2.serverMetadata.host should be("127.0.0.2")
+        s2.serverMetadata.port should be(8999)
       })
     }
   }

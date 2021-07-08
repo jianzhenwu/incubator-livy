@@ -24,4 +24,8 @@ case class ServerMetadata(var host: String, var port: Int) {
   def isValid: Boolean = {
     host != null && !host.trim.isEmpty && port > 0
   }
+
+  override def toString(): String = {
+    s"$host:$port"
+  }
 }

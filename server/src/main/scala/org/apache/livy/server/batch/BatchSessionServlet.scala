@@ -19,6 +19,8 @@ package org.apache.livy.server.batch
 
 import javax.servlet.http.HttpServletRequest
 
+import scala.util.Try
+
 import org.apache.livy.LivyConf
 import org.apache.livy.cluster.{ClusterManager, SessionAllocator}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
@@ -83,6 +85,42 @@ class BatchSessionServlet(
       }
     BatchSessionView(session.id, session.name, session.owner, session.proxyUser,
       session.state.toString, session.appId, session.appInfo, logs)
+  }
+
+  override protected[batch] def clientSessionView(
+      meta: BatchRecoveryMetadata,
+      req: HttpServletRequest): Any = {
+
+    if (accessManager.hasViewAccess(meta.owner, effectiveUser(req), meta.proxyUser.getOrElse(""))) {
+      val batchSessionView: Try[BatchSessionView] = remoteSessionView[BatchSessionView](meta, req)
+      if (batchSessionView.isSuccess) {
+        return batchSessionView.get
+      }
+      SessionServlet.error(s"Error when executing request ${req.getRequestURL}\n" +
+        s"BatchSessionId: ${meta.id}\n" +
+        s"Error message: ${batchSessionView.failed.get.getMessage}")
+    }
+    BatchSessionView(meta.id,
+      meta.name,
+      meta.owner,
+      meta.proxyUser.orElse(Option("")),
+      "", meta.appId, new AppInfo(), Nil)
+  }
+
+  protected def filterBySearchKey(
+      recoveryMetadata: BatchRecoveryMetadata,
+      searchKey: Option[String]): Boolean = {
+    !searchKey.exists(_.trim.nonEmpty) ||
+      filterBySearchKey(recoveryMetadata.appId,
+        recoveryMetadata.name, recoveryMetadata.serverMetadata, searchKey.get)
+  }
+
+  protected def filterBySearchKey(
+      session: BatchSession,
+      searchKey: Option[String]): Boolean = {
+    !searchKey.exists(_.trim.nonEmpty) ||
+      filterBySearchKey(session.appId, session.name,
+        session.recoveryMetadata.serverMetadata, searchKey.get)
   }
 
 }
