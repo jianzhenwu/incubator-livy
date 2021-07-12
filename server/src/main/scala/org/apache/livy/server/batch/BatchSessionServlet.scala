@@ -37,7 +37,8 @@ case class BatchSessionView(
   state: String,
   appId: Option[String],
   appInfo: AppInfo,
-  log: Seq[String])
+  log: Seq[String],
+  server: Option[String] = None)
 
 class BatchSessionServlet(
     sessionManager: BatchSessionManager,
@@ -84,7 +85,8 @@ class BatchSessionServlet(
         Nil
       }
     BatchSessionView(session.id, session.name, session.owner, session.proxyUser,
-      session.state.toString, session.appId, session.appInfo, logs)
+      session.state.toString, session.appId, session.appInfo, logs,
+      Option(session.recoveryMetadata.serverMetadata.toString()))
   }
 
   override protected[batch] def clientSessionView(
@@ -104,7 +106,7 @@ class BatchSessionServlet(
       meta.name,
       meta.owner,
       meta.proxyUser.orElse(Option("")),
-      "", meta.appId, new AppInfo(), Nil)
+      "", meta.appId, new AppInfo(), Nil, Option(""))
   }
 
   protected def filterBySearchKey(

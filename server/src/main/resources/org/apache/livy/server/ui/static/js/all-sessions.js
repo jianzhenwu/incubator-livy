@@ -43,9 +43,6 @@ function loadSessionsTable() {
           returnData.recordsTotal = res.total;
           returnData.recordsFiltered = res.total;
           returnData.data = res.sessions;
-          if (res.total === 0) {
-            $("#all-sessions").append('<h4>No Sessions have been created yet.</h4>');
-          }
           callback(returnData)
         }
       });
@@ -59,6 +56,7 @@ function loadSessionsTable() {
       {data: "kind", "defaultContent": "NULL"},
       {data: "state"},
       {data: "id", render: function (data, type, row, meta) {return logLinks(row, "session")}},
+      {data: "server", "defaultContent": "NULL"},
     ]
   });
 }
@@ -87,9 +85,6 @@ function loadBatchesTable() {
           returnData.recordsTotal = res.total;
           returnData.recordsFiltered = res.total;
           returnData.data = res.sessions;
-          if (res.total === 0) {
-            $("#all-sessions").append('<h4>No Batches have been created yet.</h4>');
-          }
           callback(returnData)
         }
       });
@@ -102,6 +97,7 @@ function loadBatchesTable() {
       {data: "proxyUser", "defaultContent": "NULL"},
       {data: "state"},
       {data: "id", render: function (data, type, row, meta) {return logLinks(row, "batch")}},
+      {data: "server", "defaultContent": "NULL"},
     ]
   });
 }

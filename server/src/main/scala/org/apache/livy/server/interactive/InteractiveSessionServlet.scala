@@ -98,7 +98,7 @@ class InteractiveSessionServlet(
 
     new SessionInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
       session.proxyUser.orNull, session.state.toString, session.kind.toString,
-      session.appInfo.asJavaMap, logs.asJava)
+      session.appInfo.asJavaMap, logs.asJava, session.recoveryMetadata.serverMetadata.toString())
   }
 
   override protected[interactive] def clientSessionView(
@@ -124,7 +124,8 @@ class InteractiveSessionServlet(
       "",
       meta.kind.toString,
       new AppInfo().asJavaMap,
-      new java.util.ArrayList[String]())
+      new java.util.ArrayList[String](),
+      "")
   }
 
   post("/:id/stop") {

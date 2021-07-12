@@ -61,9 +61,11 @@ public class HttpMessages {
     public final String kind;
     public final Map<String, String> appInfo;
     public final List<String> log;
+    public final String server;
 
     public SessionInfo(int id, String name, String appId, String owner, String proxyUser,
-        String state, String kind, Map<String, String> appInfo, List<String> log) {
+        String state, String kind, Map<String, String> appInfo, List<String> log,
+        String server) {
       this.id = id;
       this.name = name;
       this.appId = appId;
@@ -73,10 +75,11 @@ public class HttpMessages {
       this.kind = kind;
       this.appInfo = appInfo;
       this.log = log;
+      this.server = server;
     }
 
     private SessionInfo() {
-      this(-1, null, null, null, null, null, null, null, null);
+      this(-1, null, null, null, null, null, null, null, null, null);
     }
 
   }
