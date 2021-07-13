@@ -599,8 +599,6 @@ class InteractiveSession(
 
     if (!areSameStates) {
       newState match {
-        case _: SessionState.Killed | _: SessionState.Dead =>
-          sessionStore.remove(RECOVERY_SESSION_TYPE, id)
         case SessionState.ShuttingDown =>
           sessionStore.remove(RECOVERY_SESSION_TYPE, id)
         case _ =>

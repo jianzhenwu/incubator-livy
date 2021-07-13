@@ -212,11 +212,9 @@ class BatchSession(
           }
         case SparkApp.State.KILLED => {
           _state = SessionState.Killed()
-          sessionStore.remove(RECOVERY_SESSION_TYPE, id)
         }
         case SparkApp.State.FAILED => {
           _state = SessionState.Dead()
-          sessionStore.remove(RECOVERY_SESSION_TYPE, id)
           Metrics().incrementCounter(MetricsKey.BATCH_SESSION_FAILED_COUNT)
         }
         case _ =>
