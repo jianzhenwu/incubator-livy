@@ -361,15 +361,15 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   protected def remoteSessionView[T: ClassTag](
       recoveryMetadata: R,
       req: HttpServletRequest) : Try[T] = {
-    val serverNode: Option[ServerNode] = sessionAllocator.get
-      .findServer(sessionManager.sessionType(), recoveryMetadata.id)
-    val host = serverNode.get.host
-    val port = serverNode.get.port
-    val path = url(getSession, "id" -> recoveryMetadata.id.toString)
-    val scheme = req.getScheme
-    val requestUrl = s"$scheme://$host:$port$path"
-    val res = httpClient.newCall(new Request.Builder().url(requestUrl).build()).execute()
     try {
+      val serverNode: Option[ServerNode] = sessionAllocator.get
+        .findServer(sessionManager.sessionType(), recoveryMetadata.id)
+      val host = serverNode.get.host
+      val port = serverNode.get.port
+      val path = url(getSession, "id" -> recoveryMetadata.id.toString)
+      val scheme = req.getScheme
+      val requestUrl = s"$scheme://$host:$port$path"
+      val res = httpClient.newCall(new Request.Builder().url(requestUrl).build()).execute()
       Success(objectMapper.readValue(res.body().string(), classTag[T].runtimeClass).asInstanceOf[T])
     } catch {
       case exception: Throwable => Failure(exception)
