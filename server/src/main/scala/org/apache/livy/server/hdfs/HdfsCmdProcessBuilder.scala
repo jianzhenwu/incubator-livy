@@ -39,10 +39,7 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
   def start(cmd: String): LineBufferedProcess = {
     info(s"executing ${cmd}")
 
-    val fullCmd = sys.env.getOrElse("HADOOP_HOME",
-      throw new Exception("HADOOP_HOME env not found")) +
-      File.separator + "bin" + File.separator + cmd
-    val pb = new ProcessBuilder("/bin/sh", "-c", fullCmd)
+    val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
 
     // TODO Temp solution, refactor to DMP auth and extract shopee related code later
     val env = pb.environment()

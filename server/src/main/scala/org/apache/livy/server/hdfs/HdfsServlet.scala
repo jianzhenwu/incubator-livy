@@ -17,8 +17,9 @@
 
 package org.apache.livy.server.hdfs
 
-import org.scalatra.{BadRequest, ContentEncodingSupport, InternalServerError,
-  MethodOverride, Ok, UrlGeneratorSupport}
+import java.io.File
+
+import org.scalatra.{BadRequest, ContentEncodingSupport, InternalServerError, MethodOverride, Ok, UrlGeneratorSupport}
 
 import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.server.{ApiVersioningSupport, JsonServlet}
@@ -47,15 +48,21 @@ class HdfsServlet(
   jpost[HdfsCommandRequest]("/cmd") { req =>
     val cmd = req.cmd.trim
 
-    if (!LivyConf.TEST_MODE) {
+    val runnableCmd = if (!LivyConf.TEST_MODE) {
       cmd match {
         case HDFS_COMMAND_REGEX(_, _) =>
         case _ => throw new IllegalArgumentException("Invalid operation: " + cmd)
       }
+
+      sys.env.getOrElse("HADOOP_HOME",
+        throw new Exception("HADOOP_HOME env not found")) +
+        File.separator + "bin" + File.separator + cmd
+    } else {
+      cmd
     }
 
     val builder = new HdfsCmdProcessBuilder(livyConf)
-    val hdfsProcess = builder.start(cmd)
+    val hdfsProcess = builder.start(runnableCmd)
 
     val exitCode = hdfsProcess.waitFor()
     exitCode match {
