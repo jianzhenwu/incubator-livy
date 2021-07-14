@@ -99,6 +99,9 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
           }
         }
       )
+      when(session.recoveryMetadata).thenReturn(
+        InteractiveRecoveryMetadata(0, None, None, "", Spark,
+          0, "", None, None, livyConf.serverMetadata()))
 
       session
     }
@@ -194,6 +197,10 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
     when(session.appInfo).thenReturn(appInfo)
     when(session.logLines()).thenReturn(log)
     when(session.heartbeatExpired).thenReturn(false)
+
+    when(session.recoveryMetadata).thenReturn(
+      InteractiveRecoveryMetadata(id, name, Some(appId), "", kind,
+        100, owner, Some(proxyUser), None, new LivyConf().serverMetadata()))
 
     val req = mock[HttpServletRequest]
 
