@@ -122,7 +122,7 @@ class InteractiveSessionServlet(
       meta.owner,
       meta.proxyUser.getOrElse(""),
       "",
-      meta.kind.toString,
+      if (meta.kind != null) { meta.kind.toString } else { "" },
       new AppInfo().asJavaMap,
       new java.util.ArrayList[String](),
       "")
