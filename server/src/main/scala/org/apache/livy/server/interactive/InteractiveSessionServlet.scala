@@ -97,7 +97,8 @@ class InteractiveSessionServlet(
       }
 
     new SessionInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
-      session.proxyUser.orNull, session.state.toString, session.kind.toString,
+      session.proxyUser.orNull, session.state.toString,
+      if (session.kind != null){ session.kind.toString } else { "" },
       session.appInfo.asJavaMap, logs.asJava, session.recoveryMetadata.serverMetadata.toString())
   }
 
@@ -125,7 +126,7 @@ class InteractiveSessionServlet(
       if (meta.kind != null) { meta.kind.toString } else { "" },
       new AppInfo().asJavaMap,
       new java.util.ArrayList[String](),
-      "")
+      if (meta.serverMetadata != null) { meta.serverMetadata.toString()} else { "" })
   }
 
   post("/:id/stop") {

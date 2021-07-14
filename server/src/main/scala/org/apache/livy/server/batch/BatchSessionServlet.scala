@@ -106,7 +106,8 @@ class BatchSessionServlet(
       meta.name,
       meta.owner,
       meta.proxyUser.orElse(Option("")),
-      "", meta.appId, new AppInfo(), Nil, Option(""))
+      "", meta.appId, new AppInfo(), Nil,
+      Option(if (meta.serverMetadata != null) { meta.serverMetadata.toString() } else { "" }))
   }
 
   protected def filterBySearchKey(
