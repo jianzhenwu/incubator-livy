@@ -241,6 +241,11 @@ class ContextLauncher {
     } else {
       // TODO Temp solution, refactor to DMP auth and extract shopee related code later
       Map<String, String> env = new HashMap<>();
+      String confDir = conf.get("livy.rsc.spark-conf-dir");
+      if (confDir == null && conf.get("livy.rsc.spark-home") != null) {
+        confDir = conf.get("livy.rsc.spark-home") + File.separator + "conf";
+      }
+      env.put("SPARK_CONF_DIR", confDir);
       if (conf.get("livy.rsc.hadoop-user-name") != null
           && conf.get("livy.rsc.hadoop-user-rpcpassword") != null) {
         env.put("HADOOP_USER_NAME", conf.get("livy.rsc.hadoop-user-name"));
