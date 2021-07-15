@@ -200,6 +200,7 @@ class SparkYarnApp private[utils] (
     if (isProcessErrExit()) {
       throw new IllegalStateException("spark-submit start failed")
     }
+    require(appTag != null && !appTag.isEmpty, "Could not refresh AppId from empty appTag")
 
     val appTagLowerCase = appTag.toLowerCase()
 
