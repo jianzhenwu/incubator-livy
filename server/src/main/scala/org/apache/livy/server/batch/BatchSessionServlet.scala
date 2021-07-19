@@ -105,7 +105,7 @@ class BatchSessionServlet(
     BatchSessionView(meta.id,
       meta.name,
       meta.owner,
-      meta.proxyUser.orElse(Option("")),
+      meta.proxyUser,
       "", meta.appId, new AppInfo(), Nil,
       Option(if (meta.serverMetadata != null) { meta.serverMetadata.toString() } else { "" }))
   }
@@ -114,8 +114,9 @@ class BatchSessionServlet(
       recoveryMetadata: BatchRecoveryMetadata,
       searchKey: Option[String]): Boolean = {
     !searchKey.exists(_.trim.nonEmpty) ||
-      filterBySearchKey(recoveryMetadata.appId,
-        recoveryMetadata.name, recoveryMetadata.serverMetadata, searchKey.get)
+      filterBySearchKey(recoveryMetadata.appId, recoveryMetadata.name,
+        Option(recoveryMetadata.owner), recoveryMetadata.proxyUser,
+        recoveryMetadata.serverMetadata, searchKey.get)
   }
 
   protected def filterBySearchKey(
@@ -123,6 +124,7 @@ class BatchSessionServlet(
       searchKey: Option[String]): Boolean = {
     !searchKey.exists(_.trim.nonEmpty) ||
       filterBySearchKey(session.appId, session.name,
+        Option(session.owner), session.proxyUser,
         session.recoveryMetadata.serverMetadata, searchKey.get)
   }
 

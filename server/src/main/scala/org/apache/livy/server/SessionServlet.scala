@@ -121,7 +121,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
       Map(
         "from" -> from,
-        "total" -> sessionManager.size(),
+        "total" -> sessions.size,
         "sessions" -> sessions.view(from, from + size)
           .map(e => clientSessionView(e, request))
       )
@@ -383,6 +383,8 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   protected def filterBySearchKey(
       appId: Option[String],
       name: Option[String],
+      owner: Option[String],
+      proxyUser: Option[String],
       serverMetadata: ServerMetadata,
       searchKey: String): Boolean = {
 
@@ -390,6 +392,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       value.exists(_.trim.nonEmpty) && value.get.trim.contains(searchKey.trim)
     }
     matchSearchKey(appId, searchKey) || matchSearchKey(name, searchKey) ||
+      matchSearchKey(owner, searchKey) || matchSearchKey(proxyUser, searchKey) ||
       (serverMetadata != null && matchSearchKey(Option(serverMetadata.toString()), searchKey))
   }
 

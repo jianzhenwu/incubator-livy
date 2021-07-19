@@ -97,13 +97,14 @@ object SessionServletSpec {
       override protected def filterBySearchKey(recoveryMetadata: RecoveryMetadata,
                                                searchKey: Option[String]): Boolean = {
         !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
-          None, recoveryMetadata.serverMetadata, searchKey.get)
+          None, None, None, recoveryMetadata.serverMetadata, searchKey.get)
       }
 
       override protected def filterBySearchKey(session: Session,
                                                searchKey: Option[String]): Boolean = {
         !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
-          session.name, session.recoveryMetadata.serverMetadata, searchKey.get)
+          session.name, Option(session.owner), session.proxyUser,
+          session.recoveryMetadata.serverMetadata, searchKey.get)
       }
     }
   }
@@ -168,8 +169,9 @@ object SessionServletSpec {
 
     when(sessionAllocator.getAllSessions[MockRecoveryMetadata](
       sessionManager.sessionType(), serverMetadata = None))
-      .thenReturn(ArrayBuffer(Success[MockRecoveryMetadata](MockRecoveryMetadata(100,
-        serverNode127.serverMetadata))))
+      .thenReturn(ArrayBuffer(
+        Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode127.serverMetadata)),
+          Success[MockRecoveryMetadata](MockRecoveryMetadata(103, serverNode128.serverMetadata))))
 
 
     new SessionServlet(sessionManager,
@@ -224,13 +226,14 @@ object SessionServletSpec {
       override protected def filterBySearchKey(recoveryMetadata: MockRecoveryMetadata,
                                                searchKey: Option[String]): Boolean = {
         !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
-          None, recoveryMetadata.serverMetadata, searchKey.get)
+          None, None, None, recoveryMetadata.serverMetadata, searchKey.get)
       }
 
       override protected def filterBySearchKey(session: MockSession,
                                                searchKey: Option[String]): Boolean = {
         !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
-          session.name, session.recoveryMetadata.serverMetadata, searchKey.get)
+          session.name, Option(session.owner), session.proxyUser,
+          session.recoveryMetadata.serverMetadata, searchKey.get)
       }
     }
   }
@@ -582,10 +585,19 @@ class ClusterEnabledSessionServletSpec
 
     it("should get sessions in cluster") {
       jget[MockSessionViews]("/mocks") { res =>
-        res.total should be(1)
+        res.total should be(2)
         res.from should be(0)
-        res.sessions.head.id should be(100)
-        res.sessions.head.owner should be("alice")
+        res.sessions.size should be(2)
+        var s1 = res.sessions.head
+        var s2 = res.sessions(1)
+        if (s1.id != 100) {
+          val tmp = s1
+          s1 = s2
+          s2 = tmp
+        }
+        s1.id should be(100)
+        s1.owner should be("alice")
+        s2.id should be(103)
       }
     }
 

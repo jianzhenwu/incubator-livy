@@ -25,6 +25,7 @@ function loadSessionsTable() {
     paging: true,
     bLengthChange: true,
     bFilter: true,
+    ordering: false,
     serverSide: true,
     ajax: function (data, callback, settings) {
       let params = {
@@ -55,7 +56,13 @@ function loadSessionsTable() {
       {data: "proxyUser", "defaultContent": "NULL"},
       {data: "kind", "defaultContent": "NULL"},
       {data: "state"},
-      {data: "id", render: function (data, type, row, meta) {return logLinks(row, "session")}},
+      {
+        data: "id", render: function (data, type, row, meta) {
+          if (row.state != null && row.state !== "") {
+            return logLinks(row, "session")
+          }
+        }
+      },
       {data: "server", "defaultContent": "NULL"},
     ]
   });
@@ -67,6 +74,7 @@ function loadBatchesTable() {
     paging: true,
     bLengthChange: true,
     bFilter: true,
+    ordering: false,
     serverSide: true,
     ajax: function (data, callback, settings) {
       let params = {
@@ -96,7 +104,13 @@ function loadBatchesTable() {
       {data: "owner", "defaultContent": "NULL"},
       {data: "proxyUser", "defaultContent": "NULL"},
       {data: "state"},
-      {data: "id", render: function (data, type, row, meta) {return logLinks(row, "batch")}},
+      {
+        data: "id", render: function (data, type, row, meta) {
+          if (row.state != null && row.state !== "") {
+            return logLinks(row, "batch")
+          }
+        }
+      },
       {data: "server", "defaultContent": "NULL"},
     ]
   });
