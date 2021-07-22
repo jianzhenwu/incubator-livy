@@ -239,13 +239,19 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      // TODO Temp solution, refactor to DMP auth and extract shopee related code later
+      String sparkHome = conf.get("livy.rsc.spark-home");
+      // unit test need get spark home from system env
+      if (sparkHome == null) {
+        sparkHome = System.getenv(SPARK_HOME_ENV);
+      }
+
       Map<String, String> env = new HashMap<>();
       String confDir = conf.get("livy.rsc.spark-conf-dir");
-      if (confDir == null && conf.get("livy.rsc.spark-home") != null) {
-        confDir = conf.get("livy.rsc.spark-home") + File.separator + "conf";
+      if (confDir == null) {
+        confDir = sparkHome + File.separator + "conf";
       }
       env.put("SPARK_CONF_DIR", confDir);
+      // TODO Temp solution, refactor to DMP auth and extract shopee related code later
       if (conf.get("livy.rsc.hadoop-user-name") != null
           && conf.get("livy.rsc.hadoop-user-rpcpassword") != null) {
         env.put("HADOOP_USER_NAME", conf.get("livy.rsc.hadoop-user-name"));
@@ -253,11 +259,6 @@ class ContextLauncher {
       }
       final SparkLauncher launcher = new SparkLauncher(env);
 
-      String sparkHome = conf.get("livy.rsc.spark-home");
-      // unit test need get spark home from system env
-      if (sparkHome == null) {
-        sparkHome = System.getenv(SPARK_HOME_ENV);
-      }
       launcher.setSparkHome(sparkHome);
       launcher.setAppResource(SparkLauncher.NO_RESOURCE);
       launcher.setPropertiesFile(confFile.getAbsolutePath());
