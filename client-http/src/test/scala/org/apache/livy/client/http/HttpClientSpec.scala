@@ -39,7 +39,7 @@ import org.apache.livy.client.common.{BufferUtils, Serializer}
 import org.apache.livy.client.common.HttpMessages._
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.{AccessManager, WebServer}
-import org.apache.livy.server.interactive.{InteractiveSession, InteractiveSessionServlet}
+import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession, InteractiveSessionServlet}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{InteractiveSessionManager, SessionIdGenerator, SessionState, Spark}
 import org.apache.livy.test.jobs.Echo
@@ -286,6 +286,8 @@ private class HttpClientTestBootstrap extends LifeCycle {
         when(session.state).thenReturn(SessionState.Idle)
         when(session.proxyUser).thenReturn(None)
         when(session.kind).thenReturn(Spark)
+        when(session.recoveryMetadata).thenReturn(InteractiveRecoveryMetadata(id, None,
+          None, null, Spark, 1, null, None, null, livyConf.serverMetadata()))
         when(session.stop()).thenReturn(Future.successful(()))
         require(HttpClientSpec.session == null, "Session already created?")
         HttpClientSpec.session = session
