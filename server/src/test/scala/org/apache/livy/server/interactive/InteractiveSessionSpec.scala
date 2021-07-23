@@ -377,6 +377,41 @@ class InteractiveSessionSpec extends FunSpec
       session.stop()
     }
 
+    it("should run spark with default spark version without request spark version") {
+      val livyConf = new LivyConf(false)
+        .set(LivyConf.REPL_JARS, "livy-repl_2.11.jar,livy-repl_2.12.jar")
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
+        .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v3_0", "3.0")
+        .set(LivyConf.SPARK_HOME.key + ".v2_0", "file:///dummy-path/spark2")
+        .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v2_0", "2.11")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
+        .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "v3_0")
+
+      val mockApp = mock[SparkApp]
+      val sessionStore = mock[SessionStore]
+
+      val session = createSession(sessionStore, Some(mockApp), livyConf, None)
+      session.start()
+
+      assume(session != null, "No active session.")
+      eventually(timeout(60 seconds), interval(100 millis)) {
+        session.state shouldBe (SessionState.Idle)
+      }
+
+      val pyResult = executeStatementWithSession(session, "1 + 2", Some("pyspark"))
+      pyResult should equal(Extraction.decompose(Map(
+        "status" -> "ok",
+        "execution_count" -> 0,
+        "data" -> Map("text/plain" -> "3")))
+      )
+
+      session.stop()
+    }
+
     it("should failed to run spark with unsupported request spark version") {
       val livyConf = new LivyConf(false)
         .set(LivyConf.REPL_JARS, "livy-repl_2.11.jar,livy-repl_2.12.jar")

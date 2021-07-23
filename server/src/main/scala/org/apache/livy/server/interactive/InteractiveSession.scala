@@ -84,9 +84,13 @@ object InteractiveSession extends Logging {
     val appTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
-    val reqSparkVersion = request.conf.get("spark.livy.spark_version_name")
-    if (reqSparkVersion.isDefined &&
-      !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
+    val reqSparkVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {
+      request.conf.get("spark.livy.spark_version_name")
+    } else {
+      Option(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+    }
+
+    if (reqSparkVersion.isDefined && !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
       throw new IllegalArgumentException("spark version is not support")
     }
 
