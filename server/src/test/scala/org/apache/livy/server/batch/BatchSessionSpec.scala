@@ -147,7 +147,7 @@ class BatchSessionSpec
 
     it("should save ServerMetadata into session store") {
       val conf = new LivyConf()
-      conf.set(LivyConf.SERVER_HOST, "127.0.0.1")
+      conf.set(LivyConf.SERVER_HOST, "126.0.0.1")
       conf.set(LivyConf.SERVER_PORT, 8999)
       val req = new CreateBatchRequest()
       val mockApp = mock[SparkApp]
@@ -157,7 +157,7 @@ class BatchSessionSpec
         .thenAnswer(new Answer[Unit]() {
           override def answer(invocation: InvocationOnMock): Unit = {
             val recoveryMetadata = invocation.getArgumentAt(1, classOf[BatchRecoveryMetadata])
-            recoveryMetadata.serverMetadata.host should be ("127.0.0.1")
+            recoveryMetadata.serverMetadata.host should be ("126.0.0.1")
             recoveryMetadata.serverMetadata.port should be (8999)
           }
         })

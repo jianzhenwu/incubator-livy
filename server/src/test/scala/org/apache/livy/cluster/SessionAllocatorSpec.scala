@@ -127,11 +127,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
         val stateStore = new ZooKeeperStateStore(livyConf, zkManager)
         val sessionStore = new SessionStore(livyConf, stateStore)
 
-        val serverNode1 = new ServerNode("127.0.0.1", 8999, System.currentTimeMillis())
-        val serverNode2 = new ServerNode("127.0.0.2", 8999, System.currentTimeMillis() + 1000)
+        val serverNode1 = new ServerNode("126.0.0.1", 8999, System.currentTimeMillis())
+        val serverNode2 = new ServerNode("126.0.0.2", 8999, System.currentTimeMillis() + 1000)
 
-        zkManager.set("/livy/servers/127.0.0.1:8999", serverNode1)
-        zkManager.set("/livy/servers/127.0.0.2:8999", serverNode2)
+        zkManager.set("/livy/servers/126.0.0.1:8999", serverNode1)
+        zkManager.set("/livy/servers/126.0.0.2:8999", serverNode2)
 
         val clusterManager = new ZookeeperClusterManager(livyConf, zkManager)
 
@@ -148,11 +148,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
     it("findServer should return correct server node") {
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata = new MockRecoveryMetadata(1, "dummy-name",
-          new ServerMetadata("127.0.0.1", 8999))
+          new ServerMetadata("126.0.0.1", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata)
 
         val serverNode = sessionAllocator.findServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode.get.host should be ("127.0.0.1")
+        serverNode.get.host should be ("126.0.0.1")
         serverNode.get.port should be (8999)
       })
     }
@@ -160,11 +160,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
     it("findServer should return even when server node is offline") {
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata = new MockRecoveryMetadata(1, "dummy-name",
-          new ServerMetadata("127.0.0.3", 8999))
+          new ServerMetadata("126.0.0.3", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata)
 
         val serverNode = sessionAllocator.findServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode.get.host should be ("127.0.0.3")
+        serverNode.get.host should be ("126.0.0.3")
         serverNode.get.port should be (8999)
       })
     }
@@ -181,7 +181,7 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "RANDOM")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val serverNode = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode.host should startWith("127.0.0.")
+        serverNode.host should startWith("126.0.0.")
         serverNode.port should be(8999)
       }, Option(livyConf))
     }
@@ -191,11 +191,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "HASH")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val serverNode1 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode1.host should be("127.0.0.2")
+        serverNode1.host should be("126.0.0.2")
         serverNode1.port should be(8999)
 
         val serverNode2 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 4)
-        serverNode2.host should be("127.0.0.1")
+        serverNode2.host should be("126.0.0.1")
         serverNode2.port should be(8999)
 
         serverNode1.host shouldNot be(serverNode2.host)
@@ -207,11 +207,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "ROUND-ROBIN")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val serverNode1 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode1.host should be("127.0.0.1")
+        serverNode1.host should be("126.0.0.1")
         serverNode1.port should be(8999)
 
         val serverNode2 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 2)
-        serverNode2.host should be("127.0.0.2")
+        serverNode2.host should be("126.0.0.2")
         serverNode2.port should be(8999)
 
         serverNode1.host shouldNot be(serverNode2.host)
@@ -223,7 +223,7 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "HASH")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val serverNode1 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode1.host should be("127.0.0.2")
+        serverNode1.host should be("126.0.0.2")
         serverNode1.port should be(8999)
 
         val updatedR = zkManager.get[MockRecoveryMetadata]("/livy/sessions/v1/dummy-type/1")
@@ -237,15 +237,15 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "HASH")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata = new MockRecoveryMetadata(1, "dummy-name",
-          new ServerMetadata("127.0.0.1", 8999))
+          new ServerMetadata("126.0.0.1", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata)
 
         val serverNode1 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode1.host should be("127.0.0.1")
+        serverNode1.host should be("126.0.0.1")
         serverNode1.port should be(8999)
 
         val updatedR = zkManager.get[MockRecoveryMetadata]("/livy/sessions/v1/dummy-type/1")
-        updatedR.get.serverMetadata.host should be("127.0.0.1")
+        updatedR.get.serverMetadata.host should be("126.0.0.1")
         updatedR.get.serverMetadata.port should be(8999)
       }, Option(livyConf))
     }
@@ -255,11 +255,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       livyConf.set(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_ALGO, "HASH")
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata = new MockRecoveryMetadata(1, "dummy-name",
-          new ServerMetadata("127.0.0.3", 8999))
+          new ServerMetadata("126.0.0.3", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata)
 
         val serverNode1 = sessionAllocator.allocateServer[MockRecoveryMetadata]("dummy-type", 1)
-        serverNode1.host should be("127.0.0.2")
+        serverNode1.host should be("126.0.0.2")
         serverNode1.port should be(8999)
 
         val updatedR = zkManager.get[MockRecoveryMetadata]("/livy/sessions/v1/dummy-type/1")
@@ -273,12 +273,12 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
       serverNodes.clear()
 
       withTestingZkServer((zkManager, sessionAllocator) => {
-        val serverNode3 = new ServerNode("127.0.0.3", 8999, System.currentTimeMillis())
+        val serverNode3 = new ServerNode("126.0.0.3", 8999, System.currentTimeMillis())
 
-        zkManager.set("/livy/servers/127.0.0.3:8999", serverNode3)
+        zkManager.set("/livy/servers/126.0.0.3:8999", serverNode3)
         Thread.sleep(100)
         serverNodes.size should be(3)
-        zkManager.remove("/livy/servers/127.0.0.3:8999")
+        zkManager.remove("/livy/servers/126.0.0.3:8999")
         Thread.sleep(100)
         serverNodes.size should be(2)
       })
@@ -287,11 +287,11 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
     it("getAllSessions should return all session in cluster") {
       withTestingZkServer((zkManager, sessionAllocator) => {
         val mockRecoveryMetadata1 = new MockRecoveryMetadata(1, "dummy-name",
-          new ServerMetadata("127.0.0.1", 8999))
+          new ServerMetadata("126.0.0.1", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/1", mockRecoveryMetadata1)
 
         val mockRecoveryMetadata2 = new MockRecoveryMetadata(2, "dummy-name",
-          new ServerMetadata("127.0.0.2", 8999))
+          new ServerMetadata("126.0.0.2", 8999))
         zkManager.set("/livy/sessions/v1/dummy-type/2", mockRecoveryMetadata2)
 
         val sessions = sessionAllocator.getAllSessions[MockRecoveryMetadata]("dummy-type", None)
@@ -306,12 +306,12 @@ class SessionAllocatorSpec extends FunSpec with LivyBaseUnitTestSuite {
         }
         s1.id should be(1)
         s1.name should be("dummy-name")
-        s1.serverMetadata.host should be("127.0.0.1")
+        s1.serverMetadata.host should be("126.0.0.1")
         s1.serverMetadata.port should be(8999)
 
         s2.id should be(2)
         s2.name should be("dummy-name")
-        s2.serverMetadata.host should be("127.0.0.2")
+        s2.serverMetadata.host should be("126.0.0.2")
         s2.serverMetadata.port should be(8999)
       })
     }

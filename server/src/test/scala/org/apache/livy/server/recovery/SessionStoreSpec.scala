@@ -84,7 +84,7 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
         "0" -> Some(TestRecoveryMetadata(0, null)),
         "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0))),
         "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0))),
-        "3" -> Some(TestRecoveryMetadata(1, ServerMetadata("127.0.0.1", 8998))),
+        "3" -> Some(TestRecoveryMetadata(1, ServerMetadata("126.0.0.1", 8998))),
         "5" -> None,
         "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
       val corruptedMetadata = Map(

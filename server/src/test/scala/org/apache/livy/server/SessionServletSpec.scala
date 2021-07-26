@@ -131,9 +131,9 @@ object SessionServletSpec {
     val accessManager = new AccessManager(conf)
     val sessionAllocator = mock[SessionAllocator]
     val clusterManager = mock[ClusterManager]
-    val serverNode127 = ServerNode(ServerMetadata("127.0.0.1", 8998))
+    val serverNode126 = ServerNode(ServerMetadata("126.0.0.1", 8998))
     val serverNode128 = ServerNode(ServerMetadata("128.0.0.1", 8998))
-    when(clusterManager.isNodeOnline(serverNode127)).thenReturn(true)
+    when(clusterManager.isNodeOnline(serverNode126)).thenReturn(true)
     when(clusterManager.isNodeOnline(serverNode128)).thenReturn(false)
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 100))
@@ -145,7 +145,7 @@ object SessionServletSpec {
       .thenReturn(None)
 
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 102))
-      .thenReturn(Some(serverNode127))
+      .thenReturn(Some(serverNode126))
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 103))
       .thenReturn(Some(MockRecoveryMetadata(103, conf.serverMetadata())))
@@ -157,7 +157,7 @@ object SessionServletSpec {
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
 
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 201))
-      .thenReturn(Some(serverNode127))
+      .thenReturn(Some(serverNode126))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
 
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 202))
@@ -170,7 +170,7 @@ object SessionServletSpec {
     when(sessionAllocator.getAllSessions[MockRecoveryMetadata](
       sessionManager.sessionType(), serverMetadata = None))
       .thenReturn(ArrayBuffer(
-        Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode127.serverMetadata)),
+        Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode126.serverMetadata)),
           Success[MockRecoveryMetadata](MockRecoveryMetadata(103, serverNode128.serverMetadata))))
 
 
@@ -533,7 +533,7 @@ class ClusterEnabledSessionServletSpec
       // allocated to another online server node
       post("/mocks/", toJson(Map()), headers = headers) {
         status should be(SC_TEMPORARY_REDIRECT)
-        header.get("Location") should be(Some("http://127.0.0.1:8998/mocks/201"))
+        header.get("Location") should be(Some("http://126.0.0.1:8998/mocks/201"))
       }
       jpost[MockSessionView]("/mocks/201", Map(), headers = headers) { res =>
         res.id should be(201)
@@ -574,7 +574,7 @@ class ClusterEnabledSessionServletSpec
 
       get("/mocks/102") {
         status should be(SC_TEMPORARY_REDIRECT)
-        header.get("Location") should be(Some("http://127.0.0.1:8998/mocks/102"))
+        header.get("Location") should be(Some("http://126.0.0.1:8998/mocks/102"))
       }
 
       jget[MockSessionView](s"/mocks/103") { res =>
@@ -602,7 +602,7 @@ class ClusterEnabledSessionServletSpec
     }
 
     it("should get sessions in cluster with filter") {
-      jget[MockSessionViews]("/mocks?searchKey=127.0.0.1") { res =>
+      jget[MockSessionViews]("/mocks?searchKey=126.0.0.1") { res =>
         res.total should be(1)
         res.from should be(0)
         res.sessions.head.id should be(100)

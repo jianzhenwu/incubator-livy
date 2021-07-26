@@ -199,7 +199,7 @@ class InteractiveSessionSpec extends FunSpec
     it("should save ServerMetadata into session store") {
       val conf = new LivyConf()
       conf.setAll(livyConf)
-      conf.set(LivyConf.SERVER_HOST, "127.0.0.1")
+      conf.set(LivyConf.SERVER_HOST, "126.0.0.1")
       conf.set(LivyConf.SERVER_PORT, 8999)
 
       val mockApp = mock[SparkApp]
@@ -210,7 +210,7 @@ class InteractiveSessionSpec extends FunSpec
           override def answer(invocation: InvocationOnMock): Unit = {
             val recoveryMetadata = invocation.getArgumentAt(1,
               classOf[InteractiveRecoveryMetadata])
-            recoveryMetadata.serverMetadata.host should be ("127.0.0.1")
+            recoveryMetadata.serverMetadata.host should be ("126.0.0.1")
             recoveryMetadata.serverMetadata.port should be (8999)
           }
         })

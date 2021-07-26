@@ -281,7 +281,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val validMetadata = List(
         makeMetadata(0, "t1", null),
         makeMetadata(1, "t1", ServerMetadata(null, 0)),
-        makeMetadata(2, "t1", ServerMetadata("127.0.0.1", 8998)),
+        makeMetadata(2, "t1", ServerMetadata("126.0.0.1", 8998)),
         makeMetadata(77, "t2", conf.serverMetadata())).map(Try(_))
       val invalidMetadata = List(Failure(new Exception("Fake invalid metadata")))
       val sessionStore = mock[SessionStore]
@@ -308,7 +308,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       val sessionPath = s"v1/$sessionType"
 
       val validMetadata = Map(
-        "0" -> Some(makeMetadata(0, "t1", ServerMetadata("127.0.0.1", 8998))),
+        "0" -> Some(makeMetadata(0, "t1", ServerMetadata("126.0.0.1", 8998))),
         "77" -> Some(makeMetadata(77, "t2", conf.serverMetadata())))
       val stateStore = mock[StateStore]
       when(stateStore.getChildren(sessionPath))
@@ -346,7 +346,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       when(sessionStore.get[BatchRecoveryMetadata](sessionType, 0))
         .thenReturn(Option(makeMetadata(0, "t0", conf.serverMetadata())))
       when(sessionStore.get[BatchRecoveryMetadata](sessionType, 1))
-        .thenReturn(Option(makeMetadata(1, "t1", ServerMetadata("127.0.0.1", 8998))))
+        .thenReturn(Option(makeMetadata(1, "t1", ServerMetadata("126.0.0.1", 8998))))
 
       sm.recover(0)
       sm.recover(1)
