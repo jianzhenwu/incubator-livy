@@ -256,7 +256,8 @@ object InteractiveSession extends Logging {
     /**
      * Look for hive-site.xml (for now just ignore spark.files defined in spark-defaults.conf)
      * 1. First look for hive-site.xml in user request
-     * 2. Then look for that under classpath
+     * 2. Then look for that under spark home
+     * 3. Then look for that under classpath
      * @param livyConf
      * @return  (hive-site.xml path, whether it is provided by user)
      */
@@ -264,11 +265,17 @@ object InteractiveSession extends Logging {
       if (sparkFiles.exists(_.split("/").last == "hive-site.xml")) {
         (None, true)
       } else {
-        val hiveSiteURL = getClass.getResource("/hive-site.xml")
-        if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
-          (Some(new File(hiveSiteURL.toURI)), false)
+        val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
+          .getOrElse(livyConf.sparkHome(reqSparkVersion) + "/conf")
+        if (new File(sparkConfDir, "hive-site.xml").isFile) {
+          (Some(new File(sparkConfDir, "hive-site.xml")), false)
         } else {
-          (None, false)
+          val hiveSiteURL = getClass.getResource("/hive-site.xml")
+          if (hiveSiteURL != null && hiveSiteURL.getProtocol == "file") {
+            (Some(new File(hiveSiteURL.toURI)), false)
+          } else {
+            (None, false)
+          }
         }
       }
     }
