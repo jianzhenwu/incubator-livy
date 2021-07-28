@@ -1,0 +1,76 @@
+Build instructions for livy
+
+----------------------------------------------------------------------------------
+Requirements:
+
+* Unix System
+* mvn (from maven package or maven3 tarball)
+* openjdk-8-jdk (or Oracle JDK 8)
+* Python 2.7+
+* R 3.x
+
+Required python packages for building Livy:
+
+* cloudpickle
+* requests
+* requests-kerberos
+* flake8
+* flaky
+* pytest
+
+----------------------------------------------------------------------------------
+The easiest way to get an environment with all the appropriate tools is by means
+of the provided Docker config.
+This requires a recent version of docker (1.4.1 and higher are known to work).
+
+On Linux / Mac:
+    Install Docker and run this command:
+
+    $ ./start-build-env.sh
+
+The prompt which is then presented is located at a mounted version of the source tree
+and all required tools for testing and building have been installed and configured.
+
+----------------------------------------------------------------------------------
+Maven build goals:
+
+ * Clean                     : mvn clean
+ * Compile                   : mvn compile
+ * Run tests                 : mvn test
+ * Create JAR                : mvn package
+ * Install JAR in M2 cache   : mvn install
+ * Deploy JAR to Maven repo  : mvn deploy
+ * Run integration tests     : mvn integration-test
+
+ Build options:
+
+  * Use -Pthriftserver to compile/bundle thriftserver modules
+  * Use -Ppublic-docs to generate & bundle the documentation in the distribution
+  * Use -Pspark-3.0 to use Spark-3.0
+  * Use -DskipTests=true to skip unit tests
+  * Use -DskipITs=true to skip integration tests
+
+
+ Tests options:
+
+  * -Dsuites=<TESTCLASSNAME>,<TESTCLASSNAME#METHODNAME>,....
+
+----------------------------------------------------------------------------------
+Building components separately
+
+If you want to build one or some submodules, consider the following mvn options:
+
+ * Use -pl :<MODULENAME> to build the <MODULENAME> module
+ * Use -rf :<MODULENAME> to build the modules from <MODULENAME> to the last one
+
+----------------------------------------------------------------------------------
+Handling out of memory errors in builds
+
+If the build process fails with an out of memory error, you should be able to fix
+it by increasing the memory used by maven which can be done via the environment
+variable MAVEN_OPTS.
+
+Here is an example setting to allocate between 256 MB and 1.5 GB of heap space to
+Maven
+
+export MAVEN_OPTS="-Xms256m -Xmx1536m"
