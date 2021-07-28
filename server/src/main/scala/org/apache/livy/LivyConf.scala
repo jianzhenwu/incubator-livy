@@ -32,7 +32,7 @@ import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
 import org.apache.livy.rsc.RSCConf
 import org.apache.livy.server.interactive.InteractiveSession.warn
-
+import org.apache.livy.Utils.usingResource
 
 object LivyConf {
 
@@ -466,10 +466,12 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
           val pyLibPath = Seq(sparkHome, "python", "lib").mkString(File.separator)
           val pyArchivesFile = new File(pyLibPath, "pyspark.zip")
           val py4jFile = Try {
-            Files.newDirectoryStream(Paths.get(pyLibPath), "py4j-*-src.zip")
-              .iterator()
-              .next()
-              .toFile
+            usingResource(Files.newDirectoryStream(Paths.get(pyLibPath),
+                "py4j-*-src.zip")) { ds =>
+              ds.iterator()
+                .next()
+                .toFile
+            }
           }.toOption
 
           if (!pyArchivesFile.exists()) {
