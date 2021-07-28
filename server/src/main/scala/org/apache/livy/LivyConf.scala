@@ -436,7 +436,9 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
       Option(get(SPARK_HOME.key + "." + versionConfKey.get))
         .orElse(throw new Exception(s"Cannot find spark home for version ${versionConfKey.get}"))
     } else {
-      Option(get(SPARK_HOME)).orElse(sys.env.get("SPARK_HOME"))
+      Option(get(SPARK_HOME.key + "." + get(LIVY_SPARK_DEFAULT_VERSION)))
+        .orElse(Option(get(SPARK_HOME)))
+        .orElse(sys.env.get("SPARK_HOME"))
     }
   }
 
