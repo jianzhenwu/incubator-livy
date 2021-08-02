@@ -29,6 +29,7 @@ import scala.util.{Failure, Success, Try}
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.squareup.okhttp.{OkHttpClient, Request}
 import org.scalatra._
+import org.slf4j.MDC
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata}
 import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
@@ -190,6 +191,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
         if (tooManySessions) {
           BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
         } else {
+          MDC.clear()
+          MDC.put("session",
+            s"${sessionManager.sessionType()}Session-${sessionId.toString}")
           Metrics().startStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
           val session = sessionManager.register(createSession(sessionId, request))
           Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
@@ -299,6 +303,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       val sessionName = idOrNameParam
       (None, sessionManager.get(sessionName))
     }
+
+    MDC.clear()
+    MDC.put("session", s"${sessionManager.sessionType()}Session-${sessionId.toString}")
     session match {
       case Some(session) =>
         Metrics().incrementCounter(MetricsKey.REST_SESSION_FOUND_IN_MANAGER_COUNT)
