@@ -18,7 +18,8 @@
 package org.apache.livy.thriftserver
 
 import java.security.PrivilegedExceptionAction
-import java.util.concurrent.{ConcurrentLinkedQueue, RejectedExecutionException, TimeUnit}
+import java.util.{Timer, TimerTask}
+import java.util.concurrent.{RejectedExecutionException, TimeUnit}
 
 import scala.collection.mutable
 import scala.util.control.NonFatal
@@ -26,7 +27,7 @@ import scala.util.control.NonFatal
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hive.service.cli._
 
-import org.apache.livy.Logging
+import org.apache.livy.{LivyConf, Logging}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.thriftserver.SessionStates._
 import org.apache.livy.thriftserver.operation.Operation
@@ -45,14 +46,20 @@ class LivyExecuteStatementOperation(
   /**
    * Contains the messages which have to be sent to the client.
    */
-  private val operationMessages = new ConcurrentLinkedQueue[String]
+  private val operationMessages =
+    sessionManager.getSessionInfo(sessionHandle).operationMessages
+  private val processTimer = if (operationMessages.isDefined) {
+    Some(new Timer(
+s"Job-Process-Updater-${sessionManager.livySessionId(sessionHandle).getOrElse("Unknown")}",
+true))
+  } else None
 
   // The initialization need to be lazy in order not to block when the instance is created
   private lazy val rpcClient = {
     val sessionState = sessionManager.livySessionState(sessionHandle)
     if (sessionState == CREATION_IN_PROGRESS) {
-      operationMessages.offer(
-        "Livy session has not yet started. Please wait for it to be ready...")
+      operationMessages.foreach(_.offer(
+        "Livy session has not yet started. Please wait for it to be ready..."))
     }
     // This call is blocking, we are waiting for the session to be ready.
     new RpcClient(sessionManager.getLivySession(sessionHandle))
@@ -131,6 +138,16 @@ class LivyExecuteStatementOperation(
     }
   }
 
+  private def handleProcessMessage(statementId: String): Unit = {
+    if (rpcClientValid) {
+      val processMsg = rpcClient.fetchProcess(statementId).get().toString
+      debug(s"process message: $processMsg")
+      operationMessages.foreach(_.offer(processMsg))
+    } else {
+      warn(s"rpcClient is invalid")
+    }
+  }
+
   protected def execute(): Unit = {
     if (logger.isDebugEnabled) {
       debug(s"Running query '$statement' with id $statementId (session = " +
@@ -144,6 +161,15 @@ class LivyExecuteStatementOperation(
     val before = System.currentTimeMillis()
 
     try {
+      operationMessages.foreach(_.offer(s"RSC client is executing SQL query: $statement, " +
+        s"statementId = $statementId, session = " + sessionHandle))
+
+      debug(s"start processTimer, statementId = $statementId")
+      processTimer.foreach(_.schedule(new TimerTask {
+        override def run() = handleProcessMessage(statementId)
+      }, 500L, sessionManager.livyConf.getTimeAsMs(
+        LivyConf.THRIFT_OPERATION_PROCESS_UPDATE_INTERVAL)))
+
       rpcClient.executeSql(sessionHandle, statementId, statement).get()
     } catch {
       case e: Throwable =>
@@ -181,6 +207,11 @@ class LivyExecuteStatementOperation(
   override def shouldRunAsync: Boolean = runInBackground
 
   override def getResultSetSchema: Schema = {
+    operationMessages.foreach(
+      _.offer(s"RSC client is fetching result schema for statementId = $statementId"))
+
+    processTimer.foreach(_.cancel())
+
     val tableSchema = DataTypeUtils.schemaFromSparkJson(
       rpcClient.fetchResultSchema(sessionHandle, statementId).get())
     // Workaround for operations returning an empty schema (eg. CREATE, INSERT, ...)
@@ -192,6 +223,8 @@ class LivyExecuteStatementOperation(
   }
 
   private def cleanup(state: OperationState) {
+    // in case it is not canceled
+    processTimer.foreach(_.cancel())
     if (statementId != null && rpcClientValid) {
       val cleaned = rpcClient.cleanupStatement(sessionHandle, statementId).get()
       if (!cleaned) {
@@ -208,7 +241,10 @@ class LivyExecuteStatementOperation(
    */
   def getOperationMessages: Seq[String] = {
     def fetchNext(acc: mutable.ListBuffer[String]): Boolean = {
-      val m = operationMessages.poll()
+      if (operationMessages.isEmpty) {
+        return false
+      }
+      val m = operationMessages.get.poll()
       if (m == null) {
         false
       } else {

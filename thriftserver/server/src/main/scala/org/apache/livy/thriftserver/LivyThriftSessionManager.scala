@@ -37,7 +37,7 @@ import org.apache.hive.service.cli.{HiveSQLException, SessionHandle}
 import org.apache.hive.service.rpc.thrift.TProtocolVersion
 import org.apache.hive.service.server.ThreadFactoryWithGarbageCleanup
 
-import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.{ConcurrentBoundedLinkedQueue, LivyConf, Logging}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey, MetricsVariable}
 import org.apache.livy.server.interactive.{CreateInteractiveRequest, InteractiveSession}
 import org.apache.livy.sessions.Spark
@@ -221,8 +221,14 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
       delegationToken: String): SessionHandle = {
     val sessionHandle = new SessionHandle(protocol)
     incrementConnections(username, ipAddress, SessionInfo.getForwardedAddresses)
+
+    val operationMessages = if (livyConf.getBoolean(LivyConf.THRIFT_LOG_OPERATION_ENABLED)) {
+      Some(new ConcurrentBoundedLinkedQueue[String](livyConf.getLong(
+        LivyConf.THRIFT_OPERATION_LOG_MAX_SIZE)))
+    } else None
     sessionInfo.put(sessionHandle,
-      new SessionInfo(username, ipAddress, SessionInfo.getForwardedAddresses, protocol))
+      new SessionInfo(username, ipAddress, SessionInfo.getForwardedAddresses, operationMessages,
+        protocol))
     val (initStatements, createInteractiveRequest, sessionId) =
       LivyThriftSessionManager.processSessionConf(sessionConf, supportUseDatabase)
     val createLivySession = () => {
@@ -258,6 +264,8 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
               }
             }
             initSession(sessionHandle, livySession, initStatements)
+            operationMessages.foreach(
+              _.offer(s"tracking URL: ${livySession.appInfo.sparkUiUrl.orNull}"))
             livySession
           }
         })
