@@ -17,8 +17,7 @@
 image: maven:3.8.1-jdk-8
 
 stages:
-  - build
-  - test
+  - verify
 
 variables:
   MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
@@ -35,21 +34,12 @@ before_script:
   -  apt-get -qq install libkrb5-dev
   -  apt-get -qq remove python-setuptools
 
-build:
-  stage: build
-  tags:
-    - foundation
-  script:
-    - mvn clean install -Pthriftserver -Pspark-3.0 -DskipTests=true -DskipITs=true ${MAVEN_OPTS}
-  only:
-    - shopee-0.8
-
-test:
-  stage: test
+verify:
+  stage: verify
   tags:
     - foundation
   retry: 2
   script:
-    - mvn test -Pthriftserver -Pspark-3.0 ${MAVEN_OPTS}
+    - mvn -Pthriftserver -Pspark-3.0 -Dmaven.javadoc.skip=true -B -V -e verify ${MAVEN_OPTS}
   only:
     - merge_requests
