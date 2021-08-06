@@ -36,6 +36,13 @@ RUN echo APT::Install-Suggests "0"\; >>  /etc/apt/apt.conf.d/10disableextras
 ENV DEBIAN_FRONTEND noninteractive
 ENV DEBCONF_TERSE true
 
+#####
+# Language and Encoding
+#####
+ENV LANG en_US:UTF-8
+ENV LANGUAGE en_US:en
+ENV LC_ALL C.UTF-8
+
 ######
 # Install common dependencies from packages. Versions here are either
 # sufficient or irrelevant.
@@ -45,7 +52,8 @@ ENV DEBCONF_TERSE true
 ######
 RUN apt-get -q update \
   && apt-get -q install -y --no-install-recommends \
-  unzip xz-utils dpkg-dev curl g++ gcc make pkg-config git vim-tiny \
+  apt-utils zlib1g-dev unzip xz-utils dpkg-dev curl \
+  g++ gcc make pkg-config git vim-tiny libssl-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -83,21 +91,39 @@ ENV MAVEN_HOME /usr/share/maven
 ENV MAVEN_CONFIG "${USER_HOME_DIR}/.m2"
 
 # install python2.7 and python3.8
+ARG PYTHON_VERSION="3.8.2"
+
+RUN mkdir -p /usr/share/python \
+  && curl -Lso /tmp/python.tgz "https://www.python.org/ftp/python/${PYTHON_VERSION}/Python-${PYTHON_VERSION}.tgz" \
+  && tar -xzC /usr/share/python --strip-components=1 -f /tmp/python.tgz \
+  && rm -v /tmp/python.tgz \
+  && cd /usr/share/python \
+  && gnuArch="$(dpkg-architecture --query DEB_BUILD_GNU_TYPE)" \
+  && ./configure \
+      --build="$gnuArch" \
+      --enable-optimizations \
+  && make -j "$(nproc)" \
+  && make install \
+  && rm -rf /usr/share/python \
+  && find /usr/local -depth \
+      \( \
+        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+          -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name '*.a' \) \) \
+          -o \( -type f -a -name 'wininst-*.exe' \) \
+      \) -exec rm -rf '{}' +
+
 RUN apt-get -q update \
   && apt-get -q install -y --no-install-recommends \
-  python2.7 python3.8 python3-pip \
-  && curl -Lso /tmp/get-pip2.py https://bootstrap.pypa.io/pip/2.7/get-pip.py \
-  && python2.7 /tmp/get-pip2.py \
+  python2.7 \
   && ln -s /usr/bin/python2.7 /usr/bin/python \
-  && find /usr/local -depth \
-     		\( \
-     			\( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
-     			-o \
-     			\( -type f -a \( -name '*.pyc' -o -name '*.pyo' \) \) \
-     		\) -exec rm -rf '{}' + \
-  && rm /tmp/get-pip2.py \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* \
+  && find /usr/local -depth \
+      \( \
+        \( -type d -a \( -name test -o -name tests -o -name idle_test \) \) \
+          -o \( -type f -a \( -name '*.pyc' -o -name '*.pyo' -o -name '*.a' \) \) \
+          -o \( -type f -a -name 'wininst-*.exe' \) \
+      \) -exec rm -rf '{}' +
 
 ######
 # Default container setup working directory and command.

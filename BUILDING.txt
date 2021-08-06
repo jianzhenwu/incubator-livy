@@ -24,9 +24,15 @@ of the provided Docker config.
 This requires a recent version of docker (1.4.1 and higher are known to work).
 
 On Linux / Mac:
-    Install Docker and run this command:
+    Install Docker and run docker container with this command:
 
-    $ ./start-build-env.sh
+    $ ./start-build-env.sh [bash_cmd]
+
+  Two attensions:
+  - start-build-env.sh script will build the docker image for the first time or any
+    change occurs in ./dev-support/docker/Dockerfile.
+  - [bash_cmd] is optional, the default value is bash to get into container, if you
+    use other commands like 'mvn clean install', the container will exit when finishing the cmd.
 
 The prompt which is then presented is located at a mounted version of the source tree
 and all required tools for testing and building have been installed and configured.
