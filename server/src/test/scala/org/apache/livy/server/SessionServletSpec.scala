@@ -96,13 +96,15 @@ object SessionServletSpec {
 
       override protected def filterBySearchKey(recoveryMetadata: RecoveryMetadata,
                                                searchKey: Option[String]): Boolean = {
-        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(
+          recoveryMetadata.id, None,
           None, None, None, recoveryMetadata.serverMetadata, searchKey.get)
       }
 
       override protected def filterBySearchKey(session: Session,
                                                searchKey: Option[String]): Boolean = {
-        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(
+          session.id, session.appId,
           session.name, Option(session.owner), session.proxyUser,
           session.recoveryMetadata.serverMetadata, searchKey.get)
       }
@@ -225,13 +227,15 @@ object SessionServletSpec {
 
       override protected def filterBySearchKey(recoveryMetadata: MockRecoveryMetadata,
                                                searchKey: Option[String]): Boolean = {
-        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(None,
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(
+          recoveryMetadata.id, None,
           None, None, None, recoveryMetadata.serverMetadata, searchKey.get)
       }
 
       override protected def filterBySearchKey(session: MockSession,
                                                searchKey: Option[String]): Boolean = {
-        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(session.appId,
+        !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(
+          session.id, session.appId,
           session.name, Option(session.owner), session.proxyUser,
           session.recoveryMetadata.serverMetadata, searchKey.get)
       }

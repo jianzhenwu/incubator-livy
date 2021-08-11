@@ -114,7 +114,8 @@ class BatchSessionServlet(
       recoveryMetadata: BatchRecoveryMetadata,
       searchKey: Option[String]): Boolean = {
     !searchKey.exists(_.trim.nonEmpty) ||
-      filterBySearchKey(recoveryMetadata.appId, recoveryMetadata.name,
+      filterBySearchKey(recoveryMetadata.id,
+        recoveryMetadata.appId, recoveryMetadata.name,
         Option(recoveryMetadata.owner), recoveryMetadata.proxyUser,
         recoveryMetadata.serverMetadata, searchKey.get)
   }
@@ -123,7 +124,7 @@ class BatchSessionServlet(
       session: BatchSession,
       searchKey: Option[String]): Boolean = {
     !searchKey.exists(_.trim.nonEmpty) ||
-      filterBySearchKey(session.appId, session.name,
+      filterBySearchKey(session.id, session.appId, session.name,
         Option(session.owner), session.proxyUser,
         session.recoveryMetadata.serverMetadata, searchKey.get)
   }

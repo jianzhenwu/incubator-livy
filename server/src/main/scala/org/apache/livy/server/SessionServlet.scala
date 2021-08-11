@@ -80,12 +80,12 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
   protected def clientSessionView(recoverMetadata: R, req: HttpServletRequest): Any = session
 
   /**
-   * Return true when one of appId, name, serverMetadata matches searchKey.
+   * Return true when one of id, appId, name, owner, proxyUser, Metadata matches searchKey.
    */
   protected def filterBySearchKey(recoveryMetadata: R, searchKey: Option[String]): Boolean
 
   /**
-   * Return true when one of appId, name, serverMetadata matches searchKey.
+   * Return true when one of id, appId, name, owner, proxyUser, Metadata matches searchKey.
    */
   protected def filterBySearchKey(session: S, searchKey: Option[String]): Boolean
 
@@ -109,6 +109,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       }).orElse(Some(Seq(Failure(null))))
         .get
         .filter(e => e.isSuccess && filterBySearchKey(e.get, searchKey))
+        .sortWith(_.get.id > _.get.id)
 
       Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
       Map(
@@ -119,6 +120,8 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       )
     } else {
       val sessions = sessionManager.all().filter(filterBySearchKey(_, searchKey))
+        .toSeq
+        .sortWith(_.id > _.id)
       Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
       Map(
         "from" -> from,
@@ -388,6 +391,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    * Return true when appId, name or serverMetadata match searchKey which is not empty.
    */
   protected def filterBySearchKey(
+      id: Int,
       appId: Option[String],
       name: Option[String],
       owner: Option[String],
@@ -398,7 +402,8 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     def matchSearchKey(value: Option[String], searchKey: String): Boolean = {
       value.exists(_.trim.nonEmpty) && value.get.trim.contains(searchKey.trim)
     }
-    matchSearchKey(appId, searchKey) || matchSearchKey(name, searchKey) ||
+    matchSearchKey(Some(id.toString), searchKey) ||
+      matchSearchKey(appId, searchKey) || matchSearchKey(name, searchKey) ||
       matchSearchKey(owner, searchKey) || matchSearchKey(proxyUser, searchKey) ||
       (serverMetadata != null && matchSearchKey(Option(serverMetadata.toString()), searchKey))
   }
