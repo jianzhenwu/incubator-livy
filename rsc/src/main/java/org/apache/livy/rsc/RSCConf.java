@@ -74,6 +74,7 @@ public class RSCConf extends ClientConf<RSCConf> {
     TEST_NO_CODE_COVERAGE_ANALYSIS("test.do-not-use.no-code-coverage-analysis", false),
     TEST_STUCK_END_SESSION("test.do-not-use.stuck-end-session", false),
     TEST_STUCK_START_DRIVER("test.do-not-use.stuck-start-driver", false),
+    TEST_SKIP_CONNECT_LIVY("test.do-not-use.skip-connect-livy", false),
 
     JOB_CANCEL_TRIGGER_INTERVAL("job-cancel.trigger-interval", "100ms"),
     JOB_CANCEL_TIMEOUT("job-cancel.timeout", "30s"),

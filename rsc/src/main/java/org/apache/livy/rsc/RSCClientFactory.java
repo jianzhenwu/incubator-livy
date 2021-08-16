@@ -64,6 +64,7 @@ public final class RSCClientFactory implements LivyClientFactory {
     try {
       Promise<ContextInfo> info;
       Process driverProcess = null;
+      ContextLauncher.DriverCallbackTimer driverCallbackTimer = null;
       if (uri.getUserInfo() != null && uri.getHost() != null && uri.getPort() > 0) {
         info = createContextInfo(uri);
       } else {
@@ -72,8 +73,9 @@ public final class RSCClientFactory implements LivyClientFactory {
         DriverProcessInfo processInfo = ContextLauncher.create(this, lconf);
         info = processInfo.getContextInfo();
         driverProcess = processInfo.getDriverProcess();
+        driverCallbackTimer = processInfo.getDriverCallbackTimer();
       }
-      return new RSCClient(lconf, info, driverProcess);
+      return new RSCClient(lconf, info, driverProcess, driverCallbackTimer);
     } catch (Exception e) {
       if (needsServer) {
         unref();

@@ -63,10 +63,17 @@ public class RSCClient implements LivyClient {
 
   private ContextInfo contextInfo;
   private Process driverProcess;
+  private ContextLauncher.DriverCallbackTimer driverCallbackTimer;
   private volatile boolean isAlive;
   private volatile String replState;
   // Record the last activity timestamp of the repl
   private volatile long replLastActivity = System.nanoTime();
+
+  RSCClient(RSCConf conf, Promise<ContextInfo> ctx, Process driverProcess,
+            ContextLauncher.DriverCallbackTimer driverCallbackTimer) throws IOException {
+    this(conf, ctx, driverProcess);
+    this.driverCallbackTimer = driverCallbackTimer;
+  }
 
   RSCClient(RSCConf conf, Promise<ContextInfo> ctx, Process driverProcess) throws IOException {
     this.conf = conf;
@@ -106,6 +113,10 @@ public class RSCClient implements LivyClient {
 
   public Process getDriverProcess() {
     return driverProcess;
+  }
+
+  public ContextLauncher.DriverCallbackTimer getDriverCallbackTimer() {
+    return driverCallbackTimer;
   }
 
   private synchronized void connectToContext(final ContextInfo info) throws Exception {

@@ -26,10 +26,13 @@ public class DriverProcessInfo {
 
   private Promise<ContextInfo> contextInfo;
   private transient Process driverProcess;
+  private final ContextLauncher.DriverCallbackTimer driverCallbackTimer;
 
-  public DriverProcessInfo(Promise<ContextInfo> contextInfo, Process driverProcess) {
+  public DriverProcessInfo(Promise<ContextInfo> contextInfo, Process driverProcess,
+                           ContextLauncher.DriverCallbackTimer driverCallbackTimer) {
     this.contextInfo = contextInfo;
     this.driverProcess = driverProcess;
+    this.driverCallbackTimer = driverCallbackTimer;
   }
 
   public Promise<ContextInfo> getContextInfo() {
@@ -38,5 +41,9 @@ public class DriverProcessInfo {
 
   public Process getDriverProcess() {
     return driverProcess;
+  }
+
+  public ContextLauncher.DriverCallbackTimer getDriverCallbackTimer() {
+    return driverCallbackTimer;
   }
 }

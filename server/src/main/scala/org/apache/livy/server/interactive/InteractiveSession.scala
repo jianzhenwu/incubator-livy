@@ -662,6 +662,11 @@ class InteractiveSession(
             _startedTime = System.currentTimeMillis()
             Metrics().updateTimer(MetricsKey.INTERACTIVE_SESSION_START_TIME,
               (_startedTime - _createdTime), TimeUnit.MILLISECONDS)
+
+            info("Application is in running state now, starting dispose work after some time")
+            client.foreach(x => {
+              x.getDriverCallbackTimer().start()
+            })
           }
         case SparkApp.State.FINISHED =>
           transition(SessionState.Dead())

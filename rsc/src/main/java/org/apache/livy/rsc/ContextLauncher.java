@@ -17,12 +17,10 @@
 
 package org.apache.livy.rsc;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.Reader;
@@ -75,16 +73,17 @@ class ContextLauncher {
   static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
     ContextLauncher launcher = new ContextLauncher(factory, conf);
-    return new DriverProcessInfo(launcher.promise, launcher.child.child);
+    return new DriverProcessInfo(launcher.promise, launcher.child.child,
+            launcher.driverCallbackTimer);
   }
 
   private final Promise<ContextInfo> promise;
-  private final ScheduledFuture<?> timeout;
   private final String clientId;
   private final String secret;
   private final ChildProcess child;
   private final RSCConf conf;
   private final RSCClientFactory factory;
+  private final DriverCallbackTimer driverCallbackTimer;
 
   private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
     this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
@@ -121,17 +120,7 @@ class ContextLauncher {
       });
 
       this.child = startDriver(conf, promise);
-
-      // Set up a timeout to fail the promise if we don't hear back from the context
-      // after a configurable timeout.
-      Runnable timeoutTask = new Runnable() {
-        @Override
-        public void run() {
-          connectTimeout(handler);
-        }
-      };
-      this.timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
-        conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
+      this.driverCallbackTimer = new DriverCallbackTimer(handler);
     } catch (Exception e) {
       dispose(true);
       throw Utils.propagate(e);
@@ -336,6 +325,45 @@ class ContextLauncher {
     return file;
   }
 
+  public class DriverCallbackTimer {
+    private RegistrationHandler handler;
+    private ScheduledFuture<?> timeout;
+    private volatile boolean canceled = false;
+
+    public DriverCallbackTimer(RegistrationHandler handler) {
+      this.handler = handler;
+    }
+
+    public void start() {
+      synchronized (this) {
+        if (!canceled) {
+          // Set up a timeout to fail the promise if we don't hear back from the context
+          // after a configurable timeout.
+          Runnable timeoutTask = new Runnable() {
+            @Override
+            public void run() {
+              connectTimeout(handler);
+            }
+          };
+          if (factory.getServer() != null) {
+            timeout = factory.getServer().getEventLoopGroup().schedule(timeoutTask,
+                    conf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
+            LOG.info("Setting timeout handle for context");
+          }
+        }
+      }
+    }
+
+    public void cancel(Boolean mayInterrupt) {
+      synchronized (this) {
+        canceled = true;
+        if (timeout != null) {
+          timeout.cancel(mayInterrupt);
+          timeout = null;
+        }
+      }
+    }
+  }
 
   private class RegistrationHandler extends BaseProtocol
     implements RpcServer.ClientCallback {
@@ -366,7 +394,7 @@ class ContextLauncher {
       String ip = insocket.getAddress().getHostAddress();
       ContextInfo info = new ContextInfo(ip, msg.port, clientId, secret);
       if (promise.trySuccess(info)) {
-        timeout.cancel(true);
+        driverCallbackTimer.cancel(true);
         LOG.debug("Received driver info for client {}: {}/{}.", client.getChannel(),
           msg.host, msg.port);
       } else {

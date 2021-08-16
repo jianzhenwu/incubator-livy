@@ -198,17 +198,19 @@ public class RSCDriver extends BaseProtocol {
       }
     });
 
-    // The RPC library takes care of timing out this.
-    Rpc callbackRpc = Rpc.createClient(livyConf, server.getEventLoopGroup(),
-      launcherAddress, launcherPort, clientId, secret, this).get();
-    try {
-      callbackRpc.call(new RemoteDriverAddress(server.getAddress(), server.getPort())).get(
-        livyConf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
-    } catch (TimeoutException te) {
-      LOG.warn("Timed out sending address to Livy server, shutting down.");
-      throw te;
-    } finally {
-      callbackRpc.close();
+    if (!livyConf.getBoolean(TEST_SKIP_CONNECT_LIVY)) {
+      // The RPC library takes care of timing out this.
+      Rpc callbackRpc = Rpc.createClient(livyConf, server.getEventLoopGroup(),
+              launcherAddress, launcherPort, clientId, secret, this).get();
+      try {
+        callbackRpc.call(new RemoteDriverAddress(server.getAddress(), server.getPort())).get(
+                livyConf.getTimeAsMs(RPC_CLIENT_HANDSHAKE_TIMEOUT), TimeUnit.MILLISECONDS);
+      } catch (TimeoutException te) {
+        LOG.warn("Timed out sending address to Livy server, shutting down.");
+        throw te;
+      } finally {
+        callbackRpc.close();
+      }
     }
 
     // At this point we install the idle timeout handler, in case the Livy server fails to connect
