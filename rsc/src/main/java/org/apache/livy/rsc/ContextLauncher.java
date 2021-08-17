@@ -85,12 +85,16 @@ class ContextLauncher {
   private final RSCClientFactory factory;
   private final DriverCallbackTimer driverCallbackTimer;
 
+  // factoryUnrefed indicates whether the factory unref this client
+  private volatile boolean factoryUnrefed;
+
   private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
     this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
     this.clientId = UUID.randomUUID().toString();
     this.secret = factory.getServer().createSecret();
     this.conf = conf;
     this.factory = factory;
+    this.factoryUnrefed = false;
 
     final RegistrationHandler handler = new RegistrationHandler();
     try {
@@ -122,7 +126,9 @@ class ContextLauncher {
       this.child = startDriver(conf, promise);
       this.driverCallbackTimer = new DriverCallbackTimer(handler);
     } catch (Exception e) {
-      dispose(true);
+      // Should not call unref() in dispose() here, because the exception throwed
+      // will make unref() called in upper level.
+      dispose(true, false);
       throw Utils.propagate(e);
     }
   }
@@ -131,10 +137,10 @@ class ContextLauncher {
     if (promise.tryFailure(new TimeoutException("Timed out waiting for context to start."))) {
       handler.dispose();
     }
-    dispose(true);
+    dispose(true, true);
   }
 
-  private void dispose(boolean forceKill) {
+  private void dispose(boolean forceKill, boolean unrefFactory) {
     factory.getServer().unregisterClient(clientId);
     try {
       if (child != null) {
@@ -145,7 +151,12 @@ class ContextLauncher {
         }
       }
     } finally {
-      factory.unref();
+      synchronized (this) {
+        if (unrefFactory && !factoryUnrefed) {
+          factory.unref();
+          factoryUnrefed = true;
+        }
+      }
     }
   }
 
@@ -405,7 +416,7 @@ class ContextLauncher {
         @Override
         public void run() {
           dispose();
-          ContextLauncher.this.dispose(false);
+          ContextLauncher.this.dispose(false, true);
         }
       });
     }
