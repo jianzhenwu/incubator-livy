@@ -69,7 +69,7 @@ object BatchSession extends Logging {
     val appTag = s"livy-batch-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
-    def createSparkApp(s: BatchSession): SparkApp = {
+    def createSparkAppInternal(s: BatchSession): SparkApp = {
       val conf = SparkApp.prepareSparkConf(
         appTag,
         livyConf,
@@ -120,6 +120,16 @@ object BatchSession extends Logging {
         }
       }
       SparkApp.create(appTag, None, Option(sparkSubmit), livyConf, Option(s))
+    }
+
+    def createSparkApp(s: BatchSession): SparkApp = {
+      try {
+        createSparkAppInternal(s)
+      } catch {
+        case e: Throwable =>
+          s.stateChanged(SparkApp.State.STARTING, SparkApp.State.FAILED)
+          throw e
+      }
     }
 
     info(s"Creating batch session $id: [owner: $owner, request: $request]")
