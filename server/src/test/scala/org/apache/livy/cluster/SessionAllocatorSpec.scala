@@ -21,7 +21,7 @@ import scala.collection.mutable.ListBuffer
 import scala.reflect.ClassTag
 import scala.util.Try
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.curator.test.TestingServer
 import org.mockito.Matchers.anyObject
 import org.mockito.Mockito.{times, verify, when}
@@ -39,7 +39,10 @@ case class MockRecoveryMetadata(
     name: String,
     serverMetadata: ServerMetadata,
     version: Int = 1) extends RecoveryMetadata {
+  @JsonIgnore
   override def isServerDeallocatable(): Boolean = { true }
+  @JsonIgnore
+  override def isRecoverable(): Boolean = { false }
 }
 
 class MockSessionAllocator(

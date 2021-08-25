@@ -40,6 +40,11 @@ object Session {
      * @return if can un-allocate server-session relation in cluster mode
      */
     def isServerDeallocatable(): Boolean
+
+    /**
+     * @return if can recover the session
+     */
+    def isRecoverable(): Boolean
   }
 
   lazy val configBlackList: Set[String] = {

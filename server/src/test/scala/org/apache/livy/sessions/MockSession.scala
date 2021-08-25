@@ -29,6 +29,8 @@ class MockSession(id: Int, owner: String, conf: LivyConf, name: Option[String] =
 
     @JsonIgnore
     override def isServerDeallocatable(): Boolean = { true }
+    @JsonIgnore
+    override def isRecoverable(): Boolean = { false }
   }
 
   override val proxyUser = None

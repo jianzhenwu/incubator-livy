@@ -230,7 +230,11 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
   def recover(sessionId: Int): S = {
     sessionStore.get[R](sessionType(), sessionId).map(recoveryMetadata => {
-      register(sessionRecovery(recoveryMetadata))
+      if (recoveryMetadata.isRecoverable()) {
+        register(sessionRecovery(recoveryMetadata))
+      } else {
+        throw new IllegalStateException(s"Recovery metadata of $sessionId is not recoverable")
+      }
     }).orElse({
       throw new IllegalArgumentException(s"Recovery metadata of $sessionId not found")
     })

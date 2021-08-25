@@ -51,6 +51,11 @@ case class BatchRecoveryMetadata(
   def isServerDeallocatable(): Boolean = {
     appTag == null && (appId == null || appId == None)
   }
+
+  @JsonIgnore
+  override def isRecoverable(): Boolean = {
+    appTag != null || (appId != null && appId != None)
+  }
 }
 
 object BatchSession extends Logging {

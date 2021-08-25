@@ -119,6 +119,8 @@ class StateStoreMappingSessionAllocator(
     def this(id: Int) = this(id, ServerMetadata("", -1))
     @JsonIgnore
     def isServerDeallocatable(): Boolean = { true }
+    @JsonIgnore
+    override def isRecoverable(): Boolean = { false }
   }
 
   private val lockCount = livyConf.getInt(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_COUNT)

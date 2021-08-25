@@ -36,6 +36,8 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
 
       @JsonIgnore
       override def isServerDeallocatable(): Boolean = { true }
+      @JsonIgnore
+      override def isRecoverable(): Boolean = { false }
     }
 
     val sessionType = "test"

@@ -68,6 +68,11 @@ case class InteractiveRecoveryMetadata(
   def isServerDeallocatable(): Boolean = {
     appTag == null && (appId == null || appId == None)
   }
+
+  @JsonIgnore
+  override def isRecoverable(): Boolean = {
+    appTag != null || (appId != null && appId != None)
+  }
 }
 
 object InteractiveSession extends Logging {

@@ -45,6 +45,8 @@ object SessionServletSpec {
 
     @JsonIgnore
     def isServerDeallocatable(): Boolean = { true }
+    @JsonIgnore
+    override def isRecoverable(): Boolean = { true }
   }
 
   class MockSession(id: Int, owner: String, val proxyUser: Option[String], livyConf: LivyConf)

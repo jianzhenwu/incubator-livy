@@ -360,6 +360,12 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
           .thenReturn(None)
         sm.recover(100)
       }
+
+      intercept[IllegalStateException] {
+        when(sessionStore.get[BatchRecoveryMetadata](sessionType, 101))
+          .thenReturn(Option(makeMetadata(1, null, ServerMetadata("126.0.0.1", 8998))))
+        sm.recover(101)
+      }
     }
 
     it("should delete sessions from state store") {
