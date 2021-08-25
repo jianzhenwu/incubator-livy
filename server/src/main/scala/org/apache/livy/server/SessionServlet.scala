@@ -192,13 +192,20 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       // session allocated to current server or in standalone mode
       synchronized {
         if (tooManySessions) {
+          sessionAllocator.foreach(_.deallocateServer(sessionManager.sessionType(), sessionId))
           BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
         } else {
           MDC.clear()
           MDC.put("session",
             s"${sessionManager.sessionType()}Session-${sessionId.toString}")
           Metrics().startStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
-          val session = sessionManager.register(createSession(sessionId, request))
+          val session = try {
+            sessionManager.register(createSession(sessionId, request))
+          } catch {
+            case iae: IllegalArgumentException =>
+              sessionAllocator.foreach(_.deallocateServer(sessionManager.sessionType(), sessionId))
+              throw iae
+          }
           Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
           // Because it may take some time to establish the session, update the last activity
           // time before returning the session info to the client.

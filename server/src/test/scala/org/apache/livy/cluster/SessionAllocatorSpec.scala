@@ -38,7 +38,9 @@ case class MockRecoveryMetadata(
     id: Int,
     name: String,
     serverMetadata: ServerMetadata,
-    version: Int = 1) extends RecoveryMetadata
+    version: Int = 1) extends RecoveryMetadata {
+  override def isServerDeallocatable(): Boolean = { true }
+}
 
 class MockSessionAllocator(
     livyConf: LivyConf,
@@ -56,6 +58,12 @@ class MockSessionAllocator(
       sessionType: String,
       sessionId: Int)(implicit t: ClassTag[T]): ServerNode = {
     null
+  }
+
+  override def deallocateServer[T <: RecoveryMetadata](
+      sessionType: String,
+      sessionId: Int)(implicit t: ClassTag[T]): Unit = {
+    // Do nothing
   }
 
   override def onServerJoin(serverNode: ServerNode): Unit = {

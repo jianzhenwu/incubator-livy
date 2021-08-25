@@ -24,7 +24,7 @@ import scala.reflect.ClassTag
 import scala.util.{Random, Try}
 import scala.util.hashing.MurmurHash3
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata}
@@ -85,6 +85,16 @@ abstract class SessionAllocator(
       sessionType: String,
       sessionId: Int)(implicit t: ClassTag[T]): ServerNode
 
+  /**
+   * Deallocate session from a server if session is deallocatable.
+   * Throw IllegalStateException if not.
+   * @param sessionType
+   * @param sessionId
+   */
+  def deallocateServer[T <: RecoveryMetadata](
+      sessionType: String,
+      sessionId: Int)(implicit t: ClassTag[T]): Unit
+
   def onServerJoin(serverNode: ServerNode): Unit
 
   def onServerLeave(serverNode: ServerNode): Unit
@@ -107,6 +117,8 @@ class StateStoreMappingSessionAllocator(
       serverMetadata: ServerMetadata,
       version: Int = 1) extends RecoveryMetadata {
     def this(id: Int) = this(id, ServerMetadata("", -1))
+    @JsonIgnore
+    def isServerDeallocatable(): Boolean = { true }
   }
 
   private val lockCount = livyConf.getInt(LivyConf.CLUSTER_SESSION_ALLOCATOR_STATE_STORE_LOCK_COUNT)
@@ -186,6 +198,18 @@ class StateStoreMappingSessionAllocator(
     } finally {
       lock.release()
     }
+  }
+
+  override def deallocateServer[T <: RecoveryMetadata](
+      sessionType: String,
+      sessionId: Int)(implicit t: ClassTag[T]): Unit = {
+    sessionStore.get[T](sessionType, sessionId).map(recoveryMetadata => {
+      if (recoveryMetadata.isServerDeallocatable()) {
+        sessionStore.remove(sessionType, sessionId)
+      } else {
+        throw new IllegalStateException(s"Not able to deallocate $sessionType session $sessionId")
+      }
+    })
   }
 
   override def onServerJoin(serverNode: ServerNode): Unit = {

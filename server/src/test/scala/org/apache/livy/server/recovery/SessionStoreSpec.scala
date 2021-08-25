@@ -19,6 +19,7 @@ package org.apache.livy.server.recovery
 
 import scala.util.Success
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import org.mockito.Mockito._
 import org.scalatest.FunSpec
 import org.scalatest.Matchers._
@@ -31,7 +32,11 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("SessionStore") {
     case class TestRecoveryMetadata(
         id: Int,
-        serverMetadata: ServerMetadata) extends RecoveryMetadata
+        serverMetadata: ServerMetadata) extends RecoveryMetadata {
+
+      @JsonIgnore
+      override def isServerDeallocatable(): Boolean = { true }
+    }
 
     val sessionType = "test"
     val sessionPath = s"v1/$sessionType"

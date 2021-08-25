@@ -35,6 +35,11 @@ object Session {
   trait RecoveryMetadata {
     val id: Int
     val serverMetadata: ServerMetadata
+
+    /**
+     * @return if can un-allocate server-session relation in cluster mode
+     */
+    def isServerDeallocatable(): Boolean
   }
 
   lazy val configBlackList: Set[String] = {

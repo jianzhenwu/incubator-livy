@@ -20,7 +20,6 @@ package org.apache.livy.server.interactive
 import java.io.{File, InputStream}
 import java.net.URI
 import java.nio.ByteBuffer
-import java.nio.file.{Files, Paths}
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicLong
 
@@ -28,9 +27,9 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.Future
 import scala.concurrent.duration.{Duration, FiniteDuration}
-import scala.util.{Random, Try}
+import scala.util.Random
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
@@ -63,7 +62,13 @@ case class InteractiveRecoveryMetadata(
     rscDriverUri: Option[URI],
     serverMetadata: ServerMetadata,
     version: Int = 1)
-  extends RecoveryMetadata
+  extends RecoveryMetadata {
+
+  @JsonIgnore
+  def isServerDeallocatable(): Boolean = {
+    appTag == null && (appId == null || appId == None)
+  }
+}
 
 object InteractiveSession extends Logging {
   private[interactive] val SPARK_YARN_IS_PYTHON = "spark.yarn.isPython"

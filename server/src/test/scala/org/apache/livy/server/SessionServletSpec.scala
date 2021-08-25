@@ -23,6 +23,7 @@ import javax.servlet.http.HttpServletResponse._
 import scala.collection.mutable.ArrayBuffer
 import scala.util.Success
 
+import com.fasterxml.jackson.annotation.JsonIgnore
 import com.squareup.okhttp.{CacheControl, Request}
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
@@ -40,7 +41,11 @@ object SessionServletSpec {
 
   case class MockRecoveryMetadata(
        id: Int,
-       serverMetadata: ServerMetadata) extends RecoveryMetadata
+       serverMetadata: ServerMetadata) extends RecoveryMetadata {
+
+    @JsonIgnore
+    def isServerDeallocatable(): Boolean = { true }
+  }
 
   class MockSession(id: Int, owner: String, val proxyUser: Option[String], livyConf: LivyConf)
     extends Session(id, None, owner, livyConf) {
@@ -129,6 +134,8 @@ object SessionServletSpec {
       .thenReturn(200)
       .thenReturn(201)
       .thenReturn(202)
+      .thenReturn(203) // invalid request
+      .thenReturn(204) // too many creating session
 
     val accessManager = new AccessManager(conf)
     val sessionAllocator = mock[SessionAllocator]
@@ -166,13 +173,23 @@ object SessionServletSpec {
       .thenReturn(Some(serverNode128))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
 
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 203))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+    when(sessionAllocator.deallocateServer[MockRecoveryMetadata](sessionManager.sessionType(), 203))
+      .thenThrow(new IllegalStateException("DeallocateCallback"))
+
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 204))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+    when(sessionAllocator.deallocateServer[MockRecoveryMetadata](sessionManager.sessionType(), 204))
+      .thenThrow(new IllegalStateException("DeallocateCallback"))
+
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 210))
       .thenReturn(None)
 
     when(sessionAllocator.getAllSessions[MockRecoveryMetadata](
       sessionManager.sessionType(), serverMetadata = None))
       .thenReturn(ArrayBuffer(
-        Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode126.serverMetadata)),
+          Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode126.serverMetadata)),
           Success[MockRecoveryMetadata](MockRecoveryMetadata(103, serverNode128.serverMetadata))))
 
 
@@ -183,6 +200,10 @@ object SessionServletSpec {
                        accessManager) with RemoteUserOverride {
 
       override protected def createSession(sessionId: Int, req: HttpServletRequest): MockSession = {
+        if (sessionId == 203) {
+          throw new IllegalArgumentException("203")
+        }
+
         val params = bodyAs[Map[String, String]](req)
         val owner = remoteUser(req)
         val impersonatedUser = accessManager.checkImpersonation(
@@ -551,6 +572,18 @@ class ClusterEnabledSessionServletSpec
         res.owner should be("emma")
         header("Location") should be("/mocks/202")
       }
+
+      // Deallocate should be called when request is invalid
+      post("/mocks/", Map(), headers = headers) {
+        new String(bodyBytes).contains("DeallocateCallback") should be(true)
+      }
+
+      // Deallocate should be called when too many creating session
+      servlet.livyConf.set(LivyConf.SESSION_MAX_CREATION, 0)
+      post("/mocks/", Map(), headers = headers)  {
+        new String(bodyBytes).contains("DeallocateCallback") should be(true)
+      }
+      servlet.livyConf.set(LivyConf.SESSION_MAX_CREATION, 100)
 
       // unknown session id specified
       post("/mocks/210", toJson(Map()), headers = headers) {

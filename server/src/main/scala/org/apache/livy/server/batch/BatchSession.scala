@@ -24,7 +24,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.Random
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties
+import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
@@ -45,7 +45,13 @@ case class BatchRecoveryMetadata(
     proxyUser: Option[String],
     serverMetadata: ServerMetadata,
     version: Int = 1)
-  extends RecoveryMetadata
+  extends RecoveryMetadata {
+
+  @JsonIgnore
+  def isServerDeallocatable(): Boolean = {
+    appTag == null && (appId == null || appId == None)
+  }
+}
 
 object BatchSession extends Logging {
   val RECOVERY_SESSION_TYPE = "batch"

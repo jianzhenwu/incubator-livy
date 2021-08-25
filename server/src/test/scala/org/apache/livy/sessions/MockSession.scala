@@ -17,13 +17,19 @@
 
 package org.apache.livy.sessions
 
+import com.fasterxml.jackson.annotation.JsonIgnore
+
 import org.apache.livy.{LivyConf, ServerMetadata}
 
 class MockSession(id: Int, owner: String, conf: LivyConf, name: Option[String] = None)
   extends Session(id, name, owner, conf) {
   case class RecoveryMetadata(
       id: Int,
-      serverMetadata: ServerMetadata) extends Session.RecoveryMetadata
+      serverMetadata: ServerMetadata) extends Session.RecoveryMetadata {
+
+    @JsonIgnore
+    override def isServerDeallocatable(): Boolean = { true }
+  }
 
   override val proxyUser = None
 
