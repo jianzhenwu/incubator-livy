@@ -17,11 +17,13 @@
 
 package org.apache.livy.server.recovery
 
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 
 import org.apache.curator.framework.{CuratorFramework, CuratorFrameworkFactory}
-import org.apache.curator.framework.api.UnhandledErrorListener
+import org.apache.curator.framework.api.{BackgroundCallback, CuratorEvent, CuratorEventType, UnhandledErrorListener}
 import org.apache.curator.framework.recipes.cache.{PathChildrenCache, PathChildrenCacheEvent, PathChildrenCacheListener}
 import org.apache.curator.framework.recipes.cache.PathChildrenCache.StartMode
 import org.apache.curator.framework.recipes.cache.PathChildrenCacheEvent.Type
@@ -100,23 +102,43 @@ class ZooKeeperManager(
     }
   }
 
-  def get[T: ClassTag](key: String, stat: Option[Stat] = None): Option[T] = {
-    if (curatorClient.checkExists().forPath(key) == null) {
-      None
-    } else {
-      if (stat.isEmpty) {
-        Option(deserialize[T](curatorClient.getData().forPath(key)))
-      } else {
-        Option(deserialize[T](curatorClient.getData().storingStatIn(stat.get).forPath(key)))
+  def awaitSync(key: String): Boolean = {
+    val latch = new CountDownLatch(1)
+    val callback = new BackgroundCallback() {
+      override def processResult(client: CuratorFramework, event: CuratorEvent): Unit = {
+        if (event.getType eq CuratorEventType.SYNC) latch.countDown()
       }
+    }
+    curatorClient.sync.inBackground(callback).forPath(key)
+    val timeout = livyConf.getTimeAsMs(LivyConf.ZK_SYNC_TIMEOUT)
+    latch.await(timeout, TimeUnit.MILLISECONDS)
+  }
+
+  def get[T: ClassTag](key: String, stat: Option[Stat] = None): Option[T] = {
+    if (awaitSync(key)) {
+      if (curatorClient.checkExists().forPath(key) == null) {
+        None
+      } else {
+        if (stat.isEmpty) {
+          Option(deserialize[T](curatorClient.getData().forPath(key)))
+        } else {
+          Option(deserialize[T](curatorClient.getData().storingStatIn(stat.get).forPath(key)))
+        }
+      }
+    } else {
+      throw new Exception(s"curatorClient sync timeout.")
     }
   }
 
   def getChildren(key: String): Seq[String] = {
-    if (curatorClient.checkExists().forPath(key) == null) {
-      Seq.empty[String]
+    if (awaitSync(key)) {
+      if (curatorClient.checkExists().forPath(key) == null) {
+        Seq.empty[String]
+      } else {
+        curatorClient.getChildren.forPath(key).asScala
+      }
     } else {
-      curatorClient.getChildren.forPath(key).asScala
+      throw new Exception(s"curatorClient sync timeout.")
     }
   }
 

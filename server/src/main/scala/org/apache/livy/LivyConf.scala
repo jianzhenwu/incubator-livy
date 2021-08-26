@@ -244,6 +244,9 @@ object LivyConf {
   val RECOVERY_ZK_STATE_STORE_KEY_PREFIX =
     Entry("livy.server.recovery.zk-state-store.key-prefix", "livy")
 
+  // zk sync get await timeout.
+  val ZK_SYNC_TIMEOUT = Entry("livy.server.zk.sync.timeout", "3s")
+
   // The id generator for Livy session, note: global unique generator required for Livy cluster
   val SESSION_ID_GENERATOR_CLASS = Entry("livy.server.session.id-generator.class", null)
 

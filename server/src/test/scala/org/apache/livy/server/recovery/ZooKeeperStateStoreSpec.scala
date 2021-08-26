@@ -23,7 +23,10 @@ import org.apache.curator.framework.CuratorFramework
 import org.apache.curator.framework.api._
 import org.apache.curator.framework.listen.Listenable
 import org.apache.zookeeper.data.Stat
+import org.mockito.Matchers.any
 import org.mockito.Mockito._
+import org.mockito.invocation.InvocationOnMock
+import org.mockito.stubbing.Answer
 import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 import org.scalatestplus.mockito.MockitoSugar.mock
@@ -43,10 +46,30 @@ class ZooKeeperStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
       val curatorClient = mock[CuratorFramework]
       when(curatorClient.getUnhandledErrorListenable())
         .thenReturn(mock[Listenable[UnhandledErrorListener]])
+      mockSyncBuilder(curatorClient)
+
       val zkManager = new ZooKeeperManager(conf, Some(curatorClient))
       zkManager.start()
       val stateStore = new ZooKeeperStateStore(conf, zkManager)
       testBody(TestFixture(stateStore, curatorClient))
+    }
+
+    def mockSyncBuilder(curatorClient: CuratorFramework): Unit = {
+      val syncBuilder = mock[SyncBuilder]
+      when(curatorClient.sync).thenReturn(syncBuilder)
+
+      val mockEvent = mock[CuratorEvent]
+      when(mockEvent.getType).thenReturn(CuratorEventType.SYNC)
+      val mockPathable = mock[Pathable[Void]]
+      doAnswer(new Answer[Any]() {
+        @throws[Throwable]
+        override def answer(invocationOnMock: InvocationOnMock): Any = {
+          val objests = invocationOnMock.getArguments
+          // the first object is the BackgroundCallback
+          objests(0).asInstanceOf[BackgroundCallback].processResult(curatorClient, mockEvent)
+          mockPathable
+        }
+      }).when(syncBuilder).inBackground(any(classOf[BackgroundCallback]))
     }
 
     def mockExistsBuilder(curatorClient: CuratorFramework, exists: Boolean): Unit = {
