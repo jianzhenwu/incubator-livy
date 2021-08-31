@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.{ClassLoaderUtils, LivyConf, Logging}
 import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
 
 class SparkProcessBuilder(livyConf: LivyConf,
@@ -32,7 +32,13 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _deployMode: Option[String] = None
   private[this] var _className: Option[String] = None
   private[this] var _name: Option[String] = None
-  private[this] val _conf = mutable.HashMap[String, String]()
+  private[this] val _conf =
+    Option(ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-default.conf")) match {
+      case Some(defaultConf) =>
+        defaultConf.asScala
+      case None =>
+        mutable.HashMap[String, String]()
+    }
   private[this] var _driverClassPath: ArrayBuffer[String] = ArrayBuffer()
   private[this] var _proxyUser: Option[String] = None
   private[this] var _queue: Option[String] = None

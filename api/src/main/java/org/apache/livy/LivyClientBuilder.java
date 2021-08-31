@@ -18,17 +18,13 @@
 package org.apache.livy;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.Reader;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.ServiceLoader;
-import static java.nio.charset.StandardCharsets.UTF_8;
 
 /**
  * A builder for Livy clients.
@@ -83,14 +79,9 @@ public final class LivyClientBuilder {
       String[] confFiles = { "spark-defaults.conf", "livy-client.conf" };
 
       for (String file : confFiles) {
-        URL url = classLoader().getResource(file);
-        if (url != null) {
-          Reader r = new InputStreamReader(url.openStream(), UTF_8);
-          try {
-            config.load(r);
-          } finally {
-            r.close();
-          }
+        Properties props = ClassLoaderUtils.loadAsPropertiesFromClasspath(file);
+        if (null != props) {
+          config.putAll(props);
         }
       }
     }
