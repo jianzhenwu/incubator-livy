@@ -51,10 +51,10 @@ verify:
     - foundation
   retry: 2
   script:
-    - mvn ${MVN_FLAG} -Dmaven.javadoc.skip=true -B -V -e verify ${MVN_OPTS}
+    - mvn -s settings.xml ${MVN_FLAG} -Dmaven.javadoc.skip=true -B -V -e verify ${MVN_OPTS}
   parallel:
     matrix:
-      - MVN_FLAG: "-Pthriftserver -Pspark-3.0"
-      - MVN_FLAG: "-Pthriftserver"
+      - MVN_FLAG: "-Pthriftserver -Pspark-3.0 -Pintegration-test"
+      - MVN_FLAG: "-Pthriftserver -Pintegration-test"
   only:
     - merge_requests
