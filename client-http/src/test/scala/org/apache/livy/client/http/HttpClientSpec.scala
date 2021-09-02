@@ -20,7 +20,6 @@ package org.apache.livy.client.http
 import java.io.{File, InputStream}
 import java.net.{InetAddress, URI}
 import java.nio.file.{Files, Paths}
-import java.util.Properties
 import java.util.concurrent.{Future => JFuture, _}
 import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.ServletContext
@@ -38,9 +37,7 @@ import org.scalatra.servlet.ScalatraListener
 import org.apache.livy._
 import org.apache.livy.client.common.{BufferUtils, Serializer}
 import org.apache.livy.client.common.HttpMessages._
-import org.apache.livy.client.http.param.InteractiveOptions
 import org.apache.livy.metrics.common.Metrics
-import org.apache.livy.rsc.driver.{Statement, StatementState}
 import org.apache.livy.server.{AccessManager, WebServer}
 import org.apache.livy.server.interactive.{InteractiveRecoveryMetadata, InteractiveSession, InteractiveSessionServlet}
 import org.apache.livy.server.recovery.SessionStore
@@ -79,13 +76,13 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll with LivyBaseUni
 
   override def afterAll(): Unit = {
     super.afterAll()
-    if (client != null) {
-      client.stop(true)
-      client = null
-    }
     if (server != null) {
       server.stop()
       server = null
+    }
+    if (client != null) {
+      client.stop(true)
+      client = null
     }
     session = null
   }
@@ -189,7 +186,7 @@ class HttpClientSpec extends FunSpecLike with BeforeAndAfterAll with LivyBaseUni
     withClient("should connect to existing sessions") {
       var sid = client.asInstanceOf[HttpClient].getSessionId()
       val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}" +
-        s"/${SessionType.Interactive.getSessionType}/$sid"
+        s"${LivyConnection.SESSIONS_URI}/$sid"
       val newClient = new LivyClientBuilder(false).setURI(new URI(uri)).build()
       newClient.stop(false)
       verify(session, never()).stop()
@@ -264,56 +261,6 @@ private object HttpClientSpec {
 
 }
 
-
-class InteractiveRestClientSpec extends FunSpecLike
-  with BeforeAndAfterAll
-  with LivyBaseUnitTestSuite {
-
-  private var server: WebServer = _
-  private var client: HttpClient = _
-
-  override def beforeAll(): Unit = {
-    super.beforeAll()
-    Metrics.init(new LivyConf())
-    server = new WebServer(new LivyConf(), "0.0.0.0", 0)
-
-    server.context.setResourceBase("src/main/org/apache/livy/server")
-    server.context.setInitParameter(ScalatraListener.LifeCycleKey,
-      classOf[HttpClientTestBootstrap].getCanonicalName)
-    server.context.addEventListener(new ScalatraListener)
-
-    server.start()
-  }
-
-  override def afterAll(): Unit = {
-    super.afterAll()
-    if (client != null) {
-      client.stop(true)
-      client = null
-    }
-    if (server != null) {
-      server.stop()
-      server = null
-    }
-  }
-
-  describe("Rest client interactive session") {
-
-    it("should create interactive session and run statement") {
-      // WebServer does this internally instead of respecting "0.0.0.0", so try to use the same
-      // address.
-      val uri = s"http://${InetAddress.getLocalHost.getHostAddress}:${server.port}/"
-      val options: InteractiveOptions = new InteractiveOptions()
-      client = new HttpClient(new URI(uri), new Properties(), options)
-      client.waitUntilSessionStarted()
-      assert(client.getSessionId === 0)
-      assert(client.isInteractive)
-      val mockStatement = client.runStatement("")
-      assert(mockStatement.isEmpty)
-    }
-  }
-}
-
 private class HttpClientTestBootstrap extends LifeCycle {
 
   private implicit def executor: ExecutionContext = ExecutionContext.global
@@ -342,25 +289,13 @@ private class HttpClientTestBootstrap extends LifeCycle {
         when(session.recoveryMetadata).thenReturn(InteractiveRecoveryMetadata(id, None,
           None, null, Spark, 1, null, None, null, livyConf.serverMetadata()))
         when(session.stop()).thenReturn(Future.successful(()))
-        when(session.recoveryMetadata).thenReturn(
-          InteractiveRecoveryMetadata(0, None, None, "", Spark,
-            0, "", None, None, ServerMetadata(req.serverName, req.serverPort)))
-
-        val mockStatement = new Statement(0, "", StatementState.Available, "{}")
-        mockStatement.started = System.currentTimeMillis()
-        mockStatement.completed = System.currentTimeMillis()
-        mockStatement.progress = 1.0
-
-        when(session.executeStatement(anyObject())).thenReturn(mockStatement)
-        when(session.getStatement(anyInt())).thenReturn(Some(mockStatement))
-
         require(HttpClientSpec.session == null, "Session already created?")
         HttpClientSpec.session = session
         session
       }
     }
 
-    context.mount(servlet, s"/${SessionType.Interactive.getSessionType}/*")
+    context.mount(servlet, s"${LivyConnection.SESSIONS_URI}/*")
   }
 
 }

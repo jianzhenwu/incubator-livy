@@ -40,6 +40,6 @@ verify:
     - foundation
   retry: 2
   script:
-    - mvn -s settings.xml -Pthriftserver -Pspark-3.0 -Dmaven.javadoc.skip=true -B -V -e verify ${MAVEN_OPTS}
+    - mvn -Pthriftserver -Pspark-3.0 -Dmaven.javadoc.skip=true -B -V -e verify ${MAVEN_OPTS}
   only:
     - merge_requests

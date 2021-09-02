@@ -52,7 +52,6 @@ import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
 import static org.apache.livy.client.http.HttpConf.Entry.*;
-import static org.apache.livy.client.http.SessionType.Interactive;
 
 /**
  * Abstracts a connection to the Livy server; serializes multiple requests so that we only need
@@ -60,6 +59,7 @@ import static org.apache.livy.client.http.SessionType.Interactive;
  */
 class LivyConnection {
 
+  static final String SESSIONS_URI = "/sessions";
   private static final String APPLICATION_JSON = "application/json";
 
   private final URI server;
@@ -67,17 +67,12 @@ class LivyConnection {
   private final CloseableHttpClient client;
   private final ObjectMapper mapper;
 
-
   LivyConnection(URI uri, final HttpConf config) {
-    this(uri, config, Interactive);
-  }
-
-  LivyConnection(URI uri, final HttpConf config, SessionType sessionType) {
     HttpClientContext ctx = HttpClientContext.create();
     int port = uri.getPort() > 0 ? uri.getPort() : 8998;
 
     String path = uri.getPath() != null ? uri.getPath() : "";
-    this.uriRoot = path + "/" + sessionType.getSessionType();
+    this.uriRoot = path + SESSIONS_URI;
 
     RequestConfig reqConfig = new RequestConfig() {
       @Override
