@@ -666,7 +666,13 @@ class InteractiveSession(
 
             info("Application is in running state now, starting dispose work after some time")
             client.foreach(x => {
-              x.getDriverCallbackTimer().start()
+              // If livy is restarted, and session is recovered, driverCallbackTimer
+              // could be null
+              // TODO we should also consider session could be timeout when connecting
+              // with driver while recovering.
+              if (null != x.getDriverCallbackTimer) {
+                x.getDriverCallbackTimer.start()
+              }
             })
           }
         case SparkApp.State.FINISHED =>

@@ -20,7 +20,8 @@ stages:
   - verify
 
 variables:
-  MAVEN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  MVN_OPTS: "-Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository"
+  TRAVIS: "true"
 
 cache:
   paths:
@@ -28,11 +29,21 @@ cache:
 
 before_script:
   -  apt-get update
+  -  apt-get -qq --allow-unauthenticated install software-properties-common
+  -  apt-add-repository "deb http://cloud.r-project.org/bin/linux/debian buster-cran35/"
+  -  apt-key adv --keyserver keyserver.ubuntu.com --recv-key E19F5F87128899B192B1A2C2AD5F960A256A04AF
+  -  apt-get update
   -  apt-get -qq --allow-unauthenticated install r-base
-  -  apt-get -qq install python-pip python-dev
-  -  apt-get -qq install python3-pip python3-dev
+  -  apt-get -qq install python3-pip python-dev
+  -  apt-get -qq install python-pip
   -  apt-get -qq install libkrb5-dev
   -  apt-get -qq remove python-setuptools
+  -  python -m pip -q install --upgrade "pip < 10.0.0" "setuptools < 36"
+  -  python3 -m pip -q install --upgrade "pip < 10.0.0" "setuptools < 36"
+  -  python -m pip -q install codecov cloudpickle
+  -  python3 -m pip -q install cloudpickle
+  -  python -m pip -q install "requests >= 2.10.0" pytest flaky flake8 requests-kerberos
+  -  python3 -m pip -q install "requests >= 2.10.0" pytest flaky requests-kerberos
 
 verify:
   stage: verify
@@ -40,6 +51,10 @@ verify:
     - foundation
   retry: 2
   script:
-    - mvn -Pthriftserver -Pspark-3.0 -Dmaven.javadoc.skip=true -B -V -e verify ${MAVEN_OPTS}
+    - mvn ${MVN_FLAG} -Dmaven.javadoc.skip=true -B -V -e verify ${MVN_OPTS}
+  parallel:
+    matrix:
+      - MVN_FLAG: "-Pthriftserver -Pspark-3.0"
+      - MVN_FLAG: "-Pthriftserver"
   only:
     - merge_requests
