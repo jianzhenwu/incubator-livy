@@ -404,6 +404,27 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
 
   lazy val sparkVersions = configToSeq(LIVY_SPARK_VERSIONS)
 
+  lazy val historyInfoList: List[HistoryInfo] = config.asScala
+    .filter(_._1.startsWith("livy.spark.history"))
+    .toSeq
+    .sorted
+    .grouped(2)
+    .map {
+      pair =>
+        assert(
+          pair.length == 2,
+          "There must be some history info configure missing, please check it")
+        // the name should be same
+        val name = pair.head._1.split("\\.")(3)
+        assert(
+          s"livy.spark.history.$name.eventLogDir" == pair(1)._1,
+          s"Missing $name eventLogDir configure")
+
+        val address = pair.head._2
+        val eventLogDir = pair(1)._2
+        HistoryInfo(name, address, eventLogDir)
+    }.toList
+
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
    * @return

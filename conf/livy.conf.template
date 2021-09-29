@@ -208,3 +208,10 @@
 # livy.rsc.sparkr.package.v3_1 =
 # livy.rsc.pyspark.archives.v2_4 =
 # livy.rsc.pyspark.archives.v3_1 =
+
+# A list of spark history for livy to select, this history info will also added to yarn tag
+# to convenient to keyhole.
+# livy.spark.history.name1.address = http://spark-history.data-infra.shopee.io
+# livy.spark.history.name1.eventLogDir = hdfs://tl3/logs/spark/
+# livy.spark.history.name2.address = http://spark-history.data-infra1.shopee.io
+# livy.spark.history.name2.eventLogDir = hdfs://tl3/logs/spark1/

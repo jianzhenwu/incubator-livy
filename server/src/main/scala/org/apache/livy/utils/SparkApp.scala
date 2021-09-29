@@ -18,6 +18,7 @@
 package org.apache.livy.utils
 
 import scala.collection.JavaConverters._
+import scala.util.Random
 
 import org.apache.livy.LivyConf
 
@@ -68,9 +69,35 @@ object SparkApp {
     if (livyConf.isRunningOnYarn()) {
       val userYarnTags = sparkConf.get(SPARK_YARN_TAG_KEY).map("," + _).getOrElse("")
       val mergedYarnTags = uniqueAppTag + userYarnTags
-      sparkConf ++ Map(
+      prepareSparkHistoryConf(
+        livyConf,
+        sparkConf ++ Map(
         SPARK_YARN_TAG_KEY -> mergedYarnTags,
-        "spark.yarn.submit.waitAppCompletion" -> "false")
+        "spark.yarn.submit.waitAppCompletion" -> "false"))
+    } else {
+      sparkConf
+    }
+  }
+
+  /**
+   * Append random history into sparkConf if historyInfoList is not empty.
+   */
+  private def prepareSparkHistoryConf(
+      livyConf: LivyConf,
+      sparkConf: Map[String, String]): Map[String, String] = {
+    val infoList = livyConf.historyInfoList
+    if (infoList.nonEmpty) {
+      val selected = infoList(Random.nextInt(infoList.length))
+      val mergedTags = sparkConf.get(SPARK_YARN_TAG_KEY) match {
+        case Some(oldTags) =>
+          oldTags + s",SHS:${selected.address}"
+        case None =>
+          s"SHS:${selected.address}"
+      }
+      sparkConf ++ Map(
+        SPARK_YARN_TAG_KEY -> mergedTags,
+        "spark.yarn.historyServer.address" -> selected.address,
+        "spark.eventLog.dir" -> selected.eventLogDir)
     } else {
       sparkConf
     }
