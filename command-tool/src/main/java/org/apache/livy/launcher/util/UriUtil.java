@@ -15,31 +15,22 @@
  * limitations under the License.
  */
 
-package org.apache.livy.launcher.exception;
+package org.apache.livy.launcher.util;
 
-/**
- * Exception thrown when the program needs to exit.
- */
-public class LivyLauncherException extends RuntimeException {
+import java.io.UnsupportedEncodingException;
+import java.net.URI;
+import java.net.URISyntaxException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
-  private final LauncherExitCode exitCode;
+public class UriUtil {
 
-  public LivyLauncherException(LauncherExitCode exitCode) {
-    super("User application exited with " + exitCode);
-    this.exitCode = exitCode;
-  }
-
-  public LivyLauncherException(LauncherExitCode exitCode, String message) {
-    super(message);
-    this.exitCode = exitCode;
-  }
-
-  public LivyLauncherException(LauncherExitCode exitCode, String message, Throwable cause) {
-    super(message, cause);
-    this.exitCode = exitCode;
-  }
-
-  public LauncherExitCode getExitCode() {
-    return exitCode;
+  public static URI appendAuthority(URI livyUrl, String username, String password)
+      throws UnsupportedEncodingException, URISyntaxException {
+    String userInfo = String.format("%s:%s",
+        URLEncoder.encode(username, StandardCharsets.UTF_8.name()),
+        URLEncoder.encode(password, StandardCharsets.UTF_8.name()));
+    return new URI(livyUrl.getScheme(), userInfo, livyUrl.getHost(), livyUrl.getPort(),
+        livyUrl.getPath(), livyUrl.getQuery(), livyUrl.getFragment());
   }
 }

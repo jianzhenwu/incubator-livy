@@ -20,6 +20,7 @@ import org.apache.commons.cli.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 
 class DefaultExtraArgsParser {
@@ -45,12 +46,12 @@ class DefaultExtraArgsParser {
 
       if (commandLine.hasOption("help")) {
         printCliUsage();
-        throw new LivyLauncherException(0);
+        throw new LivyLauncherException(LauncherExitCode.normal);
       }
     } catch (ParseException e) {
       logger.error("Fail to parse extra args", e);
       printCliUsage();
-      throw new LivyLauncherException(1);
+      throw new LivyLauncherException(LauncherExitCode.optionError);
     }
   }
 

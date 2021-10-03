@@ -29,6 +29,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.param.InteractiveOptions;
+import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 import org.apache.livy.launcher.util.LauncherUtils;
 
@@ -85,9 +86,9 @@ public class LivyOption extends LivyOptionParser {
   private List<String> extraArgs;
 
   /**
-   * livy configuration
+   * launcher configuration
    */
-  private final Properties livyConf = new Properties();
+  private final Properties launcherConf = new Properties();
 
   private boolean dynamicAllocationEnabled;
 
@@ -99,7 +100,7 @@ public class LivyOption extends LivyOptionParser {
   /**
    * Throw IllegalArgumentException when valued option has no value,
    * throw UnhandledOptionException when option is recognized and unhandled,
-   * throw LivyUserAppException when should exit.
+   * throw LivyLauncherException when should exit.
    */
   public LivyOption(List<String> sparkArgs, String kind,
       DefaultExtraArgsParser extraArgsParser) {
@@ -184,7 +185,7 @@ public class LivyOption extends LivyOptionParser {
         this.password = value;
         break;
       case HELP:
-        this.printUsageAndExit(0);
+        this.printUsageAndExit(LauncherExitCode.normal);
         break;
       default:
         return false;
@@ -192,8 +193,8 @@ public class LivyOption extends LivyOptionParser {
     return true;
   }
 
-  private void printUsageAndExit(int exitCode) {
-    String usage = System.getenv("_LIVY_CLI_USAGE");
+  private void printUsageAndExit(LauncherExitCode exitCode) {
+    String usage = System.getenv("_LIVY_LAUNCHER_USAGE");
     if (StringUtils.isNotBlank(usage)) {
       infoStream.println(usage);
     }
@@ -272,14 +273,14 @@ public class LivyOption extends LivyOptionParser {
     }
 
     try (FileInputStream fileInputStream = new FileInputStream(livyConfFile)) {
-      this.livyConf.load(fileInputStream);
+      this.launcherConf.load(fileInputStream);
     } catch (IOException e) {
       logger.warn("Fail to load livy-launcher config file {}.", livyConfFile);
       return;
     }
 
     logger.info("Load livy-launcher conf file {}.", livyConfFile);
-    Set<Map.Entry<Object, Object>> entries = this.livyConf.entrySet();
+    Set<Map.Entry<Object, Object>> entries = this.launcherConf.entrySet();
     for (Map.Entry<Object, Object> e : entries) {
       if (LivyLauncherConfiguration.LIVY_URL.equals(e.getKey().toString())) {
         if (StringUtils.isBlank(this.livyUrl)) {
@@ -303,7 +304,7 @@ public class LivyOption extends LivyOptionParser {
       properties.load(fileInputStream);
     } catch (IOException io) {
       logger.error("Fail to load propertiesFile {}.", this.propertiesFile);
-      throw new LivyLauncherException(-1);
+      throw new LivyLauncherException(LauncherExitCode.others);
     }
     Set<Map.Entry<Object, Object>> entries = properties.entrySet();
     for (Map.Entry<Object, Object> e : entries) {
@@ -376,7 +377,7 @@ public class LivyOption extends LivyOptionParser {
    */
   protected void validateOptions(List<String> args) {
     if (args.size() == 0) {
-      printUsageAndExit(-1);
+      printUsageAndExit(LauncherExitCode.optionError);
     }
     if (driverMemory != null
         && LauncherUtils.byteStringAsBytes(driverMemory) <= 0) {
@@ -404,11 +405,11 @@ public class LivyOption extends LivyOptionParser {
   }
 
   public String getLivyConfByKey(String key, String defaultValue) {
-    return this.livyConf.getProperty(key, defaultValue);
+    return this.launcherConf.getProperty(key, defaultValue);
   }
 
   public String getLivyConfByKey(String key) {
-    return this.livyConf.getProperty(key);
+    return this.launcherConf.getProperty(key);
   }
 
   public InteractiveOptions createInteractiveOptions() {
@@ -535,5 +536,9 @@ public class LivyOption extends LivyOptionParser {
 
   public void setExtraArgs(List<String> extraArgs) {
     this.extraArgs = extraArgs;
+  }
+
+  public Properties getLauncherConf() {
+    return launcherConf;
   }
 }

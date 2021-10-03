@@ -54,7 +54,7 @@ public class SparkSqlOption extends LivyOption {
     return this.getCommandLine().getOptionProperties("hivevar");
   }
 
-  public String[] getInitFile() {
+  public String[] getInitFiles() {
     return this.getCommandLine().getOptionValues('i');
   }
 

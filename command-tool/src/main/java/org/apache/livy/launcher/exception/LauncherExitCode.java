@@ -17,29 +17,28 @@
 
 package org.apache.livy.launcher.exception;
 
-/**
- * Exception thrown when the program needs to exit.
- */
-public class LivyLauncherException extends RuntimeException {
+public enum LauncherExitCode {
 
-  private final LauncherExitCode exitCode;
+  /**
+   * Exit normally
+   */
+  normal(0),
+  /**
+   * Error when parse option
+   */
+  optionError(1),
+  /**
+   * Resource not found
+   */
+  others(-1),
+  ;
+  private final int code;
 
-  public LivyLauncherException(LauncherExitCode exitCode) {
-    super("User application exited with " + exitCode);
-    this.exitCode = exitCode;
+  LauncherExitCode(int code) {
+    this.code = code;
   }
 
-  public LivyLauncherException(LauncherExitCode exitCode, String message) {
-    super(message);
-    this.exitCode = exitCode;
-  }
-
-  public LivyLauncherException(LauncherExitCode exitCode, String message, Throwable cause) {
-    super(message, cause);
-    this.exitCode = exitCode;
-  }
-
-  public LauncherExitCode getExitCode() {
-    return exitCode;
+  public int getCode() {
+    return code;
   }
 }

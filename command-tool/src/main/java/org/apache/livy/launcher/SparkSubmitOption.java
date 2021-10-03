@@ -22,6 +22,7 @@ import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 
 public class SparkSubmitOption extends LivyOption {
@@ -57,7 +58,7 @@ public class SparkSubmitOption extends LivyOption {
 
     if (this.getFile() == null) {
       logger.error("Must specify a primary resource (JAR or Python or R file)");
-      throw new LivyLauncherException(1);
+      throw new LivyLauncherException(LauncherExitCode.optionError);
     }
   }
 }
