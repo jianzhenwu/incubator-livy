@@ -35,9 +35,14 @@ import org.apache.livy.launcher.util.UriUtil;
 
 public abstract class AbstractInteractiveRunner {
 
+  protected HttpClient restClient;
+  protected ConsoleReader consoleReader;
+
+  protected boolean exit;
+  protected StringBuilder builder;
+  protected String prompt;
+
   private final LivyOption livyOption;
-  public HttpClient restClient;
-  public ConsoleReader consoleReader;
   private FileHistory fileHistory;
 
   public AbstractInteractiveRunner(LivyOption livyOption) {
@@ -104,7 +109,45 @@ public abstract class AbstractInteractiveRunner {
    * The runner may be interrupted by user.
    * Any exceptions need to be caught and output to the terminal.
    */
-  public abstract void interactive();
+  public void interactive() {
+    try {
+      builder = new StringBuilder();
+      while (!exit) {
+        String line = this.consoleReader.readLine(prompt);
+        if (line == null) {
+          if (builder.length() == 0) {
+            exit = true;
+            break;
+          } else {
+            builder.setLength(0);
+            prompt = promptStart();
+            this.consoleReader.println();
+            continue;
+          }
+        }
+
+        handleLine(line);
+      }
+    } catch (IOException e) {
+      throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
+          e.getCause());
+    }
+  }
+
+  /**
+   * Handle line that read from consoleReader.
+   */
+  public abstract void handleLine(String line);
+
+  /**
+   * Return start prompt.
+   */
+  public abstract String promptStart();
+
+  /**
+   * Return later prompt.
+   */
+  public abstract String promptContinue();
 
   public void close() {
     restClient.stop(true);
