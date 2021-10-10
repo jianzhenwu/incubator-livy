@@ -19,15 +19,32 @@ package org.apache.livy.launcher;
 
 import java.util.List;
 import java.util.Properties;
+import java.util.Set;
 
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.OptionBuilder;
 import org.apache.commons.cli.Options;
+import org.apache.commons.lang3.StringUtils;
+
+import org.apache.livy.launcher.exception.LauncherExitCode;
+import org.apache.livy.launcher.exception.LivyLauncherException;
 
 public class SparkSqlOption extends LivyOption {
 
   public SparkSqlOption(List<String> args) {
     super(args, "sql", new SparkSqlExtraArgsParser());
+
+    Properties hiveConf = getHiveConf();
+    if (hiveConf != null) {
+      Set<Object> keySet = hiveConf.keySet();
+      for (Object k : keySet) {
+        String key = k.toString();
+        if (!key.startsWith("spark.hadoop.")) {
+          key = "spark.hadoop." + key;
+        }
+        this.getSparkProperties().put(key, hiveConf.getProperty(key));
+      }
+    }
   }
 
   public Properties getDefineProperties() {
@@ -105,6 +122,16 @@ public class SparkSqlOption extends LivyOption {
       options.addOption(OptionBuilder.hasArg().withArgName("filename")
           .withDescription("Initialization SQL file").create('i'));
       return options;
+    }
+  }
+
+  @Override
+  protected void validateOptions(List<String> args) {
+    super.validateOptions(args);
+    if (StringUtils.isNotBlank(this.getQuery()) && StringUtils
+        .isNotBlank(this.getSqlFile())) {
+      throw new LivyLauncherException(LauncherExitCode.optionError,
+          "-e and -f options cannot take effect at the same time");
     }
   }
 }

@@ -135,7 +135,8 @@ public class LivyOption extends LivyOptionParser {
         try {
           String k = value.substring(0, idx);
           String v = value.substring(idx + 1);
-          this.sparkProperties.put(k.trim(), v.trim());
+          // Allow space parameters.
+          this.sparkProperties.put(k.trim(), v);
         } catch (Exception e) {
           throw new IllegalArgumentException(
               String.format("Illegal Argument %s %s", CONF, value));
