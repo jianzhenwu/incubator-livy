@@ -46,6 +46,7 @@ public class LivyLauncher {
       sparkArgs.add("--help");
     }
 
+    int exitCode = 0;
     try {
       switch (sparkCommand) {
         case "spark-submit":
@@ -53,31 +54,32 @@ public class LivyLauncher {
               new SparkSubmitOption(sparkArgs);
           SparkSubmitRunner sparkSubmitRunner =
               new SparkSubmitRunner(sparkSubmitOption);
-          sparkSubmitRunner.run();
+          exitCode = sparkSubmitRunner.run();
           break;
         case "spark-sql":
           SparkSqlOption sparkSqlOption = new SparkSqlOption(sparkArgs);
           SparkSqlRunner sparkSqlRunner = new SparkSqlRunner(sparkSqlOption);
-          sparkSqlRunner.interactive();
+          exitCode = sparkSqlRunner.interactive();
           break;
         case "pyspark":
           PySparkOption pySparkOption = new PySparkOption(sparkArgs);
           PysparkRunner pysparkRunner = new PysparkRunner(pySparkOption);
-          pysparkRunner.interactive();
+          exitCode = pysparkRunner.interactive();
           break;
         case "spark-shell":
           SparkShellOption sparkShellOption = new SparkShellOption(sparkArgs);
           SparkShellRunner sparkShellRunner =
               new SparkShellRunner(sparkShellOption);
-          sparkShellRunner.interactive();
+          exitCode = sparkShellRunner.interactive();
           break;
         default:
           logger.error("Unsupported sparkCommand {}", sparkCommand);
           System.exit(1);
       }
     } catch (LivyLauncherException e) {
-      logger.info(e.getMessage());
+      logger.info("Fail to start livy session.", e);
       System.exit(e.getExitCode().getCode());
     }
+    System.exit(exitCode);
   }
 }

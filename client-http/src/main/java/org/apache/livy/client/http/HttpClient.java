@@ -185,7 +185,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     }
   }
 
-  public List<List<String>> runStatement(String code) {
+  public StatementResponse runStatement(String code) {
     try {
       StatementOptions req = new StatementOptions(code);
       StatementResponse submitRes =
@@ -203,7 +203,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
             conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
                 statementId);
         if (runRes.getProgress() == 1) {
-          return runRes.getOutputData();
+          return runRes;
         }
 
         long currentTime = System.currentTimeMillis();

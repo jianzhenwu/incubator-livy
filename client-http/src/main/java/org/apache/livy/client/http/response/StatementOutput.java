@@ -14,35 +14,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.livy.client.http.response;
 
-package org.apache.livy.launcher.exception;
+import java.util.List;
 
-public enum LauncherExitCode {
+public class StatementOutput {
 
-  /**
-   * Exit normally
-   */
-  normal(0),
-  /**
-   * Error when parse option
-   */
-  optionError(1),
-  /**
-   * Error when run app.
-   */
-  appError(2),
-  /**
-   * Resource not found
-   */
-  others(-1),
-  ;
-  private final int code;
+  private String status;
+  private List<List<String>> data;
 
-  LauncherExitCode(int code) {
-    this.code = code;
+  public String getStatus() {
+    return status;
   }
 
-  public int getCode() {
-    return code;
+  public StatementOutput setStatus(String status) {
+    this.status = status;
+    return this;
+  }
+
+  public List<List<String>> getData() {
+    return data;
+  }
+
+  public StatementOutput setData(List<List<String>> data) {
+    this.data = data;
+    return this;
   }
 }

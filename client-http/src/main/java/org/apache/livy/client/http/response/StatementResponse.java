@@ -30,16 +30,21 @@ public class StatementResponse {
   private long started;
   private long completed;
 
-  public List<List<String>> getOutputData() {
+  public StatementOutput getOutputData() {
     String textFormat = "text/plain";
     String jsonFormat = "application/json";
+    StatementOutput statementOutput = new StatementOutput();
+
     List<List<String>> rows = new ArrayList<>();
     if (output instanceof Map) {
       Map<?, ?> outputMap = (Map<?, ?>) output;
       String status = (String) outputMap.get("status");
+      statementOutput.setStatus(status);
+
       if ("ok".equals(status)) {
         Object data = outputMap.get("data");
         Map<?, ?> dataMap = (Map<?, ?>) data;
+
         if (dataMap.containsKey(jsonFormat)) {
           Object jsonObject = dataMap.get(jsonFormat);
           Object jsonData = ((Map<?, ?>) jsonObject).get("data");
@@ -54,19 +59,20 @@ public class StatementResponse {
         } else if (dataMap.containsKey(textFormat)) {
           String res = (String) dataMap.get(textFormat);
           if (StringUtils.isNotBlank(res)) {
-            return Collections.singletonList(Collections.singletonList(res));
+            rows = Collections.singletonList(Collections.singletonList(res));
           }
         }
+
       } else if ("error".equals(status)) {
         for (Object o : (List<Object>) outputMap.get("traceback")) {
           if (o != null) {
             rows.add(Collections.singletonList(o.toString()));
           }
         }
-        return rows;
       }
     }
-    return rows;
+    statementOutput.setData(rows);
+    return statementOutput;
   }
 
   public int getId() {

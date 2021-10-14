@@ -16,8 +16,6 @@
  */
 package org.apache.livy.launcher.runner;
 
-import java.util.List;
-
 import org.apache.commons.lang3.StringUtils;
 import org.python.antlr.base.mod;
 import org.python.core.CompileMode;
@@ -26,6 +24,7 @@ import org.python.core.ParserFacade;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
 
 public class PysparkRunner extends AbstractInteractiveRunner {
@@ -61,8 +60,8 @@ public class PysparkRunner extends AbstractInteractiveRunner {
     } catch (Exception e) {
       // Run statement and print error info.
     }
-    List<List<String>> res = restClient.runStatement(code);
-    outputStatementResult(res);
+    StatementResponse statementResponse = restClient.runStatement(code);
+    handleStatementResponse(statementResponse);
     builder.setLength(0);
     prompt = PYTHON_PROMPT_START;
   }

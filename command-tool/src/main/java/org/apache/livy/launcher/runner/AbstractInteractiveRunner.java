@@ -28,9 +28,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
 import org.apache.livy.client.http.HttpClient;
+import org.apache.livy.client.http.response.StatementOutput;
+import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
+import org.apache.livy.launcher.util.LauncherUtils;
 import org.apache.livy.launcher.util.UriUtil;
 
 public abstract class AbstractInteractiveRunner {
@@ -39,6 +42,7 @@ public abstract class AbstractInteractiveRunner {
   protected ConsoleReader consoleReader;
 
   protected boolean exit;
+  protected int exitCode = 0;
   protected StringBuilder builder;
   protected String prompt;
 
@@ -109,9 +113,10 @@ public abstract class AbstractInteractiveRunner {
    * The runner may be interrupted by user.
    * Any exceptions need to be caught and output to the terminal.
    */
-  public void interactive() {
+  public int interactive() {
     try {
       builder = new StringBuilder();
+      prompt = promptStart();
       while (!exit) {
         String line = this.consoleReader.readLine(prompt);
         if (line == null) {
@@ -132,12 +137,24 @@ public abstract class AbstractInteractiveRunner {
       throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
           e.getCause());
     }
+    return this.exitCode;
   }
 
   /**
    * Handle line that read from consoleReader.
    */
   public abstract void handleLine(String line);
+
+  public void handleStatementResponse(StatementResponse statementResponse) {
+
+    StatementOutput output = statementResponse.getOutputData();
+    this.exitCode = LauncherUtils
+        .statementExitCode(statementResponse.getState(), output.getStatus())
+        .getCode();
+
+    List<List<String>> res = output.getData();
+    outputStatementResult(res);
+  }
 
   /**
    * Return start prompt.

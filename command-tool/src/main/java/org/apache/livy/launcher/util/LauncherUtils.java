@@ -20,11 +20,6 @@ package org.apache.livy.launcher.util;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
-import java.io.UnsupportedEncodingException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -34,10 +29,17 @@ import java.util.regex.Pattern;
 import com.google.common.collect.ImmutableMap;
 import org.apache.commons.lang3.StringUtils;
 import org.ini4j.Ini;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.livy.launcher.exception.LauncherExitCode;
+import org.apache.livy.rsc.driver.StatementState;
 
 import static org.apache.livy.launcher.LivyLauncherConfiguration.HADOOP_USER_RPCPASSWORD;
 
 public class LauncherUtils {
+
+  private static final Logger logger = LoggerFactory.getLogger(LauncherUtils.class);
 
   private static final ImmutableMap<String, ByteUnit> byteSuffixes =
       ImmutableMap.<String, ByteUnit>builder()
@@ -78,6 +80,7 @@ public class LauncherUtils {
     String sdiFile =
         String.format("%s/.sdi/credentials", System.getProperty("user.home"));
 
+    logger.debug("Read sdi credentials from {}", sdiFile);
     if (new File(sdiFile).isFile()) {
       try (FileInputStream fileInputStream = new FileInputStream(sdiFile)) {
         return new Ini(fileInputStream).get("default", HADOOP_USER_RPCPASSWORD);
@@ -130,5 +133,20 @@ public class LauncherUtils {
    */
   public static long byteStringAsBytes(String str) {
     return byteStringAs(str, ByteUnit.BYTE);
+  }
+
+  public static LauncherExitCode statementExitCode(String state,
+      String outputStatus) {
+
+    if (StatementState.Available.toString().equalsIgnoreCase(state) && "ok"
+        .equalsIgnoreCase(outputStatus)) {
+      return LauncherExitCode.normal;
+    }
+    return LauncherExitCode.appError;
+  }
+
+  public static LauncherExitCode batchSessionExitCode(String state) {
+    return "success".equalsIgnoreCase(state) ? LauncherExitCode.normal :
+        LauncherExitCode.appError;
   }
 }

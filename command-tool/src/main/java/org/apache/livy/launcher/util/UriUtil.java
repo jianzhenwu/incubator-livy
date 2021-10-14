@@ -23,10 +23,17 @@ import java.net.URISyntaxException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class UriUtil {
 
   public static URI appendAuthority(URI livyUrl, String username, String password)
       throws UnsupportedEncodingException, URISyntaxException {
+
+    if (StringUtils.isNotBlank(livyUrl.getUserInfo())) {
+      return livyUrl;
+    }
+
     String userInfo = String.format("%s:%s",
         URLEncoder.encode(username, StandardCharsets.UTF_8.name()),
         URLEncoder.encode(password, StandardCharsets.UTF_8.name()));

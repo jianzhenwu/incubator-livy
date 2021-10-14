@@ -23,9 +23,11 @@ import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.security.Principal;
+import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHeaders;
 import org.apache.http.HttpStatus;
@@ -218,12 +220,20 @@ class LivyConnection {
       Class<V> retType,
       String uri,
       Object... uriParams) throws Exception {
-    req.setURI(new URI(server.getScheme(), null, server.getHost(), server.getPort(),
-      uriRoot + String.format(uri, uriParams), null, null));
+    req.setURI(
+        new URI(server.getScheme(), server.getUserInfo(), server.getHost(),
+            server.getPort(), uriRoot + String.format(uri, uriParams), null,
+            null));
     // It is no harm to set X-Requested-By when csrf protection is disabled.
     if (req instanceof HttpPost || req instanceof HttpDelete || req instanceof HttpPut
             || req instanceof  HttpPatch) {
       req.addHeader("X-Requested-By", "livy");
+    }
+    if (StringUtils.isNotBlank(server.getUserInfo())) {
+      req.addHeader("Authorization", "Basic " + Base64.getEncoder()
+          .encodeToString(URLDecoder
+              .decode(server.getUserInfo(), StandardCharsets.UTF_8.toString())
+              .getBytes(StandardCharsets.UTF_8)));
     }
     try (CloseableHttpResponse res = client.execute(req)) {
       int status = (res.getStatusLine().getStatusCode() / 100) * 100;

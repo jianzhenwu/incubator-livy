@@ -41,6 +41,7 @@ import org.apache.livy.client.http.response.SessionStateResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
+import org.apache.livy.launcher.util.LauncherUtils;
 import org.apache.livy.launcher.util.UriUtil;
 import org.apache.livy.sessions.SessionState;
 
@@ -120,7 +121,7 @@ public class SparkSubmitRunner {
    * Submit application.PythonInterpreterSpec.scala
    * Exit when appId, SparkUiUrl and DriverLogUrl can be obtained.
    */
-  public void run() {
+  public int run() {
 
     BatchOptions batchOptions;
     try {
@@ -134,8 +135,12 @@ public class SparkSubmitRunner {
     logger.info("Application has been submitted. The session id is {}.",
         sessionView.getId());
 
-    if (!waitAppCompletion && this.appStarted(sessionView)) {
-      return;
+    int exitCode =
+        LauncherUtils.batchSessionExitCode(sessionView.getState()).getCode();
+
+    // The appStarted method should be called first. It will log SparkUiUrl.
+    if (this.appStarted(sessionView) && !waitAppCompletion) {
+      return exitCode;
     }
 
     while (running) {
@@ -144,7 +149,9 @@ public class SparkSubmitRunner {
         Thread.sleep(1000);
 
         sessionView = this.restClient.getBatchSessionView();
-        if (!waitAppCompletion && appStarted(sessionView)) {
+        exitCode =
+            LauncherUtils.batchSessionExitCode(sessionView.getState()).getCode();
+        if (appStarted(sessionView) && !waitAppCompletion) {
           break;
         }
 
@@ -164,6 +171,8 @@ public class SparkSubmitRunner {
             e.getCause());
       }
     }
+    cleanSessionDir();
+    return exitCode;
   }
 
   private BatchOptions uploadResources(BatchOptions batchOptions)
@@ -285,15 +294,15 @@ public class SparkSubmitRunner {
   /**
    * Clean session directory if application is not in running state.
    */
-  private void cleanSessionDir() {
+  public void cleanSessionDir() {
     if (!this.running && this.sessionDir != null) {
       userGroupInformation.doAs((PrivilegedAction<Boolean>) () -> {
         try {
           fileSystem.delete(this.sessionDir, true);
           logger.debug("Clean session directory.");
         } catch (IOException io) {
-          logger.error("Fail to clean session directory {}.",
-              this.sessionDir, io);
+          logger.error("Fail to clean session directory {}.", this.sessionDir,
+              io);
         }
         return true;
       });
@@ -303,7 +312,6 @@ public class SparkSubmitRunner {
   public void close() {
     restClient.stop(false);
     logger.debug("Close session connection.");
-    this.cleanSessionDir();
     try {
       this.fileSystem.close();
     } catch (IOException io) {

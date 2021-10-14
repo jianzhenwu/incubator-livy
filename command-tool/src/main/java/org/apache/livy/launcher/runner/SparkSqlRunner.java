@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.SparkSqlOption;
 import org.apache.livy.launcher.exception.LauncherExitCode;
@@ -45,10 +46,10 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
 
   public SparkSqlRunner(LivyOption livyOption) {
     super(livyOption);
-    this.exit = this.exitIfQueryExecuted((SparkSqlOption) livyOption);
+    this.exitIfQueryExecuted((SparkSqlOption) livyOption);
   }
 
-  private boolean exitIfQueryExecuted(SparkSqlOption sparkSqlOption) {
+  private void exitIfQueryExecuted(SparkSqlOption sparkSqlOption) {
 
     for (Map.Entry<Object, Object> e : sparkSqlOption.getDefineProperties()
         .entrySet()) {
@@ -78,14 +79,13 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
 
     if (StringUtils.isNotBlank(queryString)) {
       this.executeSqlBuffer(queryString);
-      return true;
+      this.exit = true;
     }
 
     if (StringUtils.isNotBlank(scriptFile)) {
       this.executeSqlFromFile(scriptFile);
-      return true;
+      this.exit = true;
     }
-    return false;
   }
 
   private void executeSetHiveVar(Map<String, String> properties) {
@@ -190,8 +190,8 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
       if (sql.startsWith("--") || sql.startsWith("#")) {
         continue;
       }
-      List<List<String>> res = restClient.runStatement(sql);
-      outputStatementResult(res);
+      StatementResponse statementResponse = restClient.runStatement(sql);
+      handleStatementResponse(statementResponse);
     }
   }
 

@@ -16,13 +16,13 @@
  */
 package org.apache.livy.launcher.runner;
 
-import java.util.List;
 
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.apache.livy.ScalaInterpreter;
+import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
 
 public class SparkShellRunner extends AbstractInteractiveRunner {
@@ -52,8 +52,9 @@ public class SparkShellRunner extends AbstractInteractiveRunner {
     }
     String result = ScalaInterpreter.parse(code);
     if (!ScalaInterpreter.Incomplete().equals(result)) {
-      List<List<String>> res = restClient.runStatement(code);
-      outputStatementResult(res);
+      StatementResponse statementResponse = restClient.runStatement(code);
+      handleStatementResponse(statementResponse);
+
       builder.setLength(0);
       prompt = SCALA_PROMPT_START;
       return;
