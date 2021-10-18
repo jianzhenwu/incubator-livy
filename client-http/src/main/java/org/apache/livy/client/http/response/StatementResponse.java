@@ -64,11 +64,17 @@ public class StatementResponse {
         }
 
       } else if ("error".equals(status)) {
+        String errValue = (String) outputMap.get("evalue");
+        if (errValue != null) {
+          rows.add(Collections.singletonList(errValue));
+        }
+        StringBuilder builder = new StringBuilder();
         for (Object o : (List<Object>) outputMap.get("traceback")) {
           if (o != null) {
-            rows.add(Collections.singletonList(o.toString()));
+            builder.append(o);
           }
         }
+        rows.add(Collections.singletonList(builder.toString()));
       }
     }
     statementOutput.setData(rows);
