@@ -31,3 +31,6 @@
 # - LIVY_MAX_LOG_FILES Max number of log file to keep in the log directory. (Default: 5.)
 # - LIVY_NICENESS   Niceness of the Livy server process when running in the background. (Default: 0.)
 # - LIVY_CLASSPATH  Override if the additional classpath is required.
+# - LIVY_SERVER_AUTH_DI_CLIENT_ID ClientId used to access DMP.
+# - LIVY_SERVER_AUTH_CLIENT_SECRET Secret used to access DMP.
+# - LIVY_SERVER_AUTH_ENVIRONMENT Which environment of DMP to access.

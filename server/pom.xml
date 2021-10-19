@@ -215,6 +215,11 @@
     </dependency>
 
     <dependency>
+      <groupId>com.shopee.di</groupId>
+      <artifactId>datasuite-auth-client</artifactId>
+    </dependency>
+
+    <dependency>
       <groupId>org.apache.livy</groupId>
       <artifactId>livy-repl_${scala.binary.version}</artifactId>
       <version>${project.version}</version>
@@ -355,6 +360,12 @@
             <goals>
               <goal>copy-dependencies</goal>
             </goals>
+            <configuration>
+              <excludeArtifactIds>
+                logback-classic,
+                logback-core
+              </excludeArtifactIds>
+            </configuration>
           </execution>
         </executions>
       </plugin>

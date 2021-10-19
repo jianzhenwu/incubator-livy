@@ -122,6 +122,11 @@
       <version>${jetty.version}</version>
     </dependency>
 
+    <dependency>
+      <groupId>com.shopee.di</groupId>
+      <artifactId>datasuite-auth-client</artifactId>
+    </dependency>
+
     <!-- needed for testing -->
     <dependency>
       <groupId>org.apache.hive</groupId>
@@ -211,7 +216,9 @@
               <excludeArtifactIds>
                 jetty-util,
                 jetty-xml,
-                jetty-webapp
+                jetty-webapp,
+                logback-classic,
+                logback-core
               </excludeArtifactIds>
             </configuration>
           </execution>
@@ -276,4 +283,12 @@
       </plugin>
     </plugins>
   </build>
+
+  <distributionManagement>
+    <repository>
+      <id>di-central</id>
+      <name>di-central</name>
+      <url>https://di-nexus-repo.idata.shopeemobile.com/repository/maven-public/</url>
+    </repository>
+  </distributionManagement>
 </project>

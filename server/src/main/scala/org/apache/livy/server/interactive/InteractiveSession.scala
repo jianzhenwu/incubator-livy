@@ -30,6 +30,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
@@ -143,8 +144,17 @@ object InteractiveSession extends Logging {
       // TODO Temp solution, refactor to DMP auth and extract shopee related code later
       if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
         HttpBasicAuthenticationHolder.get().fold {
-          builder.setConf("livy.rsc.hadoop-user-name", "")
-          builder.setConf("livy.rsc.hadoop-user-rpcpassword", "")
+          var username = ""
+          var password = ""
+          try {
+            password = BigDataAuthProxy.getInstance.getHadoopAccountPassword(owner)
+            username = owner
+          } catch {
+            case _: Exception =>
+              warn(s"Failed to get hadoop account password from BigDataAuthProxy")
+          }
+          builder.setConf("livy.rsc.hadoop-user-name", username)
+          builder.setConf("livy.rsc.hadoop-user-rpcpassword", password)
         } { case (username, password) =>
           builder.setConf("livy.rsc.hadoop-user-name", username)
           builder.setConf("livy.rsc.hadoop-user-rpcpassword", password)
