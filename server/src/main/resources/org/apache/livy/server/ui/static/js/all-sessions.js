@@ -49,21 +49,34 @@ function loadSessionsTable() {
       });
     },
     columns: [
-      {data: "id", render: function (data, type, row, meta) {return uiLink("session/" + row.id, row.id)}},
-      {data: "id", render: function (data, type, row, meta) { return appIdLink(row)}},
-      {data: "name", render: function (data, type, row, meta) { return escapeHtml(data)}},
-      {data: "owner", "defaultContent": "NULL"},
-      {data: "proxyUser", "defaultContent": "NULL"},
-      {data: "kind", "defaultContent": "NULL"},
-      {data: "state"},
       {
-        data: "id", render: function (data, type, row, meta) {
+        name: "id", data: "id", render: function (data, type, row, meta) {
+          return uiLink("session/" + row.id, row.id)
+        }
+      },
+      {
+        name: "appId", data: "appId", render: function (data, type, row, meta) {
+          return appIdLink(row)
+        }
+      },
+      {
+        name: "name", data: "name", render: function (data, type, row, meta) {
+          return escapeHtml(data)
+        }
+      },
+      {name: "owner", data: "owner", defaultContent: "NULL"},
+      {name: "proxyUser", data: "proxyUser", defaultContent: "NULL"},
+      {name: "kind", data: "kind", defaultContent: "NULL"},
+      {name: "state", data: "state"},
+      {name: "server", data: "server", defaultContent: "NULL"},
+      {
+        name: "logs", data: "appInfo", render: function (data, type, row, meta) {
           if (row.state != null && row.state !== "") {
             return logLinks(row, "session")
           }
-        }
+          return ""
+        }, defaultContent: ""
       },
-      {data: "server", "defaultContent": "NULL"},
     ]
   });
 }
@@ -98,20 +111,29 @@ function loadBatchesTable() {
       });
     },
     columns: [
-      {data: "id"},
-      {data: "id", render: function (data, type, row, meta) { return appIdLink(row)}},
-      {data: "name", render: function (data, type, row, meta) { return escapeHtml(data)}},
-      {data: "owner", "defaultContent": "NULL"},
-      {data: "proxyUser", "defaultContent": "NULL"},
-      {data: "state"},
+      {name: "id", data: "id"},
       {
-        data: "id", render: function (data, type, row, meta) {
+        name: "appId", data: "appId", render: function (data, type, row, meta) {
+          return appIdLink(row)
+        }
+      },
+      {
+        name: "name", data: "name", render: function (data, type, row, meta) {
+          return escapeHtml(data)
+        }
+      },
+      {name: "owner", data: "owner", defaultContent: "NULL"},
+      {name: "proxyUser", data: "proxyUser", defaultContent: "NULL"},
+      {name: "state", data: "state"},
+      {name: "server", data: "server", defaultContent: "NULL"},
+      {
+        name: "logs", data: "appInfo", render: function (data, type, row, meta) {
           if (row.state != null && row.state !== "") {
             return logLinks(row, "batch")
           }
-        }
+          return ""
+        }, defaultContent: ""
       },
-      {data: "server", "defaultContent": "NULL"},
     ]
   });
 }
