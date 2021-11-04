@@ -135,6 +135,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     }
   }
 
+  @Override
   public Future<?> uploadJar(File jar) {
     return uploadResource(jar, "upload-jar", "jar");
   }
@@ -144,6 +145,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     return addResource("add-jar", uri);
   }
 
+  @Override
   public Future<?> uploadFile(File file) {
     return uploadResource(file, "upload-file", "file");
   }
@@ -196,9 +198,19 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       long livyStatementTimeoutMs =
           this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_TIMEOUT);
 
+      long offset =
+          this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
+      long step =
+          this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
+      long max = this.config
+          .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
+      int count = 0;
       while (true) {
-        // wait 1 second for running
-        Thread.sleep(1000);
+        // Wait a while for running
+        count += 1;
+        Thread.sleep(
+            Double.valueOf(Math.min(Math.log(count + 1) * step + offset, max))
+                .longValue());
         StatementResponse runRes =
             conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
                 statementId);

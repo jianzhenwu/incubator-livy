@@ -35,6 +35,9 @@ class HttpConf extends ClientConf<HttpConf> {
 
     SESSION_CREATE_TIMEOUT("session.create.timeout", "5m"),
     STATEMENT_TIMEOUT("statement.timeout", "0s"),
+    STATEMENT_POLLING_INTERVAL_OFFSET("statement.polling.interval.offset", "100ms"),
+    STATEMENT_POLLING_INTERVAL_STEP("statement.pooling.interval.step", "100ms"),
+    STATEMENT_POLLING_INTERVAL_MAX("statement.pooling.interval.max", "1s"),
 
     JOB_INITIAL_POLL_INTERVAL("job.initial-poll-interval", "100ms"),
     JOB_MAX_POLL_INTERVAL("job.max-poll-interval", "5s"),
