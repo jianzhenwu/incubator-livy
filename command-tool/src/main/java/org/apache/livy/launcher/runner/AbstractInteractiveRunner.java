@@ -99,7 +99,7 @@ public abstract class AbstractInteractiveRunner {
 
     String historyFile =
         String.format("%s/.livy-%s", historyFileDir, this.livyOption.getKind());
-    logger().info("ConsoleReader create history file {}", historyFile);
+    logger().debug("ConsoleReader create history file {}", historyFile);
     return new File(historyFile);
   }
 

@@ -17,8 +17,6 @@
 package org.apache.livy.client.http;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -68,19 +66,13 @@ public abstract class AbstractRestClient {
   public SessionLogResponse getSessionLog(int from, int size) {
     SessionLogResponse sessionLogResponse = null;
     try {
-      StringBuilder uri = new StringBuilder("/%d/log?from=%d");
-      List<Integer> params = new ArrayList<>();
-      params.add(this.sessionId);
-      params.add(from);
-
-      if (size > 0) {
-        uri.append("&size=%d");
-        params.add(size);
+      StringBuilder query = new StringBuilder("from=").append(from);
+      if (size != 0) {
+        query.append("&size=").append(size);
       }
-
       sessionLogResponse =
-          conn.get(SessionLogResponse.class, uri.toString(), params.toArray());
-
+          conn.get(SessionLogResponse.class, "/%d/log", query.toString(),
+              this.sessionId);
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
     }

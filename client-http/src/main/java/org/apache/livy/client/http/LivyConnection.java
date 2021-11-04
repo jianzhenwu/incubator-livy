@@ -178,6 +178,11 @@ class LivyConnection {
     return sendJSONRequest(new HttpGet(), retType, uri, uriParams);
   }
 
+  synchronized <V> V get(Class<V> retType, String uri, String query,
+      Object... uriParams) throws Exception {
+    return sendJSONRequest(new HttpGet(), retType, uri, query, uriParams);
+  }
+
   synchronized <V> V post(
       Object body,
       Class<V> retType,
@@ -209,10 +214,19 @@ class LivyConnection {
       Class<V> retType,
       String uri,
       Object... uriParams) throws Exception {
+    return sendJSONRequest(req, retType, uri, null, uriParams);
+  }
+
+  private <V> V sendJSONRequest(
+      HttpRequestBase req,
+      Class<V> retType,
+      String uri,
+      String query,
+      Object... uriParams) throws Exception {
     req.setHeader(HttpHeaders.ACCEPT, APPLICATION_JSON);
     req.setHeader(HttpHeaders.CONTENT_TYPE, APPLICATION_JSON);
     req.setHeader(HttpHeaders.CONTENT_ENCODING, "UTF-8");
-    return sendRequest(req, retType, uri, uriParams);
+    return sendRequest(req, retType, uri, query, uriParams);
   }
 
   private <V> V sendRequest(
@@ -220,10 +234,19 @@ class LivyConnection {
       Class<V> retType,
       String uri,
       Object... uriParams) throws Exception {
+    return this.sendRequest(req, retType, uri, null, uriParams);
+  }
+
+  private <V> V sendRequest(
+      HttpRequestBase req,
+      Class<V> retType,
+      String uri,
+      String query,
+      Object... uriParams) throws Exception {
     req.setURI(
         new URI(server.getScheme(), server.getUserInfo(), server.getHost(),
-            server.getPort(), uriRoot + String.format(uri, uriParams), null,
-            null));
+            server.getPort(), uriRoot + String.format(uri, uriParams),
+            query, null));
     // It is no harm to set X-Requested-By when csrf protection is disabled.
     if (req instanceof HttpPost || req instanceof HttpDelete || req instanceof HttpPut
             || req instanceof  HttpPatch) {

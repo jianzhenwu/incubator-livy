@@ -22,7 +22,7 @@ public class SessionLogResponse {
 
   private int id;
   private int from;
-  private int size;
+  private int total;
   private List<String> log;
 
   public int getId() {
@@ -43,12 +43,12 @@ public class SessionLogResponse {
     return this;
   }
 
-  public int getSize() {
-    return size;
+  public int getTotal() {
+    return total;
   }
 
-  public SessionLogResponse setSize(int size) {
-    this.size = size;
+  public SessionLogResponse setTotal(int total) {
+    this.total = total;
     return this;
   }
 

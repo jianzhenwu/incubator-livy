@@ -23,6 +23,10 @@ import java.nio.ByteBuffer;
 import java.util.*;
 import java.util.concurrent.*;
 
+import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import org.apache.livy.Job;
 import org.apache.livy.JobHandle;
 import org.apache.livy.LivyClient;
@@ -31,6 +35,7 @@ import org.apache.livy.client.common.Serializer;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
 import org.apache.livy.client.http.param.StatementOptions;
+import org.apache.livy.client.http.response.SessionLogResponse;
 import org.apache.livy.client.http.response.SessionStateResponse;
 import org.apache.livy.client.http.response.StatementResponse;
 
@@ -41,6 +46,8 @@ import static org.apache.livy.client.common.HttpMessages.*;
  * - monitoring of spark job IDs launched by jobs
  */
 public class HttpClient extends AbstractRestClient implements LivyClient {
+
+  private static Logger logger = LoggerFactory.getLogger(HttpClient.class);
 
   public static final String UPLOAD_FILE = "upload-file";
   public static final String UPLOAD_PYFILE = "upload-pyfile";
@@ -159,16 +166,50 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     try {
       Set<String> finishedSet = new HashSet<>(
           Arrays.asList("shutting_down", "error", "dead", "killed"));
+      Set<String> sessionLogType = new HashSet<>(
+          Arrays.asList("stdout:", "stderr:", "YARN Diagnostics:"));
 
       long startTime = System.currentTimeMillis();
       long livySessionCreateTimeoutMs =
           this.config.getTimeAsMs(HttpConf.Entry.SESSION_CREATE_TIMEOUT);
+      boolean printLog =
+          this.config.getBoolean(HttpConf.Entry.SESSION_CREATE_PRINT_LOG);
 
+      int from = 0;
+      int size = 100;
       while (true) {
-        SessionStateResponse stateRes =
-            conn.get(SessionStateResponse.class, "/%d/state", sessionId);
+        // Get session state first, then get full session log.
+        SessionStateResponse stateRes = getSessionState();
+
+        // Print session log.
+        if (printLog) {
+          try {
+            SessionLogResponse sessionLogResponse = getSessionLog(from, size);
+            List<String> logs = sessionLogResponse.getLog();
+            logs.stream()
+                .filter(e -> !sessionLogType.contains(e.trim()))
+                .forEach(System.err::println);
+            from += logs.size();
+          } catch (Exception e) {
+            logger.warn("Fail to get session {} log.", sessionId, e);
+          }
+        }
+
         if ("idle".equals(stateRes.getState())) {
-          break;
+          try {
+            String trackingUrl =
+                this.config.get(HttpConf.Entry.SESSION_TRACKING_URL);
+            String appId =
+                (String) conn.get(Map.class, "/%d", sessionId).get("appId");
+            String appTrack = "Application ID: " + appId;
+            if (StringUtils.isNotBlank(trackingUrl)) {
+              appTrack = "Tracking UR: " + String.format(trackingUrl, appId);
+            }
+            logger.info(appTrack);
+            break;
+          } catch (Exception e) {
+            logger.warn("Fail to get applicationId of session {}.", sessionId, e);
+          }
         }
         if (finishedSet.contains(stateRes.getState())) {
           throw new RuntimeException(String.format(
