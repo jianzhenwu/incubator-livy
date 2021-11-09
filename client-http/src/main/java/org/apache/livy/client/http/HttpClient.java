@@ -18,6 +18,7 @@
 package org.apache.livy.client.http;
 
 import java.io.File;
+import java.net.ConnectException;
 import java.net.URI;
 import java.nio.ByteBuffer;
 import java.util.*;
@@ -32,6 +33,7 @@ import org.apache.livy.JobHandle;
 import org.apache.livy.LivyClient;
 import org.apache.livy.client.common.HttpMessages;
 import org.apache.livy.client.common.Serializer;
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
 import org.apache.livy.client.http.param.StatementOptions;
@@ -60,6 +62,9 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
   public static final String JAR = "jar";
   public static final String FILE = "file";
 
+  private final Set<String> finishedSet = new HashSet<>(
+      Arrays.asList("error", "dead", "killed", "success"));
+
   private ScheduledExecutorService executor;
   private Serializer serializer;
 
@@ -80,6 +85,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     try {
       if (this.sessionCreated) {
         conn.post(null, HttpMessages.SessionInfo.class, "/%d/connect", sessionId);
+        logger.info("Created Livy session {}", sessionId);
       } else {
         if (sessionOptions != null) {
           this.sessionId = conn.post(sessionOptions, HttpMessages.SessionInfo.class, "/").id;
@@ -92,6 +98,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
           ClientMessage create = new CreateClientRequest(sessionConf);
           this.sessionId = conn.post(create, SessionInfo.class, "/").id;
         }
+        logger.info("Connected to Livy session {}", sessionId);
       }
     } catch (Exception e) {
       throw propagate(e);
@@ -163,21 +170,20 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
   }
 
   public void waitUntilSessionStarted() {
-    try {
-      Set<String> finishedSet = new HashSet<>(
-          Arrays.asList("shutting_down", "error", "dead", "killed"));
-      Set<String> sessionLogType = new HashSet<>(
-          Arrays.asList("stdout:", "stderr:", "YARN Diagnostics:"));
 
-      long startTime = System.currentTimeMillis();
-      long livySessionCreateTimeoutMs =
-          this.config.getTimeAsMs(HttpConf.Entry.SESSION_CREATE_TIMEOUT);
-      boolean printLog =
-          this.config.getBoolean(HttpConf.Entry.SESSION_CREATE_PRINT_LOG);
+    Set<String> sessionLogType =
+        new HashSet<>(Arrays.asList("stdout:", "stderr:", "YARN Diagnostics:"));
 
-      int from = 0;
-      int size = 100;
-      while (true) {
+    long startTime = System.currentTimeMillis();
+    long livySessionCreateTimeoutMs =
+        this.config.getTimeAsMs(HttpConf.Entry.SESSION_CREATE_TIMEOUT);
+    boolean printLog =
+        this.config.getBoolean(HttpConf.Entry.SESSION_CREATE_PRINT_LOG);
+
+    int from = 0;
+    int size = 100;
+    while (true) {
+      try {
         // Get session state first, then get full session log.
         SessionStateResponse stateRes = getSessionState();
 
@@ -186,11 +192,10 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
           try {
             SessionLogResponse sessionLogResponse = getSessionLog(from, size);
             List<String> logs = sessionLogResponse.getLog();
-            logs.stream()
-                .filter(e -> !sessionLogType.contains(e.trim()))
+            logs.stream().filter(e -> !sessionLogType.contains(e.trim()))
                 .forEach(System.err::println);
             from += logs.size();
-          } catch (Exception e) {
+          } catch (ConnectException | ServiceUnavailableException e) {
             logger.warn("Fail to get session {} log.", sessionId, e);
           }
         }
@@ -199,78 +204,73 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
           try {
             String trackingUrl =
                 this.config.get(HttpConf.Entry.SESSION_TRACKING_URL);
-            String appId =
-                (String) conn.get(Map.class, "/%d", sessionId).get("appId");
-            String appTrack = "Application ID: " + appId;
-            if (StringUtils.isNotBlank(trackingUrl)) {
-              appTrack = "Tracking UR: " + String.format(trackingUrl, appId);
-            }
+            String appId = getApplicationId();
+            String appTrack = StringUtils.isNotBlank(trackingUrl) ?
+                "Tracking UR: " + String.format(trackingUrl, appId) :
+                "Application ID: " + appId;
             logger.info(appTrack);
             break;
-          } catch (Exception e) {
-            logger.warn("Fail to get applicationId of session {}.", sessionId, e);
+          } catch (ConnectException | ServiceUnavailableException e) {
+            logger
+                .warn("Fail to get applicationId of session {}.", sessionId, e);
           }
         }
+        // Exit when session is finished.
         if (finishedSet.contains(stateRes.getState())) {
           throw new RuntimeException(String.format(
               "Fail to create session %d. The final session status is %s.%n",
               this.sessionId, stateRes.getState()));
         }
-        Thread.sleep(1000);
-        long currentTime = System.currentTimeMillis();
-        if ((currentTime - startTime) > livySessionCreateTimeoutMs) {
-          throw new TimeoutException("Create livy session timeout "
-              + livySessionCreateTimeoutMs);
-        }
+      } catch (ConnectException | ServiceUnavailableException e) {
+        logger.warn("The session {} is retrying.", this.sessionId, e);
       }
-    } catch (Exception e) {
-      throw propagate(e);
+      long currentTime = System.currentTimeMillis();
+      if ((currentTime - startTime) > livySessionCreateTimeoutMs) {
+        throw new TimeoutException(
+            "Create livy session timeout " + livySessionCreateTimeoutMs);
+      }
+      try {
+        Thread.sleep(1000);
+      } catch (InterruptedException e) {
+        throw new RuntimeException(e);
+      }
     }
   }
 
   public StatementResponse runStatement(String code) {
-    try {
-      StatementOptions req = new StatementOptions(code);
-      StatementResponse submitRes =
-          conn.post(req, StatementResponse.class, "/%d/statements", sessionId);
-      int statementId = submitRes.getId();
 
-      long startTime = System.currentTimeMillis();
-      long livyStatementTimeoutMs =
-          this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_TIMEOUT);
+    long startTime = System.currentTimeMillis();
+    long timeout =
+        HttpClient.this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_TIMEOUT);
+    long offset = HttpClient.this.config
+        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
+    long step = HttpClient.this.config
+        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
+    long max = HttpClient.this.config
+        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
 
-      long offset =
-          this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
-      long step =
-          this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
-      long max = this.config
-          .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
-      int count = 0;
-      while (true) {
-        // Wait a while for running
-        count += 1;
-        Thread.sleep(
-            Double.valueOf(Math.min(Math.log(count + 1) * step + offset, max))
-                .longValue());
-        StatementResponse runRes =
-            conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
-                statementId);
+    Interval interval = new RetryInterval(offset, step, max);
+
+    int finalStatementId =
+        new RetryTask<Integer>(startTime, timeout, interval) {
+          @Override
+          public Integer task() throws ConnectException {
+            StatementResponse submitRes = submitStatement(code);
+            return submitRes.getId();
+          }
+        }.run();
+
+    return new RetryTask<StatementResponse>(startTime, timeout, interval) {
+      @Override
+      public StatementResponse task() throws ConnectException {
+        StatementResponse runRes = statementResult(finalStatementId);
         if (runRes.getProgress() == 1) {
           return runRes;
         }
-
-        long currentTime = System.currentTimeMillis();
-        if (livyStatementTimeoutMs > 0 && currentTime - startTime
-            > livyStatementTimeoutMs * 1000L) {
-          throw new TimeoutException(
-              "Run statement timeout " + livyStatementTimeoutMs);
-        }
+        return null;
       }
-    } catch (Exception e) {
-      throw new RuntimeException(e.getMessage(), e.getCause());
-    }
+    }.run();
   }
-
 
   public void addOrUploadResources(InteractiveOptions args) {
     try {
@@ -332,4 +332,98 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     return handle;
   }
 
+  private StatementResponse statementResult(int statementId)
+      throws ConnectException, ServiceUnavailableException {
+    try {
+      return conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
+          statementId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+  }
+
+  private StatementResponse submitStatement(String code)
+      throws ConnectException, ServiceUnavailableException{
+    try {
+      StatementOptions req = new StatementOptions(code);
+      return conn
+          .post(req, StatementResponse.class, "/%d/statements", sessionId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
+    } catch (Exception e) {
+      throw new RuntimeException(e.getMessage(), e.getCause());
+    }
+  }
+
+  static class RetryInterval implements Interval {
+
+    private final long offset;
+    private final long step;
+    private final long max;
+
+    public RetryInterval(long offset, long step, long max) {
+      this.offset = offset;
+      this.step = step;
+      this.max = max;
+    }
+
+    @Override
+    public long interval(int count) {
+      double t = Math.log(count + 1) * step + offset;
+      return Double.valueOf(Math.min(t, max)).longValue();
+    }
+  }
+
+  interface Interval {
+    long interval(int count);
+  }
+
+  abstract class RetryTask<T> {
+
+    private final long startTime;
+    private final long timeout;
+    private final Interval interval;
+
+
+    public RetryTask(long startTime, long timeout, Interval interval) {
+      this.startTime = startTime;
+      this.timeout = timeout;
+      this.interval = interval;
+    }
+
+    /**
+     * User define task.
+     */
+    public abstract T task() throws ConnectException;
+
+    public T run() {
+
+      int count = 0;
+      while (true) {
+        try {
+          T t = task();
+          if (t != null) {
+            return t;
+          }
+        } catch (ConnectException | ServiceUnavailableException e) {
+          logger.warn("Please wait, the session {} is recovering.", sessionId);
+        }
+
+        long currentTime = System.currentTimeMillis();
+        if (timeout > 0 && currentTime - startTime > timeout) {
+          throw new TimeoutException(
+              "Timeout with session " + HttpClient.this.sessionId);
+        }
+
+        count += 1;
+        try {
+          Thread.sleep(this.interval.interval(count));
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
 }

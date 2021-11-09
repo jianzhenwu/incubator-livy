@@ -345,6 +345,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
         when(session.recoveryMetadata).thenReturn(
           InteractiveRecoveryMetadata(0, None, None, "", Spark,
             0, "", None, None, ServerMetadata(req.serverName, req.serverPort)))
+        when(session.logLines()).thenReturn(IndexedSeq.empty)
 
         val mockStatement = new Statement(0, "", StatementState.Available, "{}")
         mockStatement.started = System.currentTimeMillis()

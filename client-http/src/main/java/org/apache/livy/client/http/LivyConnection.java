@@ -53,6 +53,7 @@ import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import static org.apache.livy.client.http.HttpConf.Entry.*;
 import static org.apache.livy.client.http.SessionType.Interactive;
 
@@ -259,7 +260,8 @@ class LivyConnection {
               .getBytes(StandardCharsets.UTF_8)));
     }
     try (CloseableHttpResponse res = client.execute(req)) {
-      int status = (res.getStatusLine().getStatusCode() / 100) * 100;
+      int statusCode = res.getStatusLine().getStatusCode();
+      int status = (statusCode / 100) * 100;
       HttpEntity entity = res.getEntity();
       if (status == HttpStatus.SC_OK) {
         if (!Void.class.equals(retType)) {
@@ -269,6 +271,12 @@ class LivyConnection {
         }
       } else {
         String error = EntityUtils.toString(entity);
+        if (statusCode == HttpStatus.SC_BAD_GATEWAY
+            || statusCode == HttpStatus.SC_SERVICE_UNAVAILABLE
+            || statusCode == HttpStatus.SC_GATEWAY_TIMEOUT) {
+          throw new ServiceUnavailableException(String
+              .format("%s: %s", res.getStatusLine().getReasonPhrase(), error));
+        }
         throw new IOException(String.format("%s: %s", res.getStatusLine().getReasonPhrase(),
           error));
       }

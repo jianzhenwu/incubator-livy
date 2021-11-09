@@ -16,10 +16,13 @@
  */
 package org.apache.livy.client.http;
 
+import java.net.ConnectException;
 import java.net.URI;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.response.SessionLogResponse;
 import org.apache.livy.client.http.response.SessionStateResponse;
 
@@ -63,7 +66,8 @@ public abstract class AbstractRestClient {
     }
   }
 
-  public SessionLogResponse getSessionLog(int from, int size) {
+  public SessionLogResponse getSessionLog(int from, int size)
+      throws ConnectException {
     SessionLogResponse sessionLogResponse = null;
     try {
       StringBuilder query = new StringBuilder("from=").append(from);
@@ -73,24 +77,40 @@ public abstract class AbstractRestClient {
       sessionLogResponse =
           conn.get(SessionLogResponse.class, "/%d/log", query.toString(),
               this.sessionId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
     }
     return sessionLogResponse;
   }
 
-  public SessionStateResponse getSessionState() {
+  public SessionStateResponse getSessionState() throws ConnectException {
     try {
       return conn.get(SessionStateResponse.class, "/%d/state", this.sessionId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
+    } catch (Exception e) {
+      throw new RuntimeException(e.getMessage(), e.getCause());
+    }
+  }
+
+  public String getApplicationId() throws ConnectException{
+    try {
+      return (String) conn.get(Map.class, "/%d", sessionId).get("appId");
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
     }
   }
 
   // stop session and delete from sessionManager
-  public void deleteSession() {
+  public void deleteSession() throws ConnectException {
     try {
       conn.delete(Void.class, "/%d", sessionId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
     }
