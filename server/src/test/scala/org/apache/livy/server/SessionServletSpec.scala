@@ -41,6 +41,7 @@ object SessionServletSpec {
 
   case class MockRecoveryMetadata(
        id: Int,
+       owner: String,
        serverMetadata: ServerMetadata) extends RecoveryMetadata {
 
     @JsonIgnore
@@ -53,7 +54,7 @@ object SessionServletSpec {
     extends Session(id, None, owner, livyConf) {
 
     override def recoveryMetadata: RecoveryMetadata =
-      MockRecoveryMetadata(0, livyConf.serverMetadata())
+      MockRecoveryMetadata(0, owner, livyConf.serverMetadata())
 
     override def state: SessionState = SessionState.Idle
 
@@ -115,6 +116,8 @@ object SessionServletSpec {
           session.name, Option(session.owner), session.proxyUser,
           session.recoveryMetadata.serverMetadata, searchKey.get)
       }
+
+      override protected def getSessionOwnerFromSessionStore(sessionId: Int): String = null
     }
   }
 
@@ -126,7 +129,8 @@ object SessionServletSpec {
     when(sessionIdGenerator.isGlobalUnique()).thenReturn(true)
     val sessionManager = new SessionManager[MockSession, MockRecoveryMetadata](
       conf,
-      { recoveryMetadata => new MockSession(recoveryMetadata.id, "alice", None, conf) },
+      { recoveryMetadata => new MockSession(recoveryMetadata.id,
+        recoveryMetadata.owner, None, conf) },
       sessionStore,
       "test",
       sessionIdGenerator,
@@ -148,7 +152,7 @@ object SessionServletSpec {
     when(clusterManager.isNodeOnline(serverNode128)).thenReturn(false)
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 100))
-      .thenReturn(Some(MockRecoveryMetadata(100, conf.serverMetadata())))
+      .thenReturn(Some(MockRecoveryMetadata(100, "alice", conf.serverMetadata())))
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 100))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
 
@@ -159,7 +163,7 @@ object SessionServletSpec {
       .thenReturn(Some(serverNode126))
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 103))
-      .thenReturn(Some(MockRecoveryMetadata(103, conf.serverMetadata())))
+      .thenReturn(Some(MockRecoveryMetadata(103, "alice", conf.serverMetadata())))
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 103))
       .thenReturn(Some(serverNode128))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
@@ -191,8 +195,10 @@ object SessionServletSpec {
     when(sessionAllocator.getAllSessions[MockRecoveryMetadata](
       sessionManager.sessionType(), serverMetadata = None))
       .thenReturn(ArrayBuffer(
-          Success[MockRecoveryMetadata](MockRecoveryMetadata(100, serverNode126.serverMetadata)),
-          Success[MockRecoveryMetadata](MockRecoveryMetadata(103, serverNode128.serverMetadata))))
+          Success[MockRecoveryMetadata](MockRecoveryMetadata(100, "alice",
+            serverNode126.serverMetadata)),
+          Success[MockRecoveryMetadata](MockRecoveryMetadata(103, "alice",
+            serverNode128.serverMetadata))))
 
 
     new SessionServlet(sessionManager,
@@ -262,6 +268,8 @@ object SessionServletSpec {
           session.name, Option(session.owner), session.proxyUser,
           session.recoveryMetadata.serverMetadata, searchKey.get)
       }
+
+      override protected def getSessionOwnerFromSessionStore(sessionId: Int): String = null
     }
   }
 }

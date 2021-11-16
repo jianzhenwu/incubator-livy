@@ -129,4 +129,12 @@ class BatchSessionServlet(
         session.recoveryMetadata.serverMetadata, searchKey.get)
   }
 
+  override protected def getSessionOwnerFromSessionStore(sessionId: Int): String = {
+    val recoveryMetadata = sessionStore.get[BatchRecoveryMetadata](
+      sessionManager.sessionType(), sessionId)
+    if (recoveryMetadata.isDefined) {
+      return recoveryMetadata.get.owner
+    }
+    throw new IllegalStateException(s"BatchRecoveryMetadata of session $sessionId not found.")
+  }
 }

@@ -89,6 +89,12 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
    */
   protected def filterBySearchKey(session: S, searchKey: Option[String]): Boolean
 
+  /**
+   * Get session owner by SessionStore when the service where the session is hung up.
+   * Return null when session is not exist.
+   */
+  protected def getSessionOwnerFromSessionStore(sessionId: Int): String
+
   override def shutdown(): Unit = {
     sessionManager.shutdown()
   }
@@ -223,14 +229,16 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
         uri.getPath, uri.getQuery, null).toString)
     } else {
       // session allocated to another offline server
-      sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(), sessionId))
+      sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(),
+        sessionId, remoteUser(request)))
       createSessionInternal(sessionId)
     }
   }
 
   post("/") {
     val sessionId = sessionManager.nextId()
-    sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(), sessionId))
+    sessionAllocator.foreach(_.allocateServer[R](sessionManager.sessionType(), sessionId,
+      remoteUser(request)))
     createSessionInternal(sessionId)
   }
 
@@ -349,10 +357,15 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
               serverNode.get.host, serverNode.get.port,
               request.getRequestURI, request.getQueryString, null).toString)
           } else {
-            sessionAllocator.foreach({
-              _.allocateServer[R](sessionManager.sessionType(), sessionId.get)
-            })
-            doWithSession(fn, allowAll, checkFn)
+            try {
+              sessionAllocator.foreach({
+                _.allocateServer[R](sessionManager.sessionType(), sessionId.get,
+                  getSessionOwnerFromSessionStore(sessionId.get))
+              })
+              doWithSession(fn, allowAll, checkFn)
+            } catch {
+              case e: Exception => NotFound(ResponseMessage(s"${e.getMessage}"))
+            }
           }
         }
     }

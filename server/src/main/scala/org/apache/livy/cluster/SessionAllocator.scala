@@ -36,13 +36,15 @@ object SessionAllocator extends Logging {
       livyConf: LivyConf,
       clusterManager: ClusterManager,
       sessionStore: SessionStore,
-      zkManager: ZooKeeperManager): SessionAllocator = {
+      zkManager: ZooKeeperManager,
+      serverAllocator: ServerAllocator): SessionAllocator = {
     try {
       val clz: Class[_] = Class.forName(livyConf.get(LivyConf.CLUSTER_SESSION_ALLOCATOR_CLASS))
       val constructor: Constructor[_] = clz.getConstructor(classOf[LivyConf],
-        classOf[ClusterManager], classOf[SessionStore], classOf[ZooKeeperManager])
+        classOf[ClusterManager], classOf[SessionStore], classOf[ZooKeeperManager],
+        classOf[ServerAllocator])
       val sessionAllocator = constructor.newInstance(livyConf, clusterManager, sessionStore,
-        zkManager).asInstanceOf[SessionAllocator]
+        zkManager, serverAllocator).asInstanceOf[SessionAllocator]
       clusterManager.registerNodeJoinListener(sessionAllocator.onServerJoin)
       clusterManager.registerNodeLeaveListener(sessionAllocator.onServerLeave)
       sessionAllocator
@@ -61,7 +63,8 @@ abstract class SessionAllocator(
     livyConf: LivyConf,
     clusterManager: ClusterManager,
     sessionStore: SessionStore,
-    zkManager: ZooKeeperManager) {
+    zkManager: ZooKeeperManager,
+    serverAllocator: ServerAllocator) {
 
   /**
    * Return ServerNode of the session, no matter if server is online;
@@ -83,7 +86,8 @@ abstract class SessionAllocator(
    */
   def allocateServer[T <: RecoveryMetadata](
       sessionType: String,
-      sessionId: Int)(implicit t: ClassTag[T]): ServerNode
+      sessionId: Int,
+      owner: String)(implicit t: ClassTag[T]): ServerNode
 
   /**
    * Deallocate session from a server if session is deallocatable.
@@ -108,8 +112,10 @@ class StateStoreMappingSessionAllocator(
     livyConf: LivyConf,
     clusterManager: ClusterManager,
     sessionStore: SessionStore,
-    zkManager: ZooKeeperManager)
-  extends SessionAllocator(livyConf, clusterManager, sessionStore, zkManager) with Logging {
+    zkManager: ZooKeeperManager,
+    serverAllocator: ServerAllocator)
+  extends SessionAllocator(livyConf, clusterManager, sessionStore, zkManager,
+    serverAllocator) with Logging {
 
   @JsonIgnoreProperties(ignoreUnknown = true)
   case class StateStoreMappingRecoveryMetadata(
@@ -163,8 +169,11 @@ class StateStoreMappingSessionAllocator(
 
   override def allocateServer[T <: RecoveryMetadata](
       sessionType: String,
-      sessionId: Int)(implicit t: ClassTag[T]): ServerNode = {
-    val serverNodes = clusterManager.getNodes()
+      sessionId: Int,
+      owner: String = null)(implicit t: ClassTag[T]): ServerNode = {
+
+    val serverNodes = serverAllocator.allocateServer[T](sessionType, sessionId, owner)
+
     val index = algo match {
       case "RANDOM" =>
         new Random().nextInt(serverNodes.size)

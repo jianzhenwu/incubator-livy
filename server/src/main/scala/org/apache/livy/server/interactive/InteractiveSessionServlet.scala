@@ -324,4 +324,12 @@ class InteractiveSessionServlet(
         session.recoveryMetadata.serverMetadata, searchKey.get)
   }
 
+  protected def getSessionOwnerFromSessionStore(sessionId: Int) : String = {
+    val recoveryMetadata = sessionStore.get[InteractiveRecoveryMetadata](
+      sessionManager.sessionType(), sessionId)
+    if (recoveryMetadata.isDefined) {
+      return recoveryMetadata.get.owner
+    }
+    throw new IllegalStateException(s"InteractiveRecoveryMetadata of session $sessionId not found.")
+  }
 }

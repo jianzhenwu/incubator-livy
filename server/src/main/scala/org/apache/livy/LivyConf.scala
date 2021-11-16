@@ -324,6 +324,8 @@ object LivyConf {
   val HDFS_COMMAND_LOGS_SIZE =
     Entry("livy.server.hdfs.log.size", 1 * 1024 * 1024)
 
+  val SERVER_MAPPING: Entry = Entry("livy.server.mapping", null)
+
   val SPARK_MASTER = "spark.master"
   val SPARK_DEPLOY_MODE = "spark.submit.deployMode"
   val SPARK_JARS = "spark.jars"
@@ -424,6 +426,15 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
         val eventLogDir = pair(1)._2
         HistoryInfo(name, address, eventLogDir)
     }.toList
+
+  lazy val serverMapping: Map[String, Set[String]] = config.asScala
+    .filter(_._1.startsWith(SERVER_MAPPING.key))
+    .toSeq
+    .map { case (k, v) =>
+      assert(k.length > SERVER_MAPPING.key.length + 1, s"The configuration $k is wrong.")
+      k.splitAt(SERVER_MAPPING.key.length + 1)._2 -> v.split(",").map(_.trim).toSet
+    }
+    .toMap
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.

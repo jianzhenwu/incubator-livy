@@ -215,3 +215,6 @@
 # livy.spark.history.name1.eventLogDir = hdfs://tl3/logs/spark/
 # livy.spark.history.name2.address = http://spark-history.data-infra1.shopee.io
 # livy.spark.history.name2.eventLogDir = hdfs://tl3/logs/spark1/
+
+# Bind the user session to the server. Other users cannot use the bound server.
+# livy.server.mapping.user = 10.10.10.1:8998,10.10.10.2:8998
