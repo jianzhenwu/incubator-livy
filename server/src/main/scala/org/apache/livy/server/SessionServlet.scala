@@ -23,11 +23,12 @@ import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent._
 import scala.concurrent.duration._
-import scala.reflect.{classTag, ClassTag}
+import scala.reflect.ClassTag
+import scala.reflect.classTag
 import scala.util.{Failure, Success, Try}
 
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.squareup.okhttp.{OkHttpClient, Request}
+import com.squareup.okhttp.{Headers, HttpUrl, OkHttpClient, Request}
 import org.scalatra._
 import org.slf4j.MDC
 
@@ -53,14 +54,15 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     val sessionAllocator: Option[SessionAllocator],
     val clusterManager: Option[ClusterManager],
     val livyConf: LivyConf,
-    accessManager: AccessManager)(implicit c: ClassTag[R])
+    accessManager: AccessManager,
+    mockHttpClient: Option[OkHttpClient] = None)(implicit c: ClassTag[R])
   extends JsonServlet
   with ApiVersioningSupport
   with MethodOverride
   with UrlGeneratorSupport
   with ContentEncodingSupport
 {
-  val httpClient: OkHttpClient = new OkHttpClient()
+  val httpClient: OkHttpClient = mockHttpClient.getOrElse(new OkHttpClient())
   val objectMapper: ObjectMapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
 
@@ -162,6 +164,15 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
         "from" -> from_,
         "total" -> total,
         "log" -> logLines)
+    }
+  }
+
+  get("/:id/amLog/:logType") {
+    withViewAccessSession { session =>
+      val from = params.get("from").map(_.toInt)
+      val size = params.get("size").map(_.toInt)
+      val logType = params("logType")
+      yarnApplicationLog(session, logType, from, size)
     }
   }
 
@@ -400,7 +411,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       val scheme = req.getScheme
       val requestUrl = s"$scheme://$host:$port$path"
       val res = httpClient.newCall(new Request.Builder().url(requestUrl).build()).execute()
-      Success(objectMapper.readValue(res.body().string(), classTag[T].runtimeClass).asInstanceOf[T])
+      val body = res.body().string()
+      res.body().close()
+      Success(objectMapper.readValue(body, classTag[T].runtimeClass).asInstanceOf[T])
     } catch {
       case exception: Throwable => Failure(exception)
     }
@@ -428,4 +441,72 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       (serverMetadata != null && matchSearchKey(Option(serverMetadata.toString()), searchKey))
   }
 
+  def yarnApplicationLog(session: Session, logType: String,
+      fromOpt: Option[Int], sizeOpt: Option[Int]): String = {
+
+    val from = fromOpt.getOrElse(0)
+    val size = sizeOpt.getOrElse(4096) // bytes
+
+    val yarnServer = livyConf.get(LivyConf.YARN_RESOURCE_MANAGER_HTTP_SERVER)
+    var appLog = s"Application of session ${session.id} not found"
+
+    if (session.appId.nonEmpty) {
+      try {
+        // Get application info.
+        val bodyApp = doRemoteGet[Map[String, Any]](
+          HttpUrl.parse(s"$yarnServer/ws/v1/cluster/apps/${session.appId.get}"),
+          new java.util.HashMap)
+        val appMap = bodyApp.get("app").asInstanceOf[Option[Map[String, Any]]].getOrElse(Map())
+        val finishedTime = appMap.get("finishedTime").asInstanceOf[Option[Int]]
+        val amContainerLogs = appMap.get("amContainerLogs").asInstanceOf[Option[String]]
+
+        // Get application log.
+        if (amContainerLogs.nonEmpty) {
+          var logUrl = ""
+          if (finishedTime.getOrElse(0) > 0) {
+            logUrl = s"${amContainerLogs.get}/$logType"
+          } else {
+            // http://ip-10-130-11-67.idata-server.shopee.io:8042/node/containerlogs/
+            // container_e240_1636710668288_367414_01_000001/
+            val containerId = amContainerLogs.get.split("/").apply(5)
+            val amHostHttpAddress = appMap("amHostHttpAddress").asInstanceOf[String]
+            logUrl = s"http://$amHostHttpAddress/ws/v1/node/containers/" +
+              s"$containerId/logs/$logType"
+          }
+
+          val httpBuilder = HttpUrl.parse(logUrl)
+            .newBuilder()
+            .addQueryParameter("start", from.toString)
+            .addQueryParameter("size", size.toString)
+            .addQueryParameter("isIncremental", true.toString)
+
+          val headers = new java.util.HashMap[String, String]()
+          headers.put("Accept", "text/plain")
+          appLog = doRemoteGetRaw(httpBuilder.build(), headers)
+        }
+      } catch {
+        case exception: Exception =>
+          appLog = s"Fail to get application ${session.appId.get} log of session ${session.id}. " +
+            s"ErrorMessage: ${exception.getMessage}"
+      }
+    }
+    appLog
+  }
+
+  def doRemoteGetRaw(url: HttpUrl, headers: java.util.Map[String, String]): String = {
+    val requestBuilder = new Request.Builder()
+    if (headers != null && !headers.isEmpty) {
+      requestBuilder.headers(Headers.of(headers))
+    }
+    val request = requestBuilder.url(url).build()
+    val res = httpClient.newCall(request).execute()
+    val body = res.body().string()
+    res.body().close()
+    body
+  }
+
+  def doRemoteGet[T: ClassTag](url: HttpUrl, headers: java.util.Map[String, String]): T = {
+    val body = this.doRemoteGetRaw(url, headers)
+    objectMapper.readValue(body, classTag[T].runtimeClass).asInstanceOf[T]
+  }
 }

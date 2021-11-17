@@ -24,11 +24,14 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Success
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.squareup.okhttp.{CacheControl, Request}
+import com.squareup.okhttp.{CacheControl, Call, MediaType, OkHttpClient, Protocol, Request, Response, ResponseBody}
+import org.mockito.Matchers.anyObject
 import org.mockito.Mockito.when
+import org.scalatest.FunSpecLike
 import org.scalatestplus.mockito.MockitoSugar.mock
+import org.scalatra.test.scalatest.ScalatraSuite
 
-import org.apache.livy.{LivyConf, ServerMetadata}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
 import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
 import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSession, MockSessionView, MockSessionViews}
 import org.apache.livy.server.recovery.SessionStore
@@ -244,7 +247,9 @@ object SessionServletSpec {
           val res = httpClient.newCall(new Request.Builder()
             .url(requestUrl).cacheControl(CacheControl.FORCE_NETWORK).build()).execute()
 
-          return objectMapper.readValue(res.body().string(), classOf[MockSessionView])
+          val body = res.body().string()
+          res.body().close()
+          return objectMapper.readValue(body, classOf[MockSessionView])
         } catch {
           case e: Throwable =>
             SessionServlet.error(s"Error when executing request: ${req.getRequestURL}\n" +
@@ -659,3 +664,80 @@ class ClusterEnabledSessionServletSpec
   }
 }
 
+class AMLogSessionServletSpec extends ScalatraSuite
+  with FunSpecLike with LivyBaseUnitTestSuite {
+
+  val sessionManager: SessionManager[Session, RecoveryMetadata] =
+    mock[SessionManager[Session, RecoveryMetadata]]
+  val sessionAllocator: SessionAllocator = mock[SessionAllocator]
+  val clusterManager: ClusterManager = mock[ClusterManager]
+  val accessManager: AccessManager = mock[AccessManager]
+  val mockSession: Session = mock[Session]
+  when(mockSession.id).thenReturn(0)
+  when(mockSession.appId).thenReturn(Some("application_1636710668288_619460"))
+  val conf = new LivyConf()
+
+  def createServlet(httpClient: OkHttpClient): SessionServlet[Session, RecoveryMetadata] = {
+    new SessionServlet(sessionManager,
+      Some(sessionAllocator),
+      Some(clusterManager),
+      conf,
+      accessManager, Some(httpClient)) {
+
+      override protected def createSession(sessionId: Int, req: HttpServletRequest): Session = null
+
+      override protected def filterBySearchKey(recoveryMetadata: RecoveryMetadata,
+          searchKey: Option[String]): Boolean = true
+
+      override protected def filterBySearchKey(session: Session,
+          searchKey: Option[String]): Boolean = true
+
+      override protected def getSessionOwnerFromSessionStore(sessionId: Int): String = null
+    }
+  }
+
+  def mockHttpClient(): OkHttpClient = {
+    val mockHttpClient = mock[OkHttpClient]
+    val mockCall = mock[Call]
+
+    val bodyApp = "{\"app\": {\"finishedTime\": 1, \"amContainerLogs\":" +
+      "\"http://ip-10-130-11-67.idata-server.shopee.io:8042/node/containerlogs/" +
+      "container_e240_1636710668288_367414_01_000001/\"}}"
+
+    val mockResponse = new Response.Builder()
+      .request(new Request.Builder()
+        .url("http://ip-10-130-11-67.idata-server.shopee.io:8042").build())
+      .protocol(Protocol.HTTP_1_1)
+      .code(200).message("").body(
+      ResponseBody.create(
+        MediaType.parse("application/json"),
+        bodyApp
+      ))
+      .build()
+
+    val mockCall2 = mock[Call]
+    val mockResponse2 = new Response.Builder()
+      .request(new Request.Builder()
+        .url("http://ip-10-130-11-67.idata-server.shopee.io:8042").build())
+      .protocol(Protocol.HTTP_1_1)
+      .code(200).message("").body(
+      ResponseBody.create(
+        MediaType.parse("application/json"),
+        "log"
+      ))
+      .build()
+
+    when(mockCall.execute()).thenReturn(mockResponse)
+    when(mockCall2.execute()).thenReturn(mockResponse2)
+    when(mockHttpClient.newCall(anyObject())).thenReturn(mockCall).thenReturn(mockCall2)
+    mockHttpClient
+  }
+
+  describe("AMLogSessionServletSpec") {
+    it("should get amLog") {
+      val mockSessionServlet = createServlet(mockHttpClient())
+      val log = mockSessionServlet.yarnApplicationLog(mockSession, "stderr", None, None)
+      log should be("log")
+    }
+  }
+}

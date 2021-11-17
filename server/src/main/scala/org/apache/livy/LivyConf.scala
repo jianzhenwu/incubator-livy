@@ -344,6 +344,10 @@ object LivyConf {
    */
   val SPARK_FILE_LISTS = Entry("livy.spark.file-list-configs", null)
 
+  val YARN_RESOURCE_MANAGER_HTTP_SERVER =
+    Entry("livy.server.yarn.resource-manager.http-server",
+      "http://ip-10-128-144-148.idata-server.shopee.io:8088")
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
