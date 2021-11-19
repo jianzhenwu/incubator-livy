@@ -172,7 +172,10 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
       val logType = params("logType")
-      yarnApplicationLog(session, logType, from, size)
+      session.appId match {
+        case Some(appId) => yarnApplicationLog(appId, logType, from, size)
+        case _ => BadRequest(s"ApplicationId of session ${session.id} not found.")
+      }
     }
   }
 
@@ -441,56 +444,56 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       (serverMetadata != null && matchSearchKey(Option(serverMetadata.toString()), searchKey))
   }
 
-  def yarnApplicationLog(session: Session, logType: String,
-      fromOpt: Option[Int], sizeOpt: Option[Int]): String = {
+  def yarnApplicationLog(appId: String, logType: String,
+      fromOpt: Option[Int], sizeOpt: Option[Int]): Any = {
 
     val from = fromOpt.getOrElse(0)
     val size = sizeOpt.getOrElse(4096) // bytes
 
     val yarnServer = livyConf.get(LivyConf.YARN_RESOURCE_MANAGER_HTTP_SERVER)
-    var appLog = s"Application of session ${session.id} not found"
+    var appLog = s"Application $appId not found"
 
-    if (session.appId.nonEmpty) {
-      try {
-        // Get application info.
-        val bodyApp = doRemoteGet[Map[String, Any]](
-          HttpUrl.parse(s"$yarnServer/ws/v1/cluster/apps/${session.appId.get}"),
-          new java.util.HashMap)
-        val appMap = bodyApp.get("app").asInstanceOf[Option[Map[String, Any]]].getOrElse(Map())
-        val finishedTime = appMap.get("finishedTime").asInstanceOf[Option[Int]]
-        val amContainerLogs = appMap.get("amContainerLogs").asInstanceOf[Option[String]]
+    try {
+      // Get application info.
+      val bodyApp = doRemoteGet[Map[String, Any]](
+        HttpUrl.parse(URI.create(yarnServer).resolve(
+          s"/ws/v1/cluster/apps/$appId").toString),
+        new java.util.HashMap)
+      val appMap = bodyApp.get("app").asInstanceOf[Option[Map[String, Any]]].getOrElse(Map())
 
-        // Get application log.
-        if (amContainerLogs.nonEmpty) {
-          var logUrl = ""
-          if (finishedTime.getOrElse(0) > 0) {
-            logUrl = s"${amContainerLogs.get}/$logType"
+      val finishedTime = appMap.get("finishedTime").map {
+        case i: java.lang.Integer => i.longValue()
+        case l: java.lang.Long => l.longValue()
+        case _ => throw new UnsupportedOperationException(
+          "Unrecognized type of finishedTime in appInfo")
+      }
+
+      appMap.get("amContainerLogs").foreach {
+        case amContainerLogs: String =>
+          var urlAmLog = ""
+          if (finishedTime.getOrElse(0L) > 0L) {
+            urlAmLog = s"$amContainerLogs/$logType"
           } else {
-            // http://ip-10-130-11-67.idata-server.shopee.io:8042/node/containerlogs/
-            // container_e240_1636710668288_367414_01_000001/
-            val containerId = amContainerLogs.get.split("/").apply(5)
+            val containerId = amContainerLogs.split("/").apply(5)
             val amHostHttpAddress = appMap("amHostHttpAddress").asInstanceOf[String]
-            logUrl = s"http://$amHostHttpAddress/ws/v1/node/containers/" +
+            urlAmLog = s"http://$amHostHttpAddress/ws/v1/node/containers/" +
               s"$containerId/logs/$logType"
           }
 
-          val httpBuilder = HttpUrl.parse(logUrl)
+          val httpBuilder = HttpUrl.parse(urlAmLog)
             .newBuilder()
             .addQueryParameter("start", from.toString)
             .addQueryParameter("size", size.toString)
             .addQueryParameter("isIncremental", true.toString)
 
-          val headers = new java.util.HashMap[String, String]()
-          headers.put("Accept", "text/plain")
-          appLog = doRemoteGetRaw(httpBuilder.build(), headers)
-        }
-      } catch {
-        case exception: Exception =>
-          appLog = s"Fail to get application ${session.appId.get} log of session ${session.id}. " +
-            s"ErrorMessage: ${exception.getMessage}"
+          response.sendRedirect(httpBuilder.build().toString)
       }
+    } catch {
+      case exception: Exception =>
+        appLog = s"Fail to get application $appId log." +
+          s"ErrorMessage: ${exception.getMessage}"
     }
-    appLog
+    response.outputStream.write(appLog.toByte)
   }
 
   def doRemoteGetRaw(url: HttpUrl, headers: java.util.Map[String, String]): String = {
