@@ -208,7 +208,10 @@ public class SparkSubmitRunner {
    */
   private String copyFileToRemote(String srcFile) throws IOException {
 
-    URI uri = URI.create(srcFile);
+    String srcFilePath = StringUtils.substringBeforeLast(srcFile, "#");
+    String unpackDir = StringUtils.substringAfterLast(srcFile, "#");
+
+    URI uri = URI.create(srcFilePath);
     Path srcPath = new Path(uri);
     if (uri.getScheme() == null) {
       srcPath = FileSystem.getLocal(this.hadoopConf).makeQualified(srcPath);
@@ -242,9 +245,10 @@ public class SparkSubmitRunner {
               e.getMessage(), e.getCause());
         }
       });
-      return destPath.toString();
+      return destPath +
+          (StringUtils.isNotBlank(unpackDir) ? "#" + unpackDir : "");
     } else {
-      return srcPath.toString();
+      return srcFile;
     }
   }
 
@@ -310,7 +314,7 @@ public class SparkSubmitRunner {
   }
 
   public void close() {
-    restClient.stop(false);
+    restClient.stop(this.waitAppCompletion);
     logger.debug("Close session connection.");
     try {
       this.fileSystem.close();

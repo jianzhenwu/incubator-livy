@@ -51,9 +51,17 @@ public class BatchRestClient extends AbstractRestClient {
   @Override
   public void stop(boolean shutdownContext) {
     try {
-      conn.close();
+      if (shutdownContext) {
+        conn.delete(Map.class, "/%s", sessionId);
+      }
     } catch (Exception e) {
-      // do nothing
+      throw propagate(e);
+    } finally {
+      try {
+        conn.close();
+      } catch (Exception e) {
+        // Ignore.
+      }
     }
   }
 
