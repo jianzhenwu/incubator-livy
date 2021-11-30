@@ -157,7 +157,8 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     withViewAccessSession { session =>
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
-      val (from_, total, logLines) = serializeLogs(session, from, size)
+      val logType = params.get("logType")
+      val (from_, total, logLines) = serializeLogs(session, from, size, logType)
 
       Map(
         "id" -> session.id,
@@ -385,8 +386,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     }
   }
 
-  private def serializeLogs(session: S, fromOpt: Option[Int], sizeOpt: Option[Int]) = {
-    val lines = session.logLines()
+  private def serializeLogs(session: S, fromOpt: Option[Int], sizeOpt: Option[Int],
+       logType: Option[String] = None) = {
+    val lines = session.logLines(logType)
 
     var size = sizeOpt.getOrElse(100)
     var from = fromOpt.getOrElse(-1)

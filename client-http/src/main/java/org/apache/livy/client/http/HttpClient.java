@@ -32,6 +32,7 @@ import org.apache.livy.Job;
 import org.apache.livy.JobHandle;
 import org.apache.livy.LivyClient;
 import org.apache.livy.client.common.HttpMessages;
+import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.Serializer;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
@@ -171,16 +172,13 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
 
   public void waitUntilSessionStarted() {
 
-    Set<String> sessionLogType =
-        new HashSet<>(Arrays.asList("stdout:", "stderr:", "YARN Diagnostics:"));
-
     long startTime = System.currentTimeMillis();
     long livySessionCreateTimeoutMs =
-        this.config.getTimeAsMs(HttpConf.Entry.SESSION_CREATE_TIMEOUT);
+        this.config.getTimeAsMs(LauncherConf.Entry.SESSION_CREATE_TIMEOUT);
     boolean printLog =
-        this.config.getBoolean(HttpConf.Entry.SESSION_CREATE_PRINT_LOG);
+        this.config.getBoolean(LauncherConf.Entry.SESSION_CREATE_PRINT_LOG);
 
-    int from = 0;
+    int fromStderr = 0, fromStdout = 0;
     int size = 100;
     while (true) {
       try {
@@ -189,24 +187,17 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
 
         // Print session log.
         if (printLog) {
-          try {
-            SessionLogResponse sessionLogResponse = getSessionLog(from, size);
-            List<String> logs = sessionLogResponse.getLog();
-            logs.stream().filter(e -> !sessionLogType.contains(e.trim()))
-                .forEach(System.err::println);
-            from += logs.size();
-          } catch (ConnectException | ServiceUnavailableException e) {
-            logger.warn("Fail to get session {} log.", sessionId, e);
-          }
+          fromStderr += printSessionLog("stderr", fromStderr, size);
+          fromStdout += printSessionLog("stdout", fromStdout, size);
         }
 
         if ("idle".equals(stateRes.getState())) {
           try {
             String trackingUrl =
-                this.config.get(HttpConf.Entry.SESSION_TRACKING_URL);
+                this.config.get(LauncherConf.Entry.SESSION_TRACKING_URL);
             String appId = getApplicationId();
             String appTrack = StringUtils.isNotBlank(trackingUrl) ?
-                "Tracking UR: " + String.format(trackingUrl, appId) :
+                "Tracking URL: " + String.format(trackingUrl, appId) :
                 "Application ID: " + appId;
             logger.info(appTrack);
             break;
@@ -237,17 +228,30 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     }
   }
 
+  private int printSessionLog(String logType, int from, int size) {
+    // Print session log.
+    try {
+      SessionLogResponse sessionLogResponse = getSessionLog(from, size, logType);
+      List<String> logs = sessionLogResponse.getLog();
+      logs.forEach(System.err::println);
+      return logs.size();
+    } catch (ConnectException | ServiceUnavailableException e) {
+      logger.warn("Fail to get session {} log.", sessionId, e);
+    }
+    return 0;
+  }
+
   public StatementResponse runStatement(String code) {
 
     long startTime = System.currentTimeMillis();
     long timeout =
-        HttpClient.this.config.getTimeAsMs(HttpConf.Entry.STATEMENT_TIMEOUT);
+        HttpClient.this.config.getTimeAsMs(LauncherConf.Entry.STATEMENT_TIMEOUT);
     long offset = HttpClient.this.config
-        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
+        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
     long step = HttpClient.this.config
-        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
+        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
     long max = HttpClient.this.config
-        .getTimeAsMs(HttpConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
+        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
 
     Interval interval = new RetryInterval(offset, step, max);
 

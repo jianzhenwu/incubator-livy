@@ -17,10 +17,15 @@
 package org.apache.livy.launcher.runner;
 
 import java.io.IOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.security.PrivilegedAction;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Locale;
+import java.util.Properties;
+import java.util.UUID;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.hadoop.conf.Configuration;
@@ -34,10 +39,12 @@ import org.apache.hadoop.security.UserGroupInformation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.http.BatchRestClient;
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.response.BatchSessionViewResponse;
-import org.apache.livy.client.http.response.SessionStateResponse;
+import org.apache.livy.client.http.response.SessionLogResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
@@ -61,8 +68,7 @@ public class SparkSubmitRunner {
   private boolean running = true;
   private Path sessionDir;
   private final boolean waitAppCompletion;
-  private String appId;
-  private String sparkUiUrl;
+  private int logStage;
 
   public SparkSubmitRunner(LivyOption livyOption) {
 
@@ -132,40 +138,48 @@ public class SparkSubmitRunner {
     }
     BatchSessionViewResponse sessionView =
         this.restClient.submitBatchJob(batchOptions);
-    logger.info("Application has been submitted. The session id is {}.",
-        sessionView.getId());
+    int sessionId = sessionView.getId();
+    logger.info("Application has been submitted. The session id is {}.", sessionId);
 
-    int exitCode =
-        LauncherUtils.batchSessionExitCode(sessionView.getState()).getCode();
-
-    // The appStarted method should be called first. It will log SparkUiUrl.
-    if (this.appStarted(sessionView) && !waitAppCompletion) {
-      return exitCode;
-    }
+    int fromStdout = 0, fromStderr = 0, size = 100, exitCode = 0;
 
     while (running) {
-
       try {
-        Thread.sleep(1000);
-
         sessionView = this.restClient.getBatchSessionView();
         exitCode =
             LauncherUtils.batchSessionExitCode(sessionView.getState()).getCode();
-        if (appStarted(sessionView) && !waitAppCompletion) {
+        String appId = sessionView.getAppId();
+        if ("running".equalsIgnoreCase(sessionView.getState())
+            && !waitAppCompletion) {
           break;
         }
-
-        // session state
-        SessionStateResponse sessionStateResponse =
-            this.restClient.getSessionState();
-
-        if (StringUtils.isNotBlank(appId) && StringUtils
-            .isNotBlank(sessionStateResponse.getState())) {
-          logger.info("Application report for {} (state: {})", this.appId,
-              sessionStateResponse.getState().toUpperCase(Locale.ENGLISH));
+        // Print job submit log before reporting application state.
+        if (logStage == 0) {
+          fromStdout += printSessionLog("stdout", fromStdout, size);
+          fromStderr += printSessionLog("stderr", fromStderr, size);
         }
-        running =
-            SessionState.apply(sessionStateResponse.getState()).isActive();
+        // Print Tracking URL at the end of log.
+        if (logStage == 1 && StringUtils.isNotBlank(appId)) {
+          String trackingUrl = livyOptions.getLivyConfByKey(
+              LauncherConf.Entry.SESSION_TRACKING_URL.key());
+          String appTrack = StringUtils.isNotBlank(trackingUrl) ?
+              "Tracking URL: " + String.format(trackingUrl, appId) :
+              "Application ID: " + appId;
+          logger.info(appTrack);
+          logStage = 2;
+        }
+        // Report application state.
+        if (logStage == 2 && StringUtils.isNotBlank(appId) &&
+            StringUtils.isNotBlank(sessionView.getState())) {
+          logger.info("Application report for {} (state: {})", appId,
+              sessionView.getState().toUpperCase(Locale.ENGLISH));
+          Thread.sleep(2800);
+        }
+
+        running = SessionState.apply(sessionView.getState()).isActive();
+        Thread.sleep(200);
+      } catch (ConnectException | ServiceUnavailableException ce) {
+        logger.warn("Please wait, the session {} is recovering.", sessionId);
       } catch (Exception e) {
         throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
             e.getCause());
@@ -275,24 +289,16 @@ public class SparkSubmitRunner {
     return sessionDir;
   }
 
-  private boolean appStarted(BatchSessionViewResponse sessionView) {
-    // Do not log SparkUiUrl multi time.
-    if (StringUtils.isNotBlank(this.sparkUiUrl)) {
-      return true;
+  private int printSessionLog(String logType, int from, int size)
+      throws ConnectException {
+    SessionLogResponse sessionLogResponse =
+        this.restClient.getSessionLog(from, size, logType);
+    List<String> logs = sessionLogResponse.getLog();
+    for (String log : sessionLogResponse.getLog()) {
+      logStage = log.trim().startsWith("tracking URL:") ? 1 : logStage;
+      System.err.println(log);
     }
-
-    this.appId = sessionView.getAppId();
-
-    if (StringUtils.isNotBlank(sessionView.getAppId()) && sessionView
-        .hasAppInfoValue()) {
-      this.sparkUiUrl = sessionView.getAppInfo().getSparkUiUrl();
-      String driverLogUrl = sessionView.getAppInfo().getDriverLogUrl();
-
-      logger.info("ApplicationId: {}\nSparkUiUrl: {}\nDriverLogUrl: {}",
-          sessionView.getAppId(), this.sparkUiUrl, driverLogUrl);
-      return true;
-    }
-    return false;
+    return logs.size();
   }
 
   /**

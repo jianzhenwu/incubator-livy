@@ -50,6 +50,7 @@ import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
@@ -144,7 +145,7 @@ class LivyConnection {
     credsProvider.setCredentials(AuthScope.ANY, credentials);
 
     HttpClientBuilder builder = HttpClientBuilder.create()
-      .disableAutomaticRetries()
+      .setRedirectStrategy(new LaxRedirectStrategy())
       .evictExpiredConnections()
       .evictIdleConnections(config.getTimeAsMs(CONNECTION_IDLE_TIMEOUT), TimeUnit.MILLISECONDS)
       .setConnectionManager(new BasicHttpClientConnectionManager())

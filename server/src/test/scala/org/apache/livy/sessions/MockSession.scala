@@ -42,7 +42,7 @@ class MockSession(id: Int, owner: String, conf: LivyConf, name: Option[String] =
     stopped = true
   }
 
-  override def logLines(): IndexedSeq[String] = IndexedSeq()
+  override def logLines(logType: Option[String] = None): IndexedSeq[String] = IndexedSeq()
 
   var serverState: SessionState = SessionState.Idle
   override def state: SessionState = serverState

@@ -503,7 +503,8 @@ class InteractiveSession(
     }
   }
 
-  override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(sessionLog)
+  override def logLines(logType: Option[String] = None): IndexedSeq[String] =
+    app.map(_.log(logType)).getOrElse(sessionLog)
 
   override def recoveryMetadata: RecoveryMetadata =
     InteractiveRecoveryMetadata(id, name, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt,

@@ -33,15 +33,6 @@ class HttpConf extends ClientConf<HttpConf> {
     CONNECTION_IDLE_TIMEOUT("connection.idle.timeout", "10m"),
     SOCKET_TIMEOUT("connection.socket.timeout", "5m"),
 
-    SESSION_CREATE_TIMEOUT("session.create.timeout", "5m"),
-    STATEMENT_TIMEOUT("statement.timeout", "0s"),
-    STATEMENT_POLLING_INTERVAL_OFFSET("statement.polling.interval.offset", "100ms"),
-    STATEMENT_POLLING_INTERVAL_STEP("statement.pooling.interval.step", "100ms"),
-    STATEMENT_POLLING_INTERVAL_MAX("statement.pooling.interval.max", "1s"),
-
-    SESSION_CREATE_PRINT_LOG("session.create.print-log", true),
-    SESSION_TRACKING_URL("session.tracking.url", ""),
-
     JOB_INITIAL_POLL_INTERVAL("job.initial-poll-interval", "100ms"),
     JOB_MAX_POLL_INTERVAL("job.max-poll-interval", "5s"),
 

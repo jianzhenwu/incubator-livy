@@ -200,7 +200,8 @@ class BatchSession(
 
   override def state: SessionState = _state
 
-  override def logLines(): IndexedSeq[String] = app.map(_.log()).getOrElse(IndexedSeq.empty[String])
+  override def logLines(logType: Option[String] = None): IndexedSeq[String] =
+    app.map(_.log(logType)).getOrElse(IndexedSeq.empty[String])
 
   override def start(): Unit = {
     app = Option(sparkApp(this))

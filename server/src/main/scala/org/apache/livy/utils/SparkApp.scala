@@ -128,5 +128,5 @@ object SparkApp {
  */
 abstract class SparkApp {
   def kill(): Unit
-  def log(): IndexedSeq[String]
+  def log(logType: Option[String] = None): IndexedSeq[String]
 }

@@ -64,9 +64,7 @@ object SessionServletSpec {
 
     override protected def stopSession(): Unit = ()
 
-    override def logLines(): IndexedSeq[String] = IndexedSeq("log")
-
-    override def appId: Option[String] = mockAppId
+    override def logLines(logType: Option[String] = None): IndexedSeq[String] = IndexedSeq("log")
   }
 
   case class MockSessionView(id: Int, owner: String, proxyUser: Option[String], logs: Seq[String])

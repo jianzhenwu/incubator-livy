@@ -66,11 +66,12 @@ public abstract class AbstractRestClient {
     }
   }
 
-  public SessionLogResponse getSessionLog(int from, int size)
+  public SessionLogResponse getSessionLog(int from, int size, String logType)
       throws ConnectException {
     SessionLogResponse sessionLogResponse = null;
     try {
-      StringBuilder query = new StringBuilder("from=").append(from);
+      StringBuilder query = new StringBuilder("from=").append(from)
+          .append("&logType=").append(logType);
       if (size != 0) {
         query.append("&size=").append(size);
       }

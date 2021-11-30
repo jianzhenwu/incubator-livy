@@ -17,11 +17,17 @@
 # The url used to connect to Livy cluster
 # livy-url = http://xxx
 
-# livy.client.http.session.create.timeout = 5m
-# Timeout of running statement. The default value is 0, so no timeout.
-# livy.client.http.statement.timeout = 0
+# The tracking URL of application.
+# livy.launcher.session.tracking-url = http://keyhole.data-infra.shopee.io/keyhole/proxy?applicationId=%s
+
+# livy.launcher.session.create.timeout = 5m
+# Timeout of running statement. 0 is not timeout.
+# livy.launcher.statement.timeout = 0
 
 # The pooling interval is calculated by math.min((math.log(i + 1) + offset) * step, max)
-# livy.client.http.statement.polling.interval.offset = 1
-# livy.client.http.statement.pooling.interval.step = 100
-# livy.client.http.statement.pooling.interval.max = 1000
+# livy.launcher.statement.polling.interval.offset = 100ms
+# livy.launcher.statement.pooling.interval.step = 100ms
+# livy.launcher.statement.pooling.interval.max = 1s
+
+# Whether print inactivate session log in client size.
+# livy.launcher.session.create.print-log = true

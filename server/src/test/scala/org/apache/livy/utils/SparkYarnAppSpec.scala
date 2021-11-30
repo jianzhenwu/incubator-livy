@@ -198,6 +198,7 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           app.kill()
           waitForCalledLatch.await(TEST_TIMEOUT.toMillis, TimeUnit.MILLISECONDS)
           assert(app.log() == sparkSubmitLog, "Expect spark-submit log")
+          assert(app.log(Some("stdout")) == sparkSubmitInfoLog, "Expect spark-submit stdout log")
         }
       }
     }

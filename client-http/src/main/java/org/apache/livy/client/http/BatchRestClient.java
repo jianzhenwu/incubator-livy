@@ -16,9 +16,11 @@
  */
 package org.apache.livy.client.http;
 
+import java.net.ConnectException;
 import java.net.URI;
 import java.util.*;
 
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.response.BatchSessionViewResponse;
 
@@ -40,9 +42,11 @@ public class BatchRestClient extends AbstractRestClient {
     }
   }
 
-  public BatchSessionViewResponse getBatchSessionView() {
+  public BatchSessionViewResponse getBatchSessionView() throws ConnectException {
     try {
       return conn.get(BatchSessionViewResponse.class, "/%d", this.sessionId);
+    } catch (ConnectException | ServiceUnavailableException ce) {
+      throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
     }

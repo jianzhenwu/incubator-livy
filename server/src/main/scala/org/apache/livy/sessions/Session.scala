@@ -187,7 +187,7 @@ abstract class Session(
     case _ => _lastActivity
   }
 
-  def logLines(): IndexedSeq[String]
+  def logLines(logType: Option[String] = None): IndexedSeq[String]
 
   def recordActivity(): Unit = {
     _lastActivity = System.nanoTime()
