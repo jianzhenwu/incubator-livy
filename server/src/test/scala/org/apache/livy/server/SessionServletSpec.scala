@@ -64,6 +64,8 @@ object SessionServletSpec {
 
     override protected def stopSession(): Unit = ()
 
+    override def appId: Option[String] = mockAppId
+
     override def logLines(logType: Option[String] = None): IndexedSeq[String] = IndexedSeq("log")
   }
 

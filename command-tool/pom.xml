@@ -27,6 +27,12 @@
 
   <artifactId>livy-command-tool</artifactId>
 
+  <properties>
+    <assembly.name>livy-launcher-${project.version}-bin</assembly.name>
+    <assembly.format>zip</assembly.format>
+    <skipDeploy>true</skipDeploy>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.apache.commons</groupId>
@@ -92,6 +98,22 @@
       <version>${hive.version}</version>
       <exclusions>
         <exclusion>
+          <groupId>org.apache.zookeeper</groupId>
+          <artifactId>zookeeper</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>io.netty</groupId>
+          <artifactId>netty</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.apache.logging.log4j</groupId>
+          <artifactId>log4j-slf4j-impl</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>org.slf4j</groupId>
+          <artifactId>slf4j-log4j12</artifactId>
+        </exclusion>
+        <exclusion>
           <groupId>org.apache.hbase</groupId>
           <artifactId>*</artifactId>
         </exclusion>
@@ -102,6 +124,10 @@
       <artifactId>hive-beeline</artifactId>
       <version>${hive.version}</version>
       <exclusions>
+        <exclusion>
+          <groupId>org.apache.hive</groupId>
+          <artifactId>hive-jdbc</artifactId>
+        </exclusion>
         <exclusion>
           <groupId>org.apache.hbase</groupId>
           <artifactId>*</artifactId>
@@ -115,56 +141,56 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <configuration>
+          <outputDirectory>${project.build.directory}/jars</outputDirectory>
+        </configuration>
+      </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-dependency-plugin</artifactId>
         <executions>
           <execution>
-            <id>shade</id>
             <phase>package</phase>
             <goals>
-              <goal>shade</goal>
+              <goal>copy-dependencies</goal>
             </goals>
             <configuration>
-              <shadedArtifactAttached>false</shadedArtifactAttached>
-              <artifactSet>
-                <includes>
-                  <include>*:*</include>
-                </includes>
-              </artifactSet>
-              <filters>
-                <!-- Some artifacts (e.g. kryo) bundle jars inside them, for some reason. -->
-                <filter>
-                  <artifact>*:*</artifact>
-                  <excludes>
-                    <exclude>*.jar</exclude>
-                    <exclude>META-INF/maven/**</exclude>
-                  </excludes>
-                </filter>
-              </filters>
-              <relocations>
-                <relocation>
-                  <pattern>com.esotericsoftware</pattern>
-                  <shadedPattern>org.apache.livy.shaded.kryo</shadedPattern>
-                  <excludes>
-                    <exclude>com.esotericsoftware.reflectasm.shaded.*</exclude>
-                  </excludes>
-                </relocation>
-                <relocation>
-                  <pattern>com.fasterxml.jackson</pattern>
-                  <shadedPattern>org.apache.livy.shaded.jackson</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.apache.commons</pattern>
-                  <shadedPattern>org.apache.livy.shaded.apache.commons</shadedPattern>
-                </relocation>
-                <relocation>
-                  <pattern>org.apache.http</pattern>
-                  <shadedPattern>org.apache.livy.shaded.apache.http</shadedPattern>
-                </relocation>
-              </relocations>
+              <excludeArtifactIds>
+                logback-classic,
+                logback-core,
+                log4j-slf4j-impl,
+                log4j-api,
+                log4j-core,
+                log4j-1.2-api,
+                log4j-web
+              </excludeArtifactIds>
             </configuration>
           </execution>
         </executions>
       </plugin>
+
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-assembly-plugin</artifactId>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <finalName>${assembly.name}</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
+              <descriptors>
+                <descriptor>assembly.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+
     </plugins>
   </build>
 </project>
