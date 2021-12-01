@@ -24,8 +24,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.Success
 
 import com.fasterxml.jackson.annotation.JsonIgnore
-import com.squareup.okhttp.{CacheControl, Call, MediaType, OkHttpClient, Protocol, Request, Response, ResponseBody}
-import org.mockito.Matchers.anyObject
+import com.squareup.okhttp.{CacheControl, Request}
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 
@@ -84,29 +83,7 @@ object SessionServletSpec {
 
     val accessManager = new AccessManager(conf)
 
-    val mockHttpClient: OkHttpClient = {
-      val mockHttpClient = mock[OkHttpClient]
-      val mockCall = mock[Call]
-
-      val bodyApp = "{\"app\": {\"finishedTime\": 1637137426000, \"amContainerLogs\":" +
-        "\"http://127.0.0.1:8042/node/containerlogs/" +
-        "container_e240_1636710668288_367414_01_000001\"}}"
-
-      val mockResponse = new Response.Builder()
-        .request(new Request.Builder()
-          .url("http://127.0.0.1:8042").build())
-        .protocol(Protocol.HTTP_1_1)
-        .code(200)
-        .message("")
-        .body(ResponseBody.create(MediaType.parse("application/json"), bodyApp))
-        .build()
-
-      when(mockCall.execute()).thenReturn(mockResponse)
-      when(mockHttpClient.newCall(anyObject())).thenReturn(mockCall)
-      mockHttpClient
-    }
-
-    new SessionServlet(sessionManager, None, None, conf, accessManager, Some(mockHttpClient))
+    new SessionServlet(sessionManager, None, None, conf, accessManager)
       with RemoteUserOverride {
       override protected def createSession(sessionId: Int, req: HttpServletRequest): Session = {
         val params = bodyAs[Map[String, String]](req)
@@ -309,7 +286,9 @@ class SessionServletSpec extends BaseSessionServletSpec[Session, RecoveryMetadat
   import SessionServletSpec._
 
   override def createServlet(): SessionServlet[Session, RecoveryMetadata] = {
-    SessionServletSpec.createServlet(createConf())
+    val livyConf = super.createConf()
+      .set(LivyConf.YARN_TIMELINE_SERVER, "http://127.0.0.1:8188/")
+    SessionServletSpec.createServlet(livyConf)
   }
 
   private val aliceHeaders = makeUserHeaders("alice")
@@ -429,16 +408,21 @@ class SessionServletSpec extends BaseSessionServletSpec[Session, RecoveryMetadat
       }
     }
 
-    it("should redirect to get amLog") {
+    it("should redirect to get amlogs") {
       jpost[MockSessionView]("/", Map()) { res =>
-        get(s"/${res.id}/amLog/stderr") {
-          assert(response.statusLine.code == SC_FOUND)
+        get(s"/${res.id}/amlogs/stderr") {
+          assert(response.statusLine.code == SC_TEMPORARY_REDIRECT)
           assert(response.getHeader("Location").equals(
-            "http://127.0.0.1:8042/node/containerlogs" +
-              "/container_e240_1636710668288_367414_01_000001" +
-              "/stderr?start=0&size=4096&isIncremental=true"))
+            "http://127.0.0.1:8188/ws/v2/applicationlog/apps/application_1636710668288_619460" +
+              "/amlogs/stderr?start=0&size=4096"))
         }
         delete(res.id, adminHeaders, SC_OK)
+      }
+    }
+
+    it("should not found amlogs") {
+      get(s"/0/amlogs/stderr") {
+        assert(response.statusLine.code == SC_NOT_FOUND)
       }
     }
   }

@@ -168,7 +168,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     }
   }
 
-  get("/:id/amLog/:logType") {
+  get("/:id/amlogs/:logType") {
     withViewAccessSession { session =>
       val from = params.get("from").map(_.toInt)
       val size = params.get("size").map(_.toInt)
@@ -452,50 +452,23 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     val from = fromOpt.getOrElse(0)
     val size = sizeOpt.getOrElse(4096) // bytes
 
-    val yarnServer = livyConf.get(LivyConf.YARN_RESOURCE_MANAGER_HTTP_SERVER)
     var appLog = s"Application $appId not found"
 
     try {
-      // Get application info.
-      val bodyApp = doRemoteGet[Map[String, Any]](
-        HttpUrl.parse(URI.create(yarnServer).resolve(
-          s"/ws/v1/cluster/apps/$appId").toString),
-        new java.util.HashMap)
-      val appMap = bodyApp.get("app").asInstanceOf[Option[Map[String, Any]]].getOrElse(Map())
+      val urlAmLog = URI.create(livyConf.get(LivyConf.YARN_TIMELINE_SERVER)).resolve(
+        s"/ws/v2/applicationlog/apps/$appId/amlogs/$logType").toString
 
-      val finishedTime = appMap.get("finishedTime").map {
-        case i: java.lang.Integer => i.longValue()
-        case l: java.lang.Long => l.longValue()
-        case _ => throw new UnsupportedOperationException(
-          "Unrecognized type of finishedTime in appInfo")
-      }
-
-      appMap.get("amContainerLogs").foreach {
-        case amContainerLogs: String =>
-          var urlAmLog = ""
-          if (finishedTime.getOrElse(0L) > 0L) {
-            urlAmLog = s"$amContainerLogs/$logType"
-          } else {
-            val containerId = amContainerLogs.split("/").apply(5)
-            val amHostHttpAddress = appMap("amHostHttpAddress").asInstanceOf[String]
-            urlAmLog = s"http://$amHostHttpAddress/ws/v1/node/containers/" +
-              s"$containerId/logs/$logType"
-          }
-
-          val httpBuilder = HttpUrl.parse(urlAmLog)
-            .newBuilder()
-            .addQueryParameter("start", from.toString)
-            .addQueryParameter("size", size.toString)
-            .addQueryParameter("isIncremental", true.toString)
-
-          response.sendRedirect(httpBuilder.build().toString)
-      }
+      val httpBuilder = HttpUrl.parse(urlAmLog)
+        .newBuilder()
+        .addQueryParameter("start", from.toString)
+        .addQueryParameter("size", size.toString)
+      TemporaryRedirect.apply(httpBuilder.build().toString)
     } catch {
       case exception: Exception =>
         appLog = s"Fail to get application $appId log." +
           s"ErrorMessage: ${exception.getMessage}"
+        InternalServerError.apply(appLog)
     }
-    response.outputStream.write(appLog.toByte)
   }
 
   def doRemoteGetRaw(url: HttpUrl, headers: java.util.Map[String, String]): String = {
