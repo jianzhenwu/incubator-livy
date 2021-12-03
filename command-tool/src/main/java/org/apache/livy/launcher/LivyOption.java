@@ -269,7 +269,6 @@ public class LivyOption extends LivyOptionParser {
     }
 
     if (!new File(livyConfFile).exists()) {
-      logger.warn("Livy-launcher config file {} does not exist.", livyConfFile);
       return;
     }
 

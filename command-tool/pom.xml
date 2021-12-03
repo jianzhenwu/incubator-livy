@@ -21,14 +21,14 @@
   <parent>
     <artifactId>livy-main</artifactId>
     <groupId>org.apache.livy</groupId>
-    <version>0.8.0-incubating-sdi-003-SNAPSHOT</version>
+    <version>0.8.0-incubating-sdi-003</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
   <artifactId>livy-command-tool</artifactId>
 
   <properties>
-    <assembly.name>livy-launcher-${project.version}-bin</assembly.name>
+    <assembly.name>livy-command-tool-${project.version}-bin</assembly.name>
     <assembly.format>zip</assembly.format>
     <skipDeploy>true</skipDeploy>
   </properties>
