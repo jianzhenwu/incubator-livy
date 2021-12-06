@@ -219,5 +219,5 @@
 # Bind the user session to the server. Other users cannot use the bound server.
 # livy.server.mapping.user = 10.10.10.1:8998,10.10.10.2:8998
 
-# The YARN REST API to get application log.
-# livy.server.yarn.resource-manager.http-server=
+# The YARN Timeline Server API to get application master logs.
+# livy.server.yarn.timeline.server =
