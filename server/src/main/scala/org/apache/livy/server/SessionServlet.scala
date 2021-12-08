@@ -160,11 +160,15 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       val logType = params.get("logType")
       val (from_, total, logLines) = serializeLogs(session, from, size, logType)
 
-      Map(
-        "id" -> session.id,
-        "from" -> from_,
-        "total" -> total,
-        "log" -> logLines)
+      if (request.getHeader("Accept") == "text/plain") {
+        logLines.mkString("\n")
+      } else {
+        Map(
+          "id" -> session.id,
+          "from" -> from_,
+          "total" -> total,
+          "log" -> logLines)
+      }
     }
   }
 
