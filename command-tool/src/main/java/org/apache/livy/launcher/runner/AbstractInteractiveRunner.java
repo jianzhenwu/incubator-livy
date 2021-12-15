@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import jline.console.ConsoleReader;
+import jline.console.UserInterruptException;
 import jline.console.history.FileHistory;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -83,6 +84,8 @@ public abstract class AbstractInteractiveRunner {
     this.consoleReader =
         new ConsoleReader("livy-launcher", System.in, new PrintStream(System.out, true),
             null, "utf-8");
+    this.consoleReader.setHandleUserInterrupt(true);
+
     this.consoleReader.setHistoryEnabled(true);
 
     fileHistory = new FileHistory(this.createHistoryFile());
@@ -118,7 +121,14 @@ public abstract class AbstractInteractiveRunner {
       builder = new StringBuilder();
       prompt = promptStart();
       while (!exit) {
-        String line = this.consoleReader.readLine(prompt);
+        String line = null;
+        try {
+          line = this.consoleReader.readLine(prompt);
+        } catch (UserInterruptException e) {
+          // 1. ctr + c is same with ctr + d.
+          // 2. Cancel current line.
+          // 3. Exit if current line is empty.
+        }
         if (line == null) {
           if (builder.length() == 0) {
             exit = true;
