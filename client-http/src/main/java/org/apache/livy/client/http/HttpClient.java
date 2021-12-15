@@ -34,6 +34,7 @@ import org.apache.livy.LivyClient;
 import org.apache.livy.client.common.HttpMessages;
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.Serializer;
+import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
@@ -268,7 +269,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       @Override
       public StatementResponse task() throws ConnectException {
         StatementResponse runRes = statementResult(finalStatementId);
-        if (runRes.getProgress() == 1) {
+        if (StatementState.Available.toString().equals(runRes.getState())) {
           return runRes;
         }
         return null;

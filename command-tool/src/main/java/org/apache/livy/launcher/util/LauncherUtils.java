@@ -32,8 +32,8 @@ import org.ini4j.Ini;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.client.common.StatementState;
 import org.apache.livy.launcher.exception.LauncherExitCode;
-import org.apache.livy.rsc.driver.StatementState;
 
 import static org.apache.livy.launcher.LivyLauncherConfiguration.HADOOP_USER_RPCPASSWORD;
 
