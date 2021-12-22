@@ -15,20 +15,28 @@
  * limitations under the License.
  */
 
-package org.apache.livy.server.auth
+package com.shopee.livy
 
-import com.shopee.di.datasuite.auth.client.ClientCredentials
-import com.shopee.di.datasuite.auth.client.common.EnvironmentEnum
+import java.util
 
-/**
- * Set environment variable in livy-env.sh.
- */
-class ShopeeClientCredentials extends ClientCredentials {
-  override def getClientId: String = System.getenv("LIVY_SERVER_AUTH_DI_CLIENT_ID")
+import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 
-  override def getClientSecret: String = System.getenv("LIVY_SERVER_AUTH_CLIENT_SECRET")
+import org.apache.livy.{ApplicationEnvProcessor, Logging}
 
-  override def getEnvironment: EnvironmentEnum =
-    EnvironmentEnum.valueOf(System.getenv("LIVY_SERVER_AUTH_ENVIRONMENT")
-      .toUpperCase)
+class SdiApplicationEnvProcessor extends ApplicationEnvProcessor with Logging {
+
+  override def process(env: util.Map[String, String],
+                       username: String): Unit = {
+
+    var password = ""
+    try {
+      password = BigDataAuthProxy.getInstance.getHadoopAccountPassword(username)
+    } catch {
+      case _: Exception =>
+        error(s"Failed to get hadoop account password from BigDataAuthProxy " +
+          s"with " + username)
+    }
+    env.put("HADOOP_USER_NAME", username)
+    env.put("HADOOP_USER_RPCPASSWORD", password)
+  }
 }

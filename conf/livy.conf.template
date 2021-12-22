@@ -197,6 +197,9 @@
 # livy.server.auth.<custom>.param.<foo1> = <bar1>
 # livy.server.auth.<custom>.param.<foo2> = <bar2>
 
+# Set authentication to environment when start an application.
+# livy.application.env.processor = org.apache.livy.DefaultApplicationEnvProcessor
+
 # Spark multiple version path configurations.
 # livy.server.spark.versions = v2_4, v3_1
 # livy.server.spark.versions.default = v2_4

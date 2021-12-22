@@ -62,6 +62,7 @@ class HdfsServlet(
     }
 
     val builder = new HdfsCmdProcessBuilder(livyConf)
+    builder.username(request.getRemoteUser)
     val hdfsProcess = builder.start(runnableCmd)
 
     val exitCode = hdfsProcess.waitFor()

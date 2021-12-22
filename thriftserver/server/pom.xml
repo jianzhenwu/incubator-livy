@@ -122,11 +122,6 @@
       <version>${jetty.version}</version>
     </dependency>
 
-    <dependency>
-      <groupId>com.shopee.di</groupId>
-      <artifactId>datasuite-auth-client</artifactId>
-    </dependency>
-
     <!-- needed for testing -->
     <dependency>
       <groupId>org.apache.hive</groupId>

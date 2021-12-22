@@ -227,6 +227,7 @@
     <module>command-tool</module>
     <module>test-lib</module>
     <module>integration-test</module>
+    <module>sdi-internal</module>
   </modules>
 
   <dependencies>

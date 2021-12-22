@@ -21,8 +21,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{ClassLoaderUtils, LivyConf, Logging}
-import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
+import org.apache.livy.{ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, Logging}
 
 class SparkProcessBuilder(livyConf: LivyConf,
                           reqSparkVersion: Option[String] = None) extends Logging {
@@ -46,6 +45,10 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _redirectOutput: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectError: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectErrorStream: Option[Boolean] = None
+  private[this] var _username: String = ""
+
+  private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
+    ApplicationEnvProcessor(livyConf.get(LivyConf.APPLICATION_ENV_PROCESSOR))
 
   def executable(executable: String): SparkProcessBuilder = {
     _executable = executable
@@ -162,6 +165,11 @@ class SparkProcessBuilder(livyConf: LivyConf,
     this
   }
 
+  def username(username: String): SparkProcessBuilder = {
+    _username = username
+    this
+  }
+
   def start(file: Option[String], args: Traversable[String]): LineBufferedProcess = {
     var arguments = ArrayBuffer(_executable)
 
@@ -225,16 +233,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
       }
     }
 
-    // TODO Temp solution, refactor to DMP auth and extract shopee related code later
-    if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
-      HttpBasicAuthenticationHolder.get().fold {
-        env.put("HADOOP_USER_NAME", "")
-        env.put("HADOOP_USER_RPCPASSWORD", "")
-      } { case (username, password) =>
-        env.put("HADOOP_USER_NAME", username)
-        env.put("HADOOP_USER_RPCPASSWORD", password)
-      }
-    }
+    applicationEnvProcessor.process(env, _username)
 
     _redirectOutput.foreach(pb.redirectOutput)
     _redirectError.foreach(pb.redirectError)

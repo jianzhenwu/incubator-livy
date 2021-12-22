@@ -99,6 +99,7 @@ object BatchSession extends Logging {
 
       val builder = new SparkProcessBuilder(livyConf, reqSparkVersion)
       builder.conf(conf)
+      builder.username(owner)
 
       impersonatedUser.foreach(builder.proxyUser)
       request.className.foreach(builder.className)

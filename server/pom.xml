@@ -54,6 +54,12 @@
 
     <dependency>
       <groupId>org.apache.livy</groupId>
+      <artifactId>livy-sdi-internal</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>org.apache.livy</groupId>
       <artifactId>livy-test-lib</artifactId>
       <version>${project.version}</version>
       <scope>test</scope>
@@ -212,11 +218,6 @@
     <dependency>
       <groupId>org.slf4j</groupId>
       <artifactId>slf4j-api</artifactId>
-    </dependency>
-
-    <dependency>
-      <groupId>com.shopee.di</groupId>
-      <artifactId>datasuite-auth-client</artifactId>
     </dependency>
 
     <dependency>

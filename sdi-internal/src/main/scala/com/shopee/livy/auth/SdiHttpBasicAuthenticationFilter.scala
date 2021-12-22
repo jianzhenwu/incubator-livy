@@ -15,35 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.livy.server.auth
+package com.shopee.livy.auth
 
 import java.nio.charset.StandardCharsets
 import javax.servlet.{Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
 import javax.servlet.http.{HttpServletRequest, HttpServletRequestWrapper, HttpServletResponse}
 
+import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 import org.apache.commons.codec.binary.Base64
+import org.apache.hadoop.security.authentication.client.AuthenticationException
 
-object HttpBasicAuthenticationHolder {
-  private val holder = new ThreadLocal[Option[(String, String)]]() {
-    override def initialValue(): Option[(String, String)] = {
-      None
-    }
-  }
-
-  def clear(): Unit = {
-    holder.remove()
-  }
-
-  def set(usernamePassword: Option[(String, String)]): Unit = {
-    holder.set(usernamePassword)
-  }
-
-  def get(): Option[(String, String)] = {
-    holder.get()
-  }
-}
-
-class HttpBasicAuthenticationFilter extends Filter {
+class SdiHttpBasicAuthenticationFilter extends Filter {
 
   val BASIC = "Basic"
   val AUTHORIZATION_HEADER = "Authorization"
@@ -59,21 +41,24 @@ class HttpBasicAuthenticationFilter extends Filter {
     val httpRequest = request.asInstanceOf[HttpServletRequest]
     val httpResponse = response.asInstanceOf[HttpServletResponse]
 
-    // TODO Temp solution, refactor to DMP auth later
-    HttpBasicAuthenticationHolder.set(basicUsernamePassword(httpRequest))
-    try {
-      if (HttpBasicAuthenticationHolder.get().isDefined) {
-        val authHttpRequest = new HttpServletRequestWrapper(httpRequest) {
-          override def getAuthType: String = BASIC
-          override def getRemoteUser: String = HttpBasicAuthenticationHolder.get().get._1
-        }
-        chain.doFilter(authHttpRequest, response)
-      } else {
-        chain.doFilter(request, response)
+    val userInfo = basicUsernamePassword(httpRequest)
+
+    val requestUser = userInfo.fold {
+      "anonymous"
+    } { case (username, password) =>
+      val isAuth = BigDataAuthProxy.getInstance
+        .validateHadoopAccountPassword(username, password)
+      if (!isAuth) {
+        throw new AuthenticationException(s"Unauthorized user $username.")
       }
-    } finally {
-      HttpBasicAuthenticationHolder.clear()
+      username
     }
+    val authHttpRequest = new HttpServletRequestWrapper(httpRequest) {
+      override def getAuthType: String = BASIC
+
+      override def getRemoteUser: String = requestUser
+    }
+    chain.doFilter(authHttpRequest, response)
   }
 
   private def basicUsernamePassword(httpRequest: HttpServletRequest) = {
@@ -85,6 +70,8 @@ class HttpBasicAuthenticationFilter extends Filter {
         .split(":", 2)
       if (credentials.length == 2) {
         Some((credentials(0), credentials(1)))
+      } else if (credentials.length == 1) {
+        throw new AuthenticationException(s"Unauthorized user ${credentials(0)}.")
       } else {
         None
       }

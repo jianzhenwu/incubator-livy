@@ -15,20 +15,29 @@
  * limitations under the License.
  */
 
-package org.apache.livy.thriftserver.auth
+package org.apache.livy
 
-import javax.security.sasl.AuthenticationException
+import java.util
 
-import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
-import org.apache.hive.service.auth.PasswdAuthenticationProvider
+trait ApplicationEnvProcessor {
 
-import org.apache.livy.{LivyConf, Logging}
+  def process(env: java.util.Map[String, String], username: String)
 
-class ShopeeAuthenticationProviderImpl(val conf: LivyConf)
-  extends PasswdAuthenticationProvider with Logging {
-  override def Authenticate(user: String, password: String): Unit = {
-    if (!BigDataAuthProxy.getInstance.validateHadoopAccountPassword(user, password)) {
-      throw new AuthenticationException(s"Error validating DI central authentication user: $user")
-    }
+}
+
+class DefaultApplicationEnvProcessor extends Logging
+  with ApplicationEnvProcessor {
+
+  override def process(env: util.Map[String, String], username: String): Unit = {
+  }
+}
+
+object ApplicationEnvProcessor {
+
+  def apply(clazz: String): ApplicationEnvProcessor = {
+    Class.forName(clazz)
+      .asSubclass(classOf[ApplicationEnvProcessor])
+      .getConstructor()
+      .newInstance()
   }
 }

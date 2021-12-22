@@ -83,8 +83,9 @@ object LivyConf {
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
-  // If designation enabled, will export HADOOP_USER_NAME as session owner
-  val DESIGNATION_ENABLED = Entry("livy.designation.enabled", false)
+  // Set authentication to environment when start an application.
+  val APPLICATION_ENV_PROCESSOR = Entry("livy.application.env.processor",
+    "org.apache.livy.DefaultApplicationEnvProcessor")
 
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   // Allowed users to access Livy, by default any user is allowed to access Livy. If user want to
@@ -323,7 +324,7 @@ object LivyConf {
   // Hdfs command support configuration
   val HDFS_COMMAND_LOGS_SIZE =
     Entry("livy.server.hdfs.log.size", 1 * 1024 * 1024)
-
+  // Mapping user to server.
   val SERVER_MAPPING: Entry = Entry("livy.server.mapping", null)
 
   val SPARK_MASTER = "spark.master"

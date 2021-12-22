@@ -27,14 +27,7 @@ import java.io.Reader;
 import java.io.Writer;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -48,6 +41,9 @@ import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.ApplicationEnvProcessor;
+import org.apache.livy.ApplicationEnvProcessor$;
+import org.apache.livy.LivyClientBuilder;
 import org.apache.livy.client.common.TestUtils;
 import org.apache.livy.rsc.driver.RSCDriverBootstrapper;
 import org.apache.livy.rsc.rpc.Rpc;
@@ -70,8 +66,15 @@ class ContextLauncher {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
+  private static ApplicationEnvProcessor applicationEnvProcessor;
+
   static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
+
+    applicationEnvProcessor = ApplicationEnvProcessor$.MODULE$.apply(Optional
+        .ofNullable(conf.get(LivyClientBuilder.APPLICATION_ENV_PROCESSOR_KEY))
+        .orElse("org.apache.livy.DefaultApplicationEnvProcessor"));
+
     ContextLauncher launcher = new ContextLauncher(factory, conf);
     return new DriverProcessInfo(launcher.promise, launcher.child.child,
             launcher.driverCallbackTimer);
@@ -251,11 +254,8 @@ class ContextLauncher {
         confDir = sparkHome + File.separator + "conf";
       }
       env.put("SPARK_CONF_DIR", confDir);
-      // TODO Temp solution, refactor to DMP auth and extract shopee related code later
-      if (conf.get("livy.rsc.hadoop-user-name") != null
-          && conf.get("livy.rsc.hadoop-user-rpcpassword") != null) {
-        env.put("HADOOP_USER_NAME", conf.get("livy.rsc.hadoop-user-name"));
-        env.put("HADOOP_USER_RPCPASSWORD", conf.get("livy.rsc.hadoop-user-rpcpassword"));
+      if (conf.get(LivyClientBuilder.USERNAME_KEY) != null) {
+        applicationEnvProcessor.process(env, conf.get(LivyClientBuilder.USERNAME_KEY));
       }
       final SparkLauncher launcher = new SparkLauncher(env);
 

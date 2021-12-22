@@ -17,22 +17,25 @@
 
 package org.apache.livy.server.hdfs
 
-import java.io.File
-
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{LivyConf, Logging}
-import org.apache.livy.server.auth.HttpBasicAuthenticationHolder
+import org.apache.livy.{ApplicationEnvProcessor, LivyConf, Logging}
 import org.apache.livy.utils.LineBufferedProcess
-
-
-
 
 class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
   private[this] var _env: ArrayBuffer[(String, String)] = ArrayBuffer()
+  private[this] var _username: String = ""
+
+  private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
+    ApplicationEnvProcessor(livyConf.get(LivyConf.APPLICATION_ENV_PROCESSOR))
 
   def env(key: String, value: String): HdfsCmdProcessBuilder = {
     _env += ((key, value))
+    this
+  }
+
+  def username(username: String): HdfsCmdProcessBuilder = {
+    _username = username
     this
   }
 
@@ -41,17 +44,8 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
 
     val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
 
-    // TODO Temp solution, refactor to DMP auth and extract shopee related code later
     val env = pb.environment()
-    if (livyConf.getBoolean(LivyConf.DESIGNATION_ENABLED)) {
-      HttpBasicAuthenticationHolder.get().fold {
-        env.put("HADOOP_USER_NAME", "")
-        env.put("HADOOP_USER_RPCPASSWORD", "")
-      } { case (username, password) =>
-        env.put("HADOOP_USER_NAME", username)
-        env.put("HADOOP_USER_RPCPASSWORD", password)
-      }
-    }
+    applicationEnvProcessor.process(env, _username)
 
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)
