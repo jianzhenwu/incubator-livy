@@ -93,7 +93,9 @@ object SparkYarnApp extends Logging {
           // kill the app if found it and remove it if exceeding a threshold
           val iter = leakedAppTags.entrySet().iterator()
           val now = System.currentTimeMillis()
-          val apps = client.getApplications(appType).asScala
+          val tagsLowerCase = leakedAppTags.keySet().asScala.map(_.toLowerCase()).asJava
+          val apps = client.getApplications(appType, appStates,
+            tagsLowerCase).asScala
 
           while(iter.hasNext) {
             var isRemoved = false
