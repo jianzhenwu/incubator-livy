@@ -268,7 +268,7 @@ class ContextLauncher {
         launcher.addSparkArg("--proxy-user", conf.get(PROXY_USER));
       }
 
-      LOG.debug("spark launcher launch with spark home {}.", sparkHome);
+      LOG.info("spark launcher launch with spark home {}.", sparkHome);
       return new ChildProcess(conf, promise, launcher.launch(), confFile);
     }
   }

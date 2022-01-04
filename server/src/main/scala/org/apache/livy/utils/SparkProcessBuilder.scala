@@ -239,6 +239,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
     _redirectError.foreach(pb.redirectError)
     _redirectErrorStream.foreach(pb.redirectErrorStream)
 
+    info("Start up SparkProcess")
     new LineBufferedProcess(pb.start(), livyConf.getInt(LivyConf.SPARK_LOGS_SIZE))
   }
 

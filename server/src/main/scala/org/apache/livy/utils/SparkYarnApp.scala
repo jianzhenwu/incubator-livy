@@ -187,6 +187,7 @@ class SparkYarnApp private[utils] (
 
   private def changeState(newState: SparkApp.State.Value): Unit = {
     if (state != newState) {
+      info(s"Change state from ${state.toString} to ${newState.toString}")
       listener.foreach(_.stateChanged(state, newState))
       state = newState
     }
@@ -217,6 +218,7 @@ class SparkYarnApp private[utils] (
     // applicationTags
     val tags = Set(appTagLowerCase).asJava
     var lastIOE: IOException = null
+    val startTime = System.currentTimeMillis()
     val appList = try {
       yarnClient.getApplications(appType, appStates, tags)
     } catch {
@@ -226,6 +228,7 @@ class SparkYarnApp private[utils] (
         error(s"Error get application by tags: ${ioe.getMessage}")
         Lists.newArrayList[ApplicationReport]()
     }
+    info(s"getApplication by tag cost ${System.currentTimeMillis() - startTime}")
     val appReport = if (appList.isEmpty) {
        None
     } else {
@@ -299,6 +302,7 @@ class SparkYarnApp private[utils] (
   // batch YARN queries.
   private[utils] val yarnAppMonitorThread = Utils.startDaemonThread(s"yarnAppMonitorThread-$this") {
     try {
+      info(s"Start up yarnAppMonitorThread with appTag = $appTag")
       // If appId is not known, query YARN by appTag to get it.
       val appId = try {
         appIdOption.map(ConverterUtils.toApplicationId).getOrElse {
@@ -311,6 +315,7 @@ class SparkYarnApp private[utils] (
           appIdPromise.failure(e)
           throw e
       }
+      info(s"Success to get applicationId = $appId from tag.")
       appIdPromise.success(appId)
 
       Thread.currentThread().setName(s"yarnAppMonitorThread-$appId")
