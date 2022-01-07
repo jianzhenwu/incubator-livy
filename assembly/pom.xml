@@ -58,6 +58,16 @@
       <artifactId>livy-server</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>org.apache.livy</groupId>
+      <artifactId>livy-toolkit_2.11</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.livy</groupId>
+      <artifactId>livy-toolkit_2.12</artifactId>
+      <version>${project.version}</version>
+    </dependency>
   </dependencies>
 
   <build>

@@ -47,6 +47,13 @@
     </dependency>
 
     <dependency>
+      <groupId>org.apache.livy</groupId>
+      <artifactId>livy-toolkit_${scala.binary.version}</artifactId>
+      <version>${project.version}</version>
+      <scope>test</scope>
+    </dependency>
+
+    <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>livy-rsc</artifactId>
       <version>${project.version}</version>

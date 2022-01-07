@@ -17,14 +17,17 @@
 
 package org.apache.livy.server.batch
 
+import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+import org.apache.hadoop.fs.Path
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
@@ -67,6 +70,53 @@ object BatchSession extends Logging {
     bscpn
   }
 
+  def prepareBuilderConf(conf: Map[String, String], livyConf: LivyConf,
+      reqSparkVersion: Option[String], request: CreateBatchRequest): Map[String, String] = {
+
+    val builderConf = mutable.Map[String, String]()
+    builderConf ++= conf
+    val scalaVersion = if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
+      livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION.key + "." + reqSparkVersion.get)
+    } else {
+      livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION)
+    }
+
+    def livyJars(livyConf: LivyConf, scalaVersion: String): List[String] = {
+      Option(livyConf.get(LivyConf.TOOLKIT_JARS)).map { jars =>
+        val regex = """[\w-]+_(\d\.\d\d).*\.jar""".r
+        jars.split(",").filter { name => new Path(name).getName match {
+          // Filter out unmatched scala jars
+          case regex(ver) => ver == scalaVersion
+          // Keep all the java jars end with ".jar"
+          case _ => name.endsWith(".jar")
+        }
+        }.toList
+      }.getOrElse {
+        sys.env.get("LIVY_HOME").map { home =>
+          val jars = Option(new File(home, s"toolkit_$scalaVersion-jars"))
+            .filter(_.isDirectory())
+            .getOrElse(new File(home, s"toolkit/scala-$scalaVersion/target/jars"))
+          require(jars.isDirectory, "Cannot find Livy TOOLKIT jars.")
+          jars.listFiles().map(_.getAbsolutePath()).toList
+        }.getOrElse(List[String]())
+      }
+    }
+
+    Option(scalaVersion).filter(_.nonEmpty).map { scalaVersion =>
+      val list = livyJars(livyConf, scalaVersion)
+      if (list.nonEmpty) {
+        builderConf.get(LivyConf.SPARK_JARS) match {
+          case None =>
+            builderConf += (LivyConf.SPARK_JARS -> list.mkString(","))
+          case Some(oldList) =>
+            val newList = (oldList :: list).mkString(",")
+            builderConf += (LivyConf.SPARK_JARS -> newList)
+        }
+      }
+    }
+    builderConf.toMap
+  }
+
   def create(
       id: Int,
       name: Option[String],
@@ -97,8 +147,10 @@ object BatchSession extends Logging {
           throw new IllegalArgumentException("spark version is not support")
       }
 
+      val builderConf = prepareBuilderConf(conf, livyConf, reqSparkVersion, request)
+
       val builder = new SparkProcessBuilder(livyConf, reqSparkVersion)
-      builder.conf(conf)
+      builder.conf(builderConf)
       builder.username(owner)
 
       impersonatedUser.foreach(builder.proxyUser)

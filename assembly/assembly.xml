@@ -90,5 +90,19 @@
         <include>*</include>
       </includes>
     </fileSet>
+    <fileSet>
+      <directory>${project.parent.basedir}/toolkit/scala-2.11/target/jars</directory>
+      <outputDirectory>${assembly.name}/toolkit_2.11-jars</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.parent.basedir}/toolkit/scala-2.12/target/jars</directory>
+      <outputDirectory>${assembly.name}/toolkit_2.12-jars</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
   </fileSets>
 </assembly>

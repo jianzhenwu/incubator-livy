@@ -228,6 +228,10 @@
     <module>test-lib</module>
     <module>integration-test</module>
     <module>sdi-internal</module>
+    <module>toolkit</module>
+    <module>toolkit/scala-2.11</module>
+    <module>toolkit/scala-2.12</module>
+    <module>toolkit/bootstrap</module>
   </modules>
 
   <dependencies>

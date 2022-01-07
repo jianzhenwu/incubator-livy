@@ -294,6 +294,8 @@ object LivyConf {
   val REPL_JARS = Entry("livy.repl.jars", null)
   // RSC related jars separated with comma.
   val RSC_JARS = Entry("livy.rsc.jars", null)
+  // TOOLKIT related jars separated with comma.
+  val TOOLKIT_JARS = Entry("livy.toolkit.jars", null)
 
   // How long to check livy session leakage
   val YARN_APP_LEAKAGE_CHECK_TIMEOUT = Entry("livy.server.yarn.app-leakage.check-timeout", "600s")

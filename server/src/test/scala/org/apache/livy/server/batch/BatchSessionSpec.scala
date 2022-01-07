@@ -61,6 +61,26 @@ class BatchSessionSpec
     script
   }
 
+  val sql: Path = {
+    val sql = Files.createTempFile("livy-test", ".sql")
+    sql.toFile.deleteOnExit()
+    val writer = new FileWriter(sql.toFile)
+    try {
+      writer.write(
+        """
+        show databases
+        """.stripMargin)
+    } finally {
+      writer.close()
+    }
+    sql
+  }
+
+  val jar: Path = {
+    val jar = Files.createTempFile("livy-test", ".jar")
+    jar.toFile.toPath
+  }
+
   val runForeverScript: Path = {
     val script = Files.createTempFile("livy-test-run-forever-script", ".py")
     script.toFile.deleteOnExit()
@@ -252,6 +272,52 @@ class BatchSessionSpec
           batch.start()
         }
       assert(caught.getMessage == "spark version is not support")
+    }
+
+    it("should set toolkit jars through livy conf") {
+      val tookKitJars = Set(
+        "dummy.jar",
+        "local:///dummy-path/dummy1.jar",
+        "file:///dummy-path/dummy2.jar",
+        "hdfs:///dummy-path/dummy3.jar")
+      val livyConf = new LivyConf(false)
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.12")
+        .set(LivyConf.TOOLKIT_JARS, tookKitJars.mkString(","))
+      val req = mock[CreateBatchRequest]
+      when(req.file).thenReturn(".jar")
+      val builderConf = BatchSession.prepareBuilderConf(Map.empty, livyConf, None, req)
+      // if livy.toolkit.jars are configured in LivyConf, it should be passed to builderConf.
+      builderConf(LivyConf.SPARK_JARS).split(",").toSet === tookKitJars
+    }
+
+    it("should set toolkit jars when batch session is created") {
+      val conf = new LivyConf()
+        .set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSIONS, "v3_0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v3_0", "3.0")
+        .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
+        .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "v3_0")
+
+      val accessManager = new AccessManager(conf)
+
+      val req = new CreateBatchRequest()
+      req.files = List[String](sql.toString)
+      req.file = jar.toString
+      req.className = Some("org.apache.livy.toolkit.SparkSqlBootstrap")
+      req.args = List[String](sql.toString)
+
+      req.conf = Map(
+        "spark.driver.extraClassPath" -> sys.props("java.class.path"),
+        "spark.livy.spark_version_name" -> "v3_0"
+      )
+      val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
+      batch.start()
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be(true)
     }
 
     def testRecoverSession(name: Option[String]): Unit = {
