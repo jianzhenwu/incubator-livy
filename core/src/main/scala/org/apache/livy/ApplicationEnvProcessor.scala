@@ -17,18 +17,19 @@
 
 package org.apache.livy
 
-import java.util
+case class ApplicationEnvContext(env: java.util.Map[String, String],
+    appConf: java.util.Map[String, String])
 
 trait ApplicationEnvProcessor {
 
-  def process(env: java.util.Map[String, String], username: String)
-
+  def process(applicationEnvContext: ApplicationEnvContext)
 }
 
 class DefaultApplicationEnvProcessor extends Logging
   with ApplicationEnvProcessor {
 
-  override def process(env: util.Map[String, String], username: String): Unit = {
+  override def process(
+      applicationEnvContext: ApplicationEnvContext): Unit = {
   }
 }
 

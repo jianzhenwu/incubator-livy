@@ -57,6 +57,16 @@ public abstract class ClientConf<T extends ClientConf>
 
   public static final boolean TEST_MODE = Boolean.parseBoolean(System.getenv("LIVY_TEST"));
 
+  public static final String LIVY_HADOOP_ENV_PROCESSOR_KEY =
+      "livy.hadoop.env.processor";
+  public static final String LIVY_SPARK_ENV_PROCESSOR_KEY =
+      "livy.spark.env.processor";
+
+  public static final String LIVY_APPLICATION_HADOOP_USER_NAME_KEY =
+      "livy.application.hadoop-user-name";
+  public static final String LIVY_APPLICATION_SPARK_CONF_DIR_KEY =
+      "livy.application.spark-conf-dir";
+
   static {
     TIME_SUFFIXES = new HashMap<>();
     TIME_SUFFIXES.put("us", TimeUnit.MICROSECONDS);
@@ -281,6 +291,10 @@ public abstract class ClientConf<T extends ClientConf>
      * @return Message to include in the deprecation warning for configs without alternatives
      */
     String deprecationMessage();
+  }
+
+  public Map<String, String> toMap(){
+    return new HashMap<>(this.config);
   }
 
 }

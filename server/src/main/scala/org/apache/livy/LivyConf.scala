@@ -31,7 +31,6 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
 import org.apache.livy.rsc.RSCConf
-import org.apache.livy.server.interactive.InteractiveSession.warn
 import org.apache.livy.Utils.usingResource
 
 object LivyConf {
@@ -84,7 +83,9 @@ object LivyConf {
   val SUPERUSERS = Entry("livy.superusers", null)
 
   // Set authentication to environment when start an application.
-  val APPLICATION_ENV_PROCESSOR = Entry("livy.application.env.processor",
+  val LIVY_SPARK_ENV_PROCESSOR = Entry(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
+    "org.apache.livy.DefaultApplicationEnvProcessor")
+  val LIVY_HADOOP_ENV_PROCESSOR = Entry(ClientConf.LIVY_HADOOP_ENV_PROCESSOR_KEY,
     "org.apache.livy.DefaultApplicationEnvProcessor")
 
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
@@ -395,7 +396,8 @@ object LivyConf {
  *
  * @param loadDefaults whether to also load values from the Java system properties
  */
-class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null) {
+class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
+    with Logging {
 
   import LivyConf._
 

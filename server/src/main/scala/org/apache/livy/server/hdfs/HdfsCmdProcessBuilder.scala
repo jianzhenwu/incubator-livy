@@ -17,17 +17,21 @@
 
 package org.apache.livy.server.hdfs
 
+import java.util
+
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{ApplicationEnvProcessor, LivyConf, Logging}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging}
+import org.apache.livy.client.common.ClientConf
 import org.apache.livy.utils.LineBufferedProcess
 
 class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
   private[this] var _env: ArrayBuffer[(String, String)] = ArrayBuffer()
-  private[this] var _username: String = ""
+  private[this] var _conf: java.util.Map[String, String] =
+    new util.HashMap[String, String]()
 
   private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
-    ApplicationEnvProcessor(livyConf.get(LivyConf.APPLICATION_ENV_PROCESSOR))
+    ApplicationEnvProcessor(livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
 
   def env(key: String, value: String): HdfsCmdProcessBuilder = {
     _env += ((key, value))
@@ -35,7 +39,7 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
   }
 
   def username(username: String): HdfsCmdProcessBuilder = {
-    _username = username
+    _conf.put(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, username)
     this
   }
 
@@ -45,7 +49,8 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
     val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
 
     val env = pb.environment()
-    applicationEnvProcessor.process(env, _username)
+    val context = ApplicationEnvContext(env, _conf)
+    applicationEnvProcessor.process(context)
 
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)

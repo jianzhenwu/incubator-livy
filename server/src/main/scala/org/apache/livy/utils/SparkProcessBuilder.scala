@@ -21,7 +21,8 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, Logging}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, Logging}
+import org.apache.livy.client.common.ClientConf
 
 class SparkProcessBuilder(livyConf: LivyConf,
                           reqSparkVersion: Option[String] = None) extends Logging {
@@ -48,7 +49,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _username: String = ""
 
   private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
-    ApplicationEnvProcessor(livyConf.get(LivyConf.APPLICATION_ENV_PROCESSOR))
+    ApplicationEnvProcessor(livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
 
   def executable(executable: String): SparkProcessBuilder = {
     _executable = executable
@@ -230,10 +231,16 @@ class SparkProcessBuilder(livyConf: LivyConf,
       val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
       if (sparkConfDir.nonEmpty) {
         env.put("SPARK_CONF_DIR", sparkConfDir.get)
+        _conf.put(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
       }
     }
+    // Can not set null value to conf.
+    Option(_username).foreach { username =>
+      _conf.put(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, username)
+    }
 
-    applicationEnvProcessor.process(env, _username)
+    val context = ApplicationEnvContext(env, _conf.asJava)
+    applicationEnvProcessor.process(context)
 
     _redirectOutput.foreach(pb.redirectOutput)
     _redirectError.foreach(pb.redirectError)

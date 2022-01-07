@@ -41,9 +41,10 @@ import org.apache.spark.launcher.SparkLauncher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.ApplicationEnvContext;
 import org.apache.livy.ApplicationEnvProcessor;
 import org.apache.livy.ApplicationEnvProcessor$;
-import org.apache.livy.LivyClientBuilder;
+import org.apache.livy.client.common.ClientConf;
 import org.apache.livy.client.common.TestUtils;
 import org.apache.livy.rsc.driver.RSCDriverBootstrapper;
 import org.apache.livy.rsc.rpc.Rpc;
@@ -72,7 +73,7 @@ class ContextLauncher {
       throws IOException {
 
     applicationEnvProcessor = ApplicationEnvProcessor$.MODULE$.apply(Optional
-        .ofNullable(conf.get(LivyClientBuilder.APPLICATION_ENV_PROCESSOR_KEY))
+        .ofNullable(conf.get(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY))
         .orElse("org.apache.livy.DefaultApplicationEnvProcessor"));
 
     ContextLauncher launcher = new ContextLauncher(factory, conf);
@@ -249,14 +250,17 @@ class ContextLauncher {
       }
 
       Map<String, String> env = new HashMap<>();
-      String confDir = conf.get("livy.rsc.spark-conf-dir");
+      String confDir = conf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY);
       if (confDir == null) {
         confDir = sparkHome + File.separator + "conf";
       }
       env.put("SPARK_CONF_DIR", confDir);
-      if (conf.get(LivyClientBuilder.USERNAME_KEY) != null) {
-        applicationEnvProcessor.process(env, conf.get(LivyClientBuilder.USERNAME_KEY));
-      }
+
+      ApplicationEnvContext context = new ApplicationEnvContext(env,
+          conf.toMap());
+
+      applicationEnvProcessor.process(context);
+
       final SparkLauncher launcher = new SparkLauncher(env);
 
       launcher.setSparkHome(sparkHome);
@@ -298,7 +302,7 @@ class ContextLauncher {
     }
 
     // Load the default Spark configuration.
-    String confDir = conf.get("livy.rsc.spark-conf-dir");
+    String confDir = conf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY);
     if (confDir == null && conf.get("livy.rsc.spark-home") != null) {
       confDir = conf.get("livy.rsc.spark-home") + File.separator + "conf";
     }

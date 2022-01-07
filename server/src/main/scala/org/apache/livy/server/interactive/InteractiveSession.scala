@@ -34,6 +34,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
 import org.apache.livy._
+import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.HttpMessages._
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.{PingJob, RSCClient, RSCConf}
@@ -136,10 +137,10 @@ object InteractiveSession extends Logging {
         .setConf(RSCConf.Entry.PROXY_USER.key(), impersonatedUser.orNull)
         .setURI(new URI("rsc:/"))
         .setConf("livy.rsc.spark-home", sparkHome.get)
-        .setConf("livy.rsc.spark-conf-dir", sparkConfDir.orNull)
-
-      builder.setUsername(owner)
-      builder.setApplicationEnvProcessor(livyConf.get(LivyConf.APPLICATION_ENV_PROCESSOR))
+        .setConf(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.orNull)
+        .setConf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, owner)
+        .setConf(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
+          livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
 
       Option(builder.build().asInstanceOf[RSCClient])
     }

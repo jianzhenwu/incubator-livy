@@ -18,12 +18,12 @@
 package com.shopee.livy.auth
 
 import java.nio.charset.StandardCharsets
+import javax.security.sasl.AuthenticationException
 import javax.servlet.{Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
 import javax.servlet.http.{HttpServletRequest, HttpServletRequestWrapper, HttpServletResponse}
 
 import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 import org.apache.commons.codec.binary.Base64
-import org.apache.hadoop.security.authentication.client.AuthenticationException
 
 class SdiHttpBasicAuthenticationFilter extends Filter {
 

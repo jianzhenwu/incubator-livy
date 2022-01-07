@@ -17,26 +17,30 @@
 
 package com.shopee.livy
 
-import java.util
-
 import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 
-import org.apache.livy.{ApplicationEnvProcessor, Logging}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
+import org.apache.livy.client.common.ClientConf
 
-class SdiApplicationEnvProcessor extends ApplicationEnvProcessor with Logging {
+class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
 
-  override def process(env: util.Map[String, String],
-                       username: String): Unit = {
+  override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
 
-    var password = ""
-    try {
-      password = BigDataAuthProxy.getInstance.getHadoopAccountPassword(username)
-    } catch {
-      case _: Exception =>
-        error(s"Failed to get hadoop account password from BigDataAuthProxy " +
-          s"with " + username)
+    val env = applicationEnvContext.env
+    val username = applicationEnvContext.appConf.
+      get(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY)
+
+    if (username != null) {
+      var password = ""
+      try {
+        password = BigDataAuthProxy.getInstance.getHadoopAccountPassword(username)
+      } catch {
+        case _: Exception =>
+          error(s"Failed to get hadoop account password from BigDataAuthProxy " +
+            s"with " + username)
+      }
+      env.put("HADOOP_USER_NAME", username)
+      env.put("HADOOP_USER_RPCPASSWORD", password)
     }
-    env.put("HADOOP_USER_NAME", username)
-    env.put("HADOOP_USER_RPCPASSWORD", password)
   }
 }

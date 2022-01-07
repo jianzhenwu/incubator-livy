@@ -32,9 +32,6 @@ import java.util.ServiceLoader;
 public final class LivyClientBuilder {
 
   public static final String LIVY_URI_KEY = "livy.uri";
-  public static final String USERNAME_KEY = "livy.application.hadoop-user-name";
-  public static final String APPLICATION_ENV_PROCESSOR_KEY =
-      "livy.application.env.processor";
 
   private static final ServiceLoader<LivyClientFactory> CLIENT_FACTORY_LOADER =
     ServiceLoader.load(LivyClientFactory.class, classLoader());
@@ -111,22 +108,6 @@ public final class LivyClientBuilder {
 
   public LivyClientBuilder setAll(Properties props) {
     config.putAll(props);
-    return this;
-  }
-
-  public LivyClientBuilder setUsername(String username) {
-    if (username != null) {
-      config.setProperty(USERNAME_KEY, username);
-    }
-    return this;
-  }
-
-  public String getUsername() {
-    return config.getProperty(USERNAME_KEY);
-  }
-
-  public LivyClientBuilder setApplicationEnvProcessor(String clazz) {
-    config.setProperty(APPLICATION_ENV_PROCESSOR_KEY, clazz);
     return this;
   }
 
