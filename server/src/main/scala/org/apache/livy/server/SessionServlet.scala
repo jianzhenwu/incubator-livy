@@ -454,7 +454,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       fromOpt: Option[Int], sizeOpt: Option[Int]): Any = {
 
     val from = fromOpt.getOrElse(0)
-    val size = sizeOpt.getOrElse(4096) // bytes
+    val size = sizeOpt.getOrElse(8 * 1024) // bytes
 
     var appLog = s"Application $appId not found"
 

@@ -414,7 +414,7 @@ class SessionServletSpec extends BaseSessionServletSpec[Session, RecoveryMetadat
           assert(response.statusLine.code == SC_TEMPORARY_REDIRECT)
           assert(response.getHeader("Location").equals(
             "http://127.0.0.1:8188/ws/v2/applicationlog/apps/application_1636710668288_619460" +
-              "/amlogs/stderr?start=0&size=4096"))
+              "/amlogs/stderr?start=0&size=8192"))
         }
         delete(res.id, adminHeaders, SC_OK)
       }
