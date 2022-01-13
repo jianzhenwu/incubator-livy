@@ -454,7 +454,6 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       fromOpt: Option[Int], sizeOpt: Option[Int]): Any = {
 
     val from = fromOpt.getOrElse(0)
-    val size = sizeOpt.getOrElse(8 * 1024) // bytes
 
     var appLog = s"Application $appId not found"
 
@@ -465,7 +464,11 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       val httpBuilder = HttpUrl.parse(urlAmLog)
         .newBuilder()
         .addQueryParameter("start", from.toString)
-        .addQueryParameter("size", size.toString)
+
+      sizeOpt.foreach { size =>
+        httpBuilder.addQueryParameter("size", size.toString)
+      }
+
       TemporaryRedirect.apply(httpBuilder.build().toString)
     } catch {
       case exception: Exception =>
