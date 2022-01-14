@@ -22,7 +22,6 @@ import javax.security.sasl.AuthenticationException
 import javax.servlet.{Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
 import javax.servlet.http.{HttpServletRequest, HttpServletRequestWrapper, HttpServletResponse}
 
-import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 import org.apache.commons.codec.binary.Base64
 
 class SdiHttpBasicAuthenticationFilter extends Filter {
@@ -46,8 +45,7 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
     val requestUser = userInfo.fold {
       "anonymous"
     } { case (username, password) =>
-      val isAuth = BigDataAuthProxy.getInstance
-        .validateHadoopAccountPassword(username, password)
+      val isAuth = DmpAuthentication.validate(username, password)
       if (!isAuth) {
         throw new AuthenticationException(s"Unauthorized user $username.")
       }

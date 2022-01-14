@@ -17,7 +17,7 @@
 
 package com.shopee.livy
 
-import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
+import com.shopee.livy.auth.DmpAuthentication
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.client.common.ClientConf
@@ -25,7 +25,6 @@ import org.apache.livy.client.common.ClientConf
 class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
-
     val env = applicationEnvContext.env
     val username = applicationEnvContext.appConf.
       get(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY)
@@ -33,10 +32,10 @@ class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
     if (username != null) {
       var password = ""
       try {
-        password = BigDataAuthProxy.getInstance.getHadoopAccountPassword(username)
+        password = DmpAuthentication.getPassword(username)
       } catch {
         case _: Exception =>
-          error(s"Failed to get hadoop account password from BigDataAuthProxy " +
+          error(s"Failed to get hadoop account password from DmpAuthentication " +
             s"with " + username)
       }
       env.put("HADOOP_USER_NAME", username)

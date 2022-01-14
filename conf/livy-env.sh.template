@@ -34,3 +34,5 @@
 # - LIVY_SERVER_AUTH_DI_CLIENT_ID ClientId used to access DMP.
 # - LIVY_SERVER_AUTH_CLIENT_SECRET Secret used to access DMP.
 # - LIVY_SERVER_AUTH_ENVIRONMENT Which environment of DMP to access.
+# - LIVY_SERVER_AUTH_SERVER_TOKEN Server token used to access DMP.
+# - LIVY_SERVER_AUTH_SERVER_HOST Server host used to access DMP.

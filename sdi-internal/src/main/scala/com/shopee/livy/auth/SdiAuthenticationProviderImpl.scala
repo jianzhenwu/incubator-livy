@@ -19,16 +19,16 @@ package com.shopee.livy.auth
 
 import javax.security.sasl.AuthenticationException
 
-import com.shopee.di.datasuite.auth.client.BigDataAuthProxy
 import org.apache.hive.service.auth.PasswdAuthenticationProvider
 
 import org.apache.livy.Logging
 
 class SdiAuthenticationProviderImpl()
   extends PasswdAuthenticationProvider with Logging {
+
   override def Authenticate(user: String, password: String): Unit = {
-    if (!BigDataAuthProxy.getInstance.validateHadoopAccountPassword(user, password)) {
-      throw new AuthenticationException(s"Error validating DI central authentication user: $user")
+    if (!DmpAuthentication.validate(user, password)) {
+      throw new AuthenticationException(s"Error validating DMP authentication user: $user")
     }
   }
 }

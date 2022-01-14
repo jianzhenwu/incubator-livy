@@ -1,0 +1,101 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.shopee.livy.auth
+
+import okhttp3._
+import org.mockito.Matchers.any
+import org.mockito.Mockito.{mock, when}
+import org.scalatest.{BeforeAndAfterAll, FunSuite}
+
+class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
+
+  private var httpClient: OkHttpClient = null
+  private var remoteCall: Call = null
+  private var headers: java.util.Map[String, String] = null
+  private var httpUrl: HttpUrl = null
+  private val hadoopAccount = "spark"
+  private val password = "123456"
+
+  override def beforeAll(): Unit = {
+    setEnv("LIVY_SERVER_AUTH_SERVER_TOKEN", "token")
+    setEnv("LIVY_SERVER_AUTH_SERVER_HOST", "localhost")
+    httpClient = mock(classOf[OkHttpClient])
+    DmpAuthentication.mock(httpClient)
+    remoteCall = mock(classOf[Call])
+    headers = mock(classOf[java.util.Map[String, String]])
+    httpUrl = new HttpUrl.Builder()
+      .scheme("http")
+      .host("localhost")
+      .encodedPath("/url.com")
+      .build()
+  }
+
+  test(s"dmp auth get hadoop account password") {
+    val responseBody =
+      """{"code":200,"message":"SUCCESS","data":"123456"}"""
+    val request = new Request.Builder()
+      .method("GET", null)
+      .url(httpUrl)
+      .build()
+
+    when(httpClient.newCall(any())).thenReturn(remoteCall)
+    when(remoteCall.execute()).thenReturn(mockResponse(request, responseBody))
+    assert(DmpAuthentication.getPassword(hadoopAccount).equals("123456"))
+  }
+
+  test(s"dmp auth validate hadoop account and password") {
+    val requestBody =
+      """{"account":"spark","password":"123456"}"""
+    val responseBody =
+      """{"code":200,"message":"SUCCESS","data":true}"""
+    val request = new Request.Builder()
+      .method("POST", RequestBody.create(
+        requestBody,
+        MediaType.parse("application/json")))
+      .url(httpUrl)
+      .build()
+
+    when(httpClient.newCall(any())).thenReturn(remoteCall)
+    when(remoteCall.execute()).thenReturn(mockResponse(request, responseBody))
+    assert(DmpAuthentication.validate(hadoopAccount, password))
+  }
+
+  private def mockResponse(request: Request, responseBody: String): Response = {
+    new Response.Builder()
+      .request(request)
+      .protocol(Protocol.HTTP_1_1)
+      .code(200).message("")
+      .body(ResponseBody.create(
+        responseBody,
+        MediaType.parse("application/json")))
+      .build()
+  }
+
+  private def setEnv(key: String, value: String): Unit = {
+    try {
+      val env = System.getenv
+      val cl = env.getClass
+      val field = cl.getDeclaredField("m")
+      field.setAccessible(true)
+      val writableEnv = field.get(env).asInstanceOf[java.util.Map[String, String]]
+      writableEnv.put(key, value)
+    } catch {
+      case e: Exception =>
+        throw new IllegalStateException("Failed to set environment variable", e)
+    }
+  }
+}
