@@ -440,7 +440,7 @@ public class LivyOption extends LivyOptionParser {
 
   public BatchOptions createBatchOptions() {
     return new BatchOptions().setFile(file).setProxyUser(proxyUser)
-        .setClassName(className).setArgs(extraArgs).setArchives(jars)
+        .setClassName(className).setArgs(extraArgs).setJars(jars)
         .setPyFiles(pyFiles).setFiles(files).setDriverMemory(driverMemory)
         .setDriverCores(driverCores).setExecutorMemory(executorMemory)
         .setExecutorCores(executorCores).setNumExecutors(numExecutors)
