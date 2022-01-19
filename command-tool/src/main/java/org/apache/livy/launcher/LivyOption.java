@@ -174,7 +174,7 @@ public class LivyOption extends LivyOptionParser {
         break;
       case DEPLOY_MODE:
       case MASTER:
-        logger.warn("Option {} is set by livy.%n", arg);
+        logger.warn("Option {} is set by livy.", arg);
         break;
       case LIVY_URL:
         this.livyUrl = value;

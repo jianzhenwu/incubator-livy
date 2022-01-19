@@ -27,7 +27,6 @@ import org.apache.spark.rdd.{RDD, ShuffledRDD}
 import org.apache.spark.sql.SparkSession
 
 import org.apache.livy.toolkit.hadoop.streaming._
-import org.apache.livy.toolkit.hadoop.streaming.exception._
 
 /**
  * Hadoop streaming job bootstrap, migrate hadoop Streaming Jobs to Spark.
@@ -52,40 +51,33 @@ private class HadoopStreamingBootstrap(
   }
 
   def execute(spark: SparkSession): Unit = {
-    try {
-      val inputFormatClass =
-        HadoopStreamingUtil.getInputFormatClass[Text, Text](option.getInputFormat)
-      val inputRDD = spark.sparkContext.hadoopFile(
-        input, inputFormatClass, classOf[Text], classOf[Text])
+    val inputFormatClass =
+      HadoopStreamingUtil.getInputFormatClass[Text, Text](option.getInputFormat)
+    val inputRDD = spark.sparkContext.hadoopFile(
+      input, inputFormatClass, classOf[Text], classOf[Text])
 
-      val mapperRDD = option.getMapper match {
-        case cmd if StringUtils.isNotBlank(cmd) =>
-          Some(HadoopStreamingUtil.pairRDDToRDD(inputRDD, defaultSeparator).pipe(cmd, cmdEnv))
-        case _ => None
-      }
-      mapperRDD match {
-        case Some(rddMapper) =>
-          val reducerRDD = createReducerRDD(rddMapper, option.getReducer, option.getPartitioner)
-          reducerRDD match {
-            case Some(rddReducer) =>
-              HadoopStreamingUtil.saveAsHadoopFile(
-                conf,
-                HadoopStreamingUtil.rddToPairRDD(rddReducer, defaultSeparator),
-                output, option.getOutputFormat)
-            case _ =>
-              HadoopStreamingUtil.saveAsHadoopFile(
-                conf,
-                HadoopStreamingUtil.rddToPairRDD(rddMapper, defaultSeparator),
-                output, option.getOutputFormat)
-          }
-        case _ =>
-          HadoopStreamingUtil.saveAsHadoopFile(
-            conf, inputRDD, output, option.getOutputFormat)
-      }
-    } catch {
-      case e: Exception =>
-        throw new HadoopStreamingException(
-          LauncherExitCode.appError, e.getMessage, e.getCause)
+    val mapperRDD = option.getMapper match {
+      case cmd if StringUtils.isNotBlank(cmd) =>
+        Some(HadoopStreamingUtil.pairRDDToRDD(inputRDD, defaultSeparator).pipe(cmd, cmdEnv))
+      case _ => None
+    }
+    mapperRDD match {
+      case Some(rddMapper) =>
+        val reducerRDD = createReducerRDD(rddMapper, option.getReducer, option.getPartitioner)
+        reducerRDD match {
+          case Some(rddReducer) =>
+            HadoopStreamingUtil.saveAsHadoopFile(
+              conf,
+              HadoopStreamingUtil.rddToPairRDD(rddReducer, defaultSeparator),
+              output, option.getOutputFormat)
+          case _ =>
+            HadoopStreamingUtil.saveAsHadoopFile(
+              conf,
+              HadoopStreamingUtil.rddToPairRDD(rddMapper, defaultSeparator),
+              output, option.getOutputFormat)
+        }
+      case _ =>
+        HadoopStreamingUtil.saveAsHadoopFile(conf, inputRDD, output, option.getOutputFormat)
     }
   }
 
