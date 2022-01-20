@@ -18,11 +18,12 @@
 package org.apache.livy.toolkit
 
 import java.io._
+import java.nio.charset.StandardCharsets
 import java.util
 
 import scala.collection.JavaConverters._
 
-import com.opencsv.{CSVWriterBuilder, ICSVParser, ICSVWriter}
+import com.univocity.parsers.csv.{CsvWriter, CsvWriterSettings}
 import org.apache.commons.cli.MissingArgumentException
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -36,20 +37,30 @@ object SparkSqlBootstrap {
     val sqlFileName: String = args(0)
     val spark: SparkSession = SparkSession.builder.enableHiveSupport.getOrCreate()
     // https://jira.shopee.io/browse/SPDI-8214
-    val csvWriter: ICSVWriter = new CSVWriterBuilder(new PrintWriter(System.out))
-      .withSeparator(ICSVParser.DEFAULT_SEPARATOR)
-      .withQuoteChar(ICSVParser.DEFAULT_QUOTE_CHARACTER)
-      .withEscapeChar(ICSVParser.DEFAULT_QUOTE_CHARACTER)
-      .withLineEnd(ICSVWriter.DEFAULT_LINE_END)
-      .build
-    val sdiSparkSqlExecutor: SparkSqlBootstrap =
+    val writerSettings = new CsvWriterSettings()
+    val format = writerSettings.getFormat
+    format.setDelimiter(',')
+    format.setQuote('"')
+    format.setQuoteEscape('"')
+    format.setComment('\u0000')
+    writerSettings.setIgnoreLeadingWhitespaces(false)
+    writerSettings.setIgnoreTrailingWhitespaces(false)
+    writerSettings.setNullValue("NULL")
+    writerSettings.setEmptyValue("")
+    writerSettings.setSkipEmptyLines(true)
+    writerSettings.setQuoteAllFields(true)
+    writerSettings.setQuoteEscapingEnabled(true)
+    val writer = new OutputStreamWriter(System.out, StandardCharsets.UTF_8)
+    val csvWriter = new CsvWriter(writer, writerSettings)
+
+    val sparkSqlBootstrap: SparkSqlBootstrap =
       new SparkSqlBootstrap(spark, csvWriter)
-    sdiSparkSqlExecutor.executeSqlFile(sqlFileName)
-    sdiSparkSqlExecutor.close()
+    sparkSqlBootstrap.executeSqlFile(sqlFileName)
+    sparkSqlBootstrap.close()
   }
 }
 
-class SparkSqlBootstrap(spark: SparkSession, csvWriter: ICSVWriter) {
+class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) {
 
   @throws[IOException]
   private def executeSqlFile(fileName: String): Unit = {
@@ -69,7 +80,10 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: ICSVWriter) {
   private def outputResult(dataset: DataFrame): Unit = {
     // header
     val fieldNames: Array[String] = dataset.schema.fieldNames
-    csvWriter.writeNext(fieldNames)
+    if (fieldNames.length > 0) {
+      csvWriter.writeRow(fieldNames: _*)
+    }
+
     val outputLimit = spark.sparkContext.getConf
       .getInt("spark.livy.output.limit.count", 0)
     val rows: util.List[Row] = if (outputLimit > 0) {
@@ -77,15 +91,10 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: ICSVWriter) {
     } else {
       dataset.collectAsList()
     }
-    rows.asScala.foreach { row =>
-      val size: Int = row.size
-      val array: Array[String] = new Array[String](size)
-      for (i <- 0 until size) {
-        val col: Any = row.get(i)
-        array(i) = if (col == null) null else col.toString
-      }
-      csvWriter.writeNext(array)
+    rows.asScala.filter(_.size > 0).foreach { row =>
+      csvWriter.writeRow(row.toSeq.map(_.asInstanceOf[Object]): _*)
     }
+
     csvWriter.flush()
   }
 
