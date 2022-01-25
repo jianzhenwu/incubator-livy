@@ -29,6 +29,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.Utils;
 import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.SparkSqlOption;
@@ -105,7 +106,7 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
         new InputStreamReader(new FileInputStream(filePath)))) {
       String line;
       while ((line = reader.readLine()) != null) {
-        buf.append(line);
+        buf.append(line).append("\n");
       }
       if (buf.length() > 0) {
         this.executeSqlBuffer(buf.toString());
@@ -125,7 +126,7 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
             .getResourceAsStream("sql-keywords.txt"))))) {
       String line = null;
       while ((line = reader.readLine()) != null) {
-        builder.append(line);
+        builder.append(line).append("\n");
       }
     } catch (IOException io) {
       logger.error("Fail to load completeFile for consoleReader.");
@@ -155,16 +156,14 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
   @Override
   public void handleLine(String line) {
     line = line.trim();
-    if (!line.startsWith("--")) {
-      builder.append(line);
-      builder.append("\n");
-      if (line.endsWith(";") && !line.endsWith("\\;")) {
-        executeSqlBuffer(builder.toString());
-        builder.setLength(0);
-        prompt = SQL_PROMPT_START;
-      } else {
-        prompt = SQL_PROMPT_CONTINUE;
-      }
+    builder.append(line);
+    builder.append("\n");
+    if (line.endsWith(";") && !line.endsWith("\\;")) {
+      executeSqlBuffer(builder.toString());
+      builder.setLength(0);
+      prompt = SQL_PROMPT_START;
+    } else {
+      prompt = SQL_PROMPT_CONTINUE;
     }
   }
 
@@ -179,15 +178,9 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
   }
 
   private void executeSqlBuffer(String line) {
-    /* The semicolon in sql needs to be escaped.
-     * The guava split can distinguish whether characters are escaped.
-     */
-    String[] sqls = StringUtils.split(line, ";");
+    List<String> sqls = Utils.splitSemiColon(line);
     for (String sql : sqls) {
       if (StringUtils.isBlank(sql)) {
-        continue;
-      }
-      if (sql.startsWith("--") || sql.startsWith("#")) {
         continue;
       }
       StatementResponse statementResponse = restClient.runStatement(sql);

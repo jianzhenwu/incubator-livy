@@ -32,6 +32,12 @@
 
   <dependencies>
 
+    <dependency>
+      <groupId>org.apache.livy</groupId>
+      <artifactId>livy-core_${scala.binary.version}</artifactId>
+      <version>0.8.0-incubating-sdi-006-SNAPSHOT</version>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/org.apache.spark/spark-sql -->
     <dependency>
       <groupId>org.apache.spark</groupId>

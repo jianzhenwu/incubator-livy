@@ -27,6 +27,8 @@ import com.univocity.parsers.csv.{CsvWriter, CsvWriterSettings}
 import org.apache.commons.cli.MissingArgumentException
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
+import org.apache.livy.Utils
+
 object SparkSqlBootstrap {
   @throws[IOException]
   def main(args: Array[String]): Unit = {
@@ -115,16 +117,12 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) {
       reader = new BufferedReader(new InputStreamReader(inputStream))
       line = reader.readLine
       while (line != null) {
-        buf.append(line)
-        if (isSqlEnd(line)) {
-          sqlList.add(buf.toString)
-          buf.setLength(0)
-        }
+        buf.append(line).append("\n")
         line = reader.readLine()
       }
     } finally if (reader != null) reader.close()
     if (buf.nonEmpty) {
-      sqlList.add(buf.toString)
+      sqlList.addAll(Utils.splitSemiColon(buf.toString))
       buf.setLength(0)
     }
     sqlList
