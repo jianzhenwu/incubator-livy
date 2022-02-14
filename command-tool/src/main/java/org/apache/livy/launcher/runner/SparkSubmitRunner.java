@@ -60,6 +60,11 @@ public class SparkSubmitRunner {
   private static final Logger logger =
       LoggerFactory.getLogger(SparkSubmitRunner.class);
 
+  private static final byte STDOUT_READ_END = 0b001;
+  private static final byte STDERR_READ_END = 0b010;
+  private static final byte YARN_DIAGNOSTICS_READ_END = 0b100;
+  private static final byte APP_LOG_READ_END = 0b111;
+
   private final BatchRestClient restClient;
   private final LivyOption livyOptions;
   private final Configuration hadoopConf;
@@ -69,6 +74,13 @@ public class SparkSubmitRunner {
   private Path sessionDir;
   private final boolean waitAppCompletion;
   private int logStage;
+  /**
+   * 0b001: Read to the end of stdout log.
+   * 0b010: Read to the end of stderr log.
+   * 0b100: Read to the end of yarnDiagnostics log.
+   */
+  private int logReadEnd;
+  private int fromStdout = 0, fromStderr = 0, fromDiagnostics = 0;
 
   public SparkSubmitRunner(LivyOption livyOption) {
 
@@ -141,9 +153,9 @@ public class SparkSubmitRunner {
     int sessionId = sessionView.getId();
     logger.info("Application has been submitted. The session id is {}.", sessionId);
 
-    int fromStdout = 0, fromStderr = 0, size = 100, exitCode = 0;
+    int exitCode = 0;
 
-    while (running) {
+    while (running || logReadEnd != APP_LOG_READ_END) {
       try {
         sessionView = this.restClient.getBatchSessionView();
         exitCode =
@@ -155,8 +167,7 @@ public class SparkSubmitRunner {
         }
         // Print job submit log before reporting application state.
         if (logStage == 0) {
-          fromStdout += printSessionLog("stdout", fromStdout, size);
-          fromStderr += printSessionLog("stderr", fromStderr, size);
+          printSessionLog();
         }
         // Print Tracking URL at the end of log.
         if (logStage == 1 && StringUtils.isNotBlank(appId)) {
@@ -177,6 +188,10 @@ public class SparkSubmitRunner {
         }
 
         running = SessionState.apply(sessionView.getState()).isActive();
+        if (!running) {
+          // Make sure all logs are printed after the application is finished.
+          printSessionLog();
+        }
         Thread.sleep(200);
       } catch (ConnectException | ServiceUnavailableException ce) {
         logger.warn("Please wait, the session {} is recovering.", sessionId);
@@ -289,16 +304,42 @@ public class SparkSubmitRunner {
     return sessionDir;
   }
 
-  private int printSessionLog(String logType, int from, int size)
+  private void printSessionLog(String logType, int from)
       throws ConnectException {
+    int size = 100;
     SessionLogResponse sessionLogResponse =
         this.restClient.getSessionLog(from, size, logType);
     List<String> logs = sessionLogResponse.getLog();
+    boolean isReadEnd = (from + size) >= sessionLogResponse.getTotal();
+
+    switch (logType) {
+      case "stdout":
+        fromStdout += logs.size();
+        logReadEnd = isReadEnd ? logReadEnd | STDOUT_READ_END
+            : logReadEnd & ~STDOUT_READ_END;
+        break;
+      case "stderr":
+        fromStderr += logs.size();
+        logReadEnd = isReadEnd ? logReadEnd | STDERR_READ_END
+            : logReadEnd & ~STDERR_READ_END;
+        break;
+      case "yarnDiagnostics":
+        fromDiagnostics += logs.size();
+        logReadEnd = isReadEnd ? logReadEnd | YARN_DIAGNOSTICS_READ_END
+            : logReadEnd & ~YARN_DIAGNOSTICS_READ_END;
+        break;
+      default:
+    }
     for (String log : sessionLogResponse.getLog()) {
       logStage = log.trim().startsWith("tracking URL:") ? 1 : logStage;
       System.err.println(log);
     }
-    return logs.size();
+  }
+
+  private void printSessionLog() throws ConnectException {
+    printSessionLog("stdout", fromStdout);
+    printSessionLog("stderr", fromStderr);
+    printSessionLog("yarnDiagnostics", fromDiagnostics);
   }
 
   /**
