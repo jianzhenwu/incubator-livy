@@ -32,6 +32,7 @@ import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.duration.Duration
 import scala.util.{Failure, Success, Try}
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hive.service.cli.{HiveSQLException, SessionHandle}
 import org.apache.hive.service.rpc.thrift.TProtocolVersion
@@ -264,8 +265,16 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
               }
             }
             initSession(sessionHandle, livySession, initStatements)
-            operationMessages.foreach(
-              _.offer(s"tracking URL: ${livySession.appInfo.sparkUiUrl.orNull}"))
+            val trackingUrl = livyConf.get(LivyConf.APPLICATION_TRACKING_URL)
+            val appTrack = if (StringUtils.isNotBlank(trackingUrl)) {
+              livySession.appId match {
+                case Some(id) => String.format(trackingUrl, id)
+                case _ => null
+              }
+            } else {
+              livySession.appInfo.sparkUiUrl.orNull
+            }
+            operationMessages.foreach(_.offer(s"tracking URL: $appTrack"))
             livySession
           }
         })

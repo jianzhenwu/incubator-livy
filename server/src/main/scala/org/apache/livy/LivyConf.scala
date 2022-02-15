@@ -314,6 +314,8 @@ object LivyConf {
   val SESSION_STATE_RETAIN_TIME = Entry("livy.server.session.state-retain.sec", "600s")
   // Max creating session in livyServer
   val SESSION_MAX_CREATION = Entry("livy.server.session.max-creation", 100)
+  // The tracking URL of application
+  val APPLICATION_TRACKING_URL = Entry("livy.server.yarn.application.tracking-url", null)
 
   // Comma separated list of reporter implementation class metric class
   val CODAHALE_METRICS_REPORTER_CLASSES =

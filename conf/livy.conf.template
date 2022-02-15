@@ -224,3 +224,6 @@
 
 # The YARN Timeline Server API to get application master logs.
 # livy.server.yarn.timeline.server =
+
+# The tracking URL of application.
+# livy.server.yarn.application.tracking-url = http://keyhole.data-infra.shopee.io/keyhole/proxy?applicationId=%s
