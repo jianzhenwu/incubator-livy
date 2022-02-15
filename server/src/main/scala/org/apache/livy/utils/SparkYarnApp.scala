@@ -37,6 +37,7 @@ import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
 
 import org.apache.livy.{LivyConf, Logging, Utils}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 
 object SparkYarnApp extends Logging {
 
@@ -383,9 +384,11 @@ class SparkYarnApp private[utils] (
       debug(s"$appId $state ${yarnDiagnostics.mkString(" ")}")
     } catch {
       case _: InterruptedException =>
+        Metrics().incrementCounter(MetricsKey.YARN_APPLICATION_KILLED_COUNT)
         yarnDiagnostics = ArrayBuffer("Session stopped by user.")
         changeState(SparkApp.State.KILLED)
       case NonFatal(e) =>
+        Metrics().incrementCounter(MetricsKey.YARN_APPLICATION_REFRESH_STATE_FAILED_COUNT)
         error(s"Error whiling refreshing YARN state", e)
         yarnDiagnostics = ArrayBuffer(e.getMessage)
         changeState(SparkApp.State.FAILED)
