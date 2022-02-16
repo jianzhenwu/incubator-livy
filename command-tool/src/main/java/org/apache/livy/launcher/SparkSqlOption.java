@@ -42,7 +42,7 @@ public class SparkSqlOption extends LivyOption {
         if (!key.startsWith("spark.hadoop.")) {
           key = "spark.hadoop." + key;
         }
-        this.getSparkProperties().put(key, hiveConf.getProperty(key));
+        this.getSparkProperties().put(key, hiveConf.getProperty(k.toString()));
       }
     }
   }
