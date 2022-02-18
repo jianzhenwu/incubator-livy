@@ -318,21 +318,21 @@ class ThriftHttpServlet(
   private def getUsername(request: HttpServletRequest, authType: String): String = {
     val creds = getAuthHeaderTokens(request, authType)
     // Username must be present
-    if (creds(0) == null || creds(0).isEmpty) {
+    if (creds(0) == null || creds(0).trim.isEmpty) {
       throw new HttpAuthenticationException("Authorization header received " +
         "from the client does not contain username.")
     }
-    creds(0)
+    creds(0).trim
   }
 
   private def getPassword(request: HttpServletRequest, authType: String): String = {
     val creds = getAuthHeaderTokens(request, authType)
     // Password must be present
-    if (creds(1) == null || creds(1).isEmpty) {
+    if (creds(1) == null || creds(1).trim.isEmpty) {
       throw new HttpAuthenticationException("Authorization header received " +
         "from the client does not contain password.")
     }
-    creds(1)
+    creds(1).trim
   }
 
   private def getAuthHeaderTokens(request: HttpServletRequest, authType: String): Array[String] = {

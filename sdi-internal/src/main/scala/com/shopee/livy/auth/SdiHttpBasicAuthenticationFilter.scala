@@ -67,9 +67,9 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
       val credentials = new String(base64.decode(credentialsPart), StandardCharsets.UTF_8)
         .split(":", 2)
       if (credentials.length == 2) {
-        Some((credentials(0), credentials(1)))
+        Some((credentials(0).trim, credentials(1).trim))
       } else if (credentials.length == 1) {
-        throw new AuthenticationException(s"Unauthorized user ${credentials(0)}.")
+        throw new AuthenticationException(s"Unauthorized user ${credentials(0).trim}.")
       } else {
         None
       }
