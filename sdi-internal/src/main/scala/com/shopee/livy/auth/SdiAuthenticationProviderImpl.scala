@@ -27,7 +27,7 @@ class SdiAuthenticationProviderImpl()
   extends PasswdAuthenticationProvider with Logging {
 
   override def Authenticate(user: String, password: String): Unit = {
-    if (!DmpAuthentication.validate(user, password)) {
+    if (!DmpAuthentication().validate(user, password)) {
       throw new AuthenticationException(s"Error validating DMP authentication user: $user")
     }
   }

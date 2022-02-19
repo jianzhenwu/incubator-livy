@@ -16,12 +16,15 @@
  */
 package com.shopee.livy.auth
 
+import java.util.concurrent.atomic.AtomicReference
+
 import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
 import scala.reflect.classTag
 import scala.util.{Failure, Success, Try}
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.shopee.livy.auth.DmpAuthentication._
 import okhttp3.{Headers, HttpUrl, MediaType, OkHttpClient, Request, RequestBody}
 
 import org.apache.livy.Logging
@@ -29,20 +32,12 @@ import org.apache.livy.Logging
 /**
  * DMP Hadoop account authentication for Livy.
  */
-object DmpAuthentication extends Logging {
+class DmpAuthentication(serverToken: String, serverHost: String) extends Logging {
 
   private var httpClient: OkHttpClient = new OkHttpClient()
 
   private val objectMapper: ObjectMapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
-
-  private val serverToken: String = System.getenv("LIVY_SERVER_AUTH_SERVER_TOKEN")
-
-  private val serverHost: String = System.getenv("LIVY_SERVER_AUTH_SERVER_HOST")
-
-  private val passwordPath = "/ram/api/v1/developer/sensitive/hadoopAccount/pwd/"
-
-  private val validatePath = "/ram/api/v1/developer/sensitive/hadoopAccount/validate"
 
   private val headers: Map[String, String] =
     Map("Content-type" -> "application/json", "X-DMP-Authorization" -> serverToken)
@@ -66,9 +61,9 @@ object DmpAuthentication extends Logging {
     if (responseView.isSuccess) {
       responseView.get.data
     } else {
-      error(s"Error when executing get hadoop account password request" +
+      error(s"Error when request $url get hadoop account $hadoopAccount password. " +
         s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException("Get Hadoop account password failure.")
+      throw new AuthClientException(s"Get Hadoop account password failure.")
     }
   }
 
@@ -88,9 +83,9 @@ object DmpAuthentication extends Logging {
     if (responseView.isSuccess) {
       responseView.get.data
     } else {
-      error(s"Error when executing validate hadoop account password request" +
+      error(s"Error when request $url validate hadoop account $hadoopAccount password. " +
         s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException("Invalid hadoop account.")
+      throw new AuthClientException(s"Invalid hadoop account.")
     }
   }
 
@@ -130,6 +125,32 @@ object DmpAuthentication extends Logging {
       Success(objectMapper.readValue(resBody, classTag[T].runtimeClass).asInstanceOf[T])
     } catch {
       case exception: Throwable => Failure(exception)
+    }
+  }
+}
+
+object DmpAuthentication {
+
+  private val SERVER_TOKEN = "LIVY_SERVER_AUTH_SERVER_TOKEN"
+
+  private val SERVER_HOST = "LIVY_SERVER_AUTH_SERVER_HOST"
+
+  private val passwordPath = "/ram/api/v1/developer/sensitive/hadoopAccount/pwd/"
+
+  private val validatePath = "/ram/api/v1/developer/sensitive/hadoopAccount/validate"
+
+  private val DMP_AUTHENTICATION_CONSTRUCTOR_LOCK = new Object()
+
+  private val dmpAuthentication: AtomicReference[DmpAuthentication] =
+    new AtomicReference[DmpAuthentication](null)
+
+  def apply(): DmpAuthentication = {
+    DMP_AUTHENTICATION_CONSTRUCTOR_LOCK.synchronized {
+      if (dmpAuthentication.get() == null) {
+        dmpAuthentication.set(
+          new DmpAuthentication(System.getenv(SERVER_TOKEN), System.getenv(SERVER_HOST)))
+      }
+      dmpAuthentication.get()
     }
   }
 }

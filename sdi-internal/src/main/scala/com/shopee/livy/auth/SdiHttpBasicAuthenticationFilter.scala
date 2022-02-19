@@ -45,7 +45,7 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
     val requestUser = userInfo.fold {
       "anonymous"
     } { case (username, password) =>
-      val isAuth = DmpAuthentication.validate(username, password)
+      val isAuth = DmpAuthentication().validate(username, password)
       if (!isAuth) {
         throw new AuthenticationException(s"Unauthorized user $username.")
       }

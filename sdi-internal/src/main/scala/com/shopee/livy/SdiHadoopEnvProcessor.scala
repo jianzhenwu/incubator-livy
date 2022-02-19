@@ -32,7 +32,7 @@ class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
     if (username != null) {
       var password = ""
       try {
-        password = DmpAuthentication.getPassword(username)
+        password = DmpAuthentication().getPassword(username)
       } catch {
         case _: Exception =>
           error(s"Failed to get hadoop account password from DmpAuthentication " +

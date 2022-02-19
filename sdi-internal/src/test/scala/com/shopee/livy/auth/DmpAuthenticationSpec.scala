@@ -30,11 +30,12 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
   private val hadoopAccount = "spark"
   private val password = "123456"
 
+  private var dmpAuthentication: DmpAuthentication = null
+
   override def beforeAll(): Unit = {
-    setEnv("LIVY_SERVER_AUTH_SERVER_TOKEN", "token")
-    setEnv("LIVY_SERVER_AUTH_SERVER_HOST", "localhost")
     httpClient = mock(classOf[OkHttpClient])
-    DmpAuthentication.mock(httpClient)
+    dmpAuthentication = new DmpAuthentication("token", "localhost")
+    dmpAuthentication.mock(httpClient)
     remoteCall = mock(classOf[Call])
     headers = mock(classOf[java.util.Map[String, String]])
     httpUrl = new HttpUrl.Builder()
@@ -54,7 +55,7 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
 
     when(httpClient.newCall(any())).thenReturn(remoteCall)
     when(remoteCall.execute()).thenReturn(mockResponse(request, responseBody))
-    assert(DmpAuthentication.getPassword(hadoopAccount).equals("123456"))
+    assert(dmpAuthentication.getPassword(hadoopAccount).equals(password))
   }
 
   test(s"dmp auth validate hadoop account and password") {
@@ -71,7 +72,7 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
 
     when(httpClient.newCall(any())).thenReturn(remoteCall)
     when(remoteCall.execute()).thenReturn(mockResponse(request, responseBody))
-    assert(DmpAuthentication.validate(hadoopAccount, password))
+    assert(dmpAuthentication.validate(hadoopAccount, password))
   }
 
   private def mockResponse(request: Request, responseBody: String): Response = {
@@ -83,19 +84,5 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
         responseBody,
         MediaType.parse("application/json")))
       .build()
-  }
-
-  private def setEnv(key: String, value: String): Unit = {
-    try {
-      val env = System.getenv
-      val cl = env.getClass
-      val field = cl.getDeclaredField("m")
-      field.setAccessible(true)
-      val writableEnv = field.get(env).asInstanceOf[java.util.Map[String, String]]
-      writableEnv.put(key, value)
-    } catch {
-      case e: Exception =>
-        throw new IllegalStateException("Failed to set environment variable", e)
-    }
   }
 }
