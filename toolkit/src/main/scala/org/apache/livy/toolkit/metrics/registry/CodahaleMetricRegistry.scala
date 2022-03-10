@@ -15,32 +15,19 @@
  * limitations under the License.
  */
 
-package com.shopee.livy
 
-import com.shopee.livy.SdiSparkEnvProcessor.processorInstances
+package org.apache.livy.toolkit.metrics.registry
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
+import com.codahale.metrics.MetricRegistry
 
-object SdiSparkEnvProcessor {
+object CodahaleMetricRegistry {
+  val metricRegistry = new MetricRegistry()
 
-  val processorNames = Seq(
-    "com.shopee.livy.SdiHadoopEnvProcessor",
-    "com.shopee.livy.S3aEnvProcessor",
-    "com.shopee.livy.SparkResourceOptimizationProcessor",
-    "com.shopee.livy.StreamingMetricProcessor"
-  )
-
-  lazy val processorInstances: Seq[ApplicationEnvProcessor] =
-    processorNames.map(c => {
-      ApplicationEnvProcessor.apply(c)
-    })
+  def getRegistry(): MetricRegistry = {
+    metricRegistry
+  }
 }
 
-class SdiSparkEnvProcessor extends ApplicationEnvProcessor {
-
-  override def process(
-      applicationEnvContext: ApplicationEnvContext): Unit = {
-    processorInstances.foreach(processor => processor.process(applicationEnvContext))
-  }
+class CodahaleMetricRegistry private {
 
 }

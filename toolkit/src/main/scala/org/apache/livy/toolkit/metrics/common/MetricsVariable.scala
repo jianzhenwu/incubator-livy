@@ -15,32 +15,13 @@
  * limitations under the License.
  */
 
-package com.shopee.livy
 
-import com.shopee.livy.SdiSparkEnvProcessor.processorInstances
+package org.apache.livy.toolkit.metrics.common
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
-
-object SdiSparkEnvProcessor {
-
-  val processorNames = Seq(
-    "com.shopee.livy.SdiHadoopEnvProcessor",
-    "com.shopee.livy.S3aEnvProcessor",
-    "com.shopee.livy.SparkResourceOptimizationProcessor",
-    "com.shopee.livy.StreamingMetricProcessor"
-  )
-
-  lazy val processorInstances: Seq[ApplicationEnvProcessor] =
-    processorNames.map(c => {
-      ApplicationEnvProcessor.apply(c)
-    })
-}
-
-class SdiSparkEnvProcessor extends ApplicationEnvProcessor {
-
-  override def process(
-      applicationEnvContext: ApplicationEnvContext): Unit = {
-    processorInstances.foreach(processor => processor.process(applicationEnvContext))
-  }
-
+/**
+ * Interface for metrics variables. For example a the database service could expose the number of
+ * currently active connections.
+ */
+trait MetricsVariable[T] {
+  def getValue: T
 }
