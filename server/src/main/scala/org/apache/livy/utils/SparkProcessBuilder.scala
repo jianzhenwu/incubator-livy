@@ -33,7 +33,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _className: Option[String] = None
   private[this] var _name: Option[String] = None
   private[this] val _conf =
-    Option(ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-default.conf")) match {
+    Option(ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-defaults.conf")) match {
       case Some(defaultConf) =>
         defaultConf.asScala
       case None =>
