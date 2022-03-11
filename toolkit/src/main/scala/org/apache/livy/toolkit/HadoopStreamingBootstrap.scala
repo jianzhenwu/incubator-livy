@@ -104,11 +104,19 @@ private class HadoopStreamingBootstrap(
           HadoopStreamingUtil.rddToPairRDD(mapperRDD, defaultSeparator),
           new HadoopShimPartitioner(
             HadoopStreamingUtil.getPartitioner[String, String](cmd),
-            mapperRDD.getNumPartitions))
+            defaultNumPartitions(mapperRDD)))
       case _ =>
         new ShuffledRDD[String, String, String](
           HadoopStreamingUtil.rddToPairRDD(mapperRDD, defaultSeparator),
-          new HashPartitioner(mapperRDD.getNumPartitions))
+          new HashPartitioner(defaultNumPartitions(mapperRDD)))
+    }
+  }
+
+  private def defaultNumPartitions(rdd: RDD[_]): Int = {
+    if (rdd.context.getConf.contains("spark.default.parallelism")) {
+      rdd.context.defaultParallelism
+    } else {
+      rdd.getNumPartitions
     }
   }
 }
