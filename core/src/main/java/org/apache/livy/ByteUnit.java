@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.livy.launcher.util;
+package org.apache.livy;
 
 public enum ByteUnit {
   BYTE(1),

@@ -23,6 +23,7 @@ case class ApplicationEnvContext(env: java.util.Map[String, String],
 trait ApplicationEnvProcessor {
 
   def process(applicationEnvContext: ApplicationEnvContext)
+
 }
 
 class DefaultApplicationEnvProcessor extends Logging
@@ -31,6 +32,7 @@ class DefaultApplicationEnvProcessor extends Logging
   override def process(
       applicationEnvContext: ApplicationEnvContext): Unit = {
   }
+
 }
 
 object ApplicationEnvProcessor {

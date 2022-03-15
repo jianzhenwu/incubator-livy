@@ -31,3 +31,4 @@ docs/**/JB/**
 venv/*
 .m2/repository/**
 **/META-INF/**
+**/spark-env.sh

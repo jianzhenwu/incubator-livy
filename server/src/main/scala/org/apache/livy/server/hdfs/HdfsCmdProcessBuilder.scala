@@ -31,7 +31,7 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
     new util.HashMap[String, String]()
 
   private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
-    ApplicationEnvProcessor(livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
+    ApplicationEnvProcessor(livyConf.get(LivyConf.LIVY_HADOOP_ENV_PROCESSOR))
 
   def env(key: String, value: String): HdfsCmdProcessBuilder = {
     _env += ((key, value))
@@ -49,8 +49,10 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
     val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
 
     val env = pb.environment()
-    val context = ApplicationEnvContext(env, _conf)
+    val appEnv = new util.HashMap[String, String]()
+    val context = ApplicationEnvContext(appEnv, _conf)
     applicationEnvProcessor.process(context)
+    env.putAll(appEnv)
 
     pb.redirectErrorStream(true)
     pb.redirectInput(ProcessBuilder.Redirect.PIPE)

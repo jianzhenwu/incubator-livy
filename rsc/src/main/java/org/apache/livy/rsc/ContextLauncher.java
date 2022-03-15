@@ -223,14 +223,14 @@ class ContextLauncher {
       }
     }
 
-    final File confFile = writeConfToFile(conf);
-
     if (ContextLauncher.mockSparkSubmit != null) {
       LOG.warn("!!!! Using mock spark-submit. !!!!");
+      final File confFile = writeConfToFile(conf);
       return new ChildProcess(conf, promise, ContextLauncher.mockSparkSubmit, confFile);
     } else if (conf.getBoolean(CLIENT_IN_PROCESS)) {
       // Mostly for testing things quickly. Do not do this in production.
       LOG.warn("!!!! Running remote driver in-process. !!!!");
+      final File confFile = writeConfToFile(conf);
       Runnable child = new Runnable() {
         @Override
         public void run() {
@@ -256,10 +256,15 @@ class ContextLauncher {
       }
       env.put("SPARK_CONF_DIR", confDir);
 
-      ApplicationEnvContext context = new ApplicationEnvContext(env,
-          conf.toMap());
+      Map<String, String> confView = conf.toMap();
+      ApplicationEnvContext context = new ApplicationEnvContext(env, confView);
+
+      confView.forEach((k,v) -> {
+        conf.set(k, v);
+      });
 
       applicationEnvProcessor.process(context);
+      final File confFile = writeConfToFile(conf);
 
       final SparkLauncher launcher = new SparkLauncher(env);
 

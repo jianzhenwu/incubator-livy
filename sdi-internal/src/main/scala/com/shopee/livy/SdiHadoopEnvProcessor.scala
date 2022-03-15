@@ -17,10 +17,24 @@
 
 package com.shopee.livy
 
+import com.shopee.livy.SdiHadoopEnvProcessor.getDmpAuthentication
 import com.shopee.livy.auth.DmpAuthentication
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.client.common.ClientConf
+
+object SdiHadoopEnvProcessor {
+
+  var mockDmpAuthentication: DmpAuthentication = _
+
+  def getDmpAuthentication: DmpAuthentication = {
+    if (mockDmpAuthentication != null) {
+      return mockDmpAuthentication
+    }
+    DmpAuthentication()
+  }
+
+}
 
 class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
 
@@ -32,7 +46,7 @@ class SdiHadoopEnvProcessor extends ApplicationEnvProcessor with Logging{
     if (username != null) {
       var password = ""
       try {
-        password = DmpAuthentication().getPassword(username)
+        password = getDmpAuthentication.getPassword(username)
       } catch {
         case _: Exception =>
           error(s"Failed to get hadoop account password from DmpAuthentication " +

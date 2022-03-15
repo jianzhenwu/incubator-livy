@@ -17,6 +17,8 @@
 
 package org.apache.livy.utils
 
+import java.util
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
@@ -192,6 +194,25 @@ class SparkProcessBuilder(livyConf: LivyConf,
     addOpt("--deploy-mode", _deployMode)
     addOpt("--name", _name)
     addOpt("--class", _className)
+
+    val appEnv = new util.HashMap[String, String]()
+    if (livyConf.sparkVersions.nonEmpty) {
+      val sparkHome = livyConf.sparkHome(reqSparkVersion).get
+      appEnv.put("SPARK_HOME", sparkHome)
+      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
+      if (sparkConfDir.nonEmpty) {
+        appEnv.put("SPARK_CONF_DIR", sparkConfDir.get)
+        _conf.put(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
+      }
+    }
+    // Can not set null value to conf.
+    Option(_username).foreach { username =>
+      _conf.put(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, username)
+    }
+
+    val context = ApplicationEnvContext(appEnv, _conf.asJava)
+    applicationEnvProcessor.process(context)
+
     _conf.foreach { case (key, value) =>
       if (key == "spark.submit.pyFiles") {
          arguments += "--py-files"
@@ -224,23 +245,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
     for ((key, value) <- _env) {
       env.put(key, value)
     }
-
-    if (livyConf.sparkVersions.nonEmpty) {
-      val sparkHome = livyConf.sparkHome(reqSparkVersion).get
-      env.put("SPARK_HOME", sparkHome)
-      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
-      if (sparkConfDir.nonEmpty) {
-        env.put("SPARK_CONF_DIR", sparkConfDir.get)
-        _conf.put(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
-      }
-    }
-    // Can not set null value to conf.
-    Option(_username).foreach { username =>
-      _conf.put(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, username)
-    }
-
-    val context = ApplicationEnvContext(env, _conf.asJava)
-    applicationEnvProcessor.process(context)
+    env.putAll(appEnv)
 
     _redirectOutput.foreach(pb.redirectOutput)
     _redirectError.foreach(pb.redirectError)

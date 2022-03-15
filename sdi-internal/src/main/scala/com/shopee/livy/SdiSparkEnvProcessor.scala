@@ -17,52 +17,29 @@
 
 package com.shopee.livy
 
-import java.util
+import com.shopee.livy.SdiSparkEnvProcessor.processorInstances
 
-import org.apache.livy.ApplicationEnvContext
-import org.apache.livy.client.common.ClientConf
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
 
 object SdiSparkEnvProcessor {
-  val SPARK_S3A_ENABLED: String = "spark.s3a.enabled"
+
+  val processorNames = Seq(
+    "com.shopee.livy.SdiHadoopEnvProcessor",
+    "com.shopee.livy.S3aEnvProcessor",
+    "com.shopee.livy.SparkResourceOptimizationProcessor"
+  )
+
+  lazy val processorInstances: Seq[ApplicationEnvProcessor] =
+    processorNames.map(c => {
+      ApplicationEnvProcessor.apply(c)
+    })
 }
 
-class SdiSparkEnvProcessor extends SdiHadoopEnvProcessor {
+class SdiSparkEnvProcessor extends ApplicationEnvProcessor {
 
   override def process(
       applicationEnvContext: ApplicationEnvContext): Unit = {
-
-    super.process(applicationEnvContext)
-
-    this.processHadoopClasspathS3a(applicationEnvContext.env,
-      applicationEnvContext.appConf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY),
-      applicationEnvContext.appConf.get(SdiSparkEnvProcessor.SPARK_S3A_ENABLED))
+    processorInstances.foreach(processor => processor.process(applicationEnvContext))
   }
 
-  def processHadoopClasspathS3a(env: util.Map[String, String],
-      sparkConfDir: String = null, s3aEnabled: String = null): Unit = {
-
-    Option(s3aEnabled).filter("true".equalsIgnoreCase).foreach {
-      _ => {
-        var classPath = "$HADOOP_CLASSPATH"
-        Option(sparkConfDir).orElse(Option(env.get("SPARK_CONF_DIR"))).filter(_.nonEmpty).foreach {
-          conf =>
-            import scala.sys.process._
-            try {
-              val hadoopHome = Seq("bash", "-c",
-                "source " + conf + "/spark-env.sh; echo $HADOOP_HOME").!!
-              if (hadoopHome != null && hadoopHome.nonEmpty) {
-                classPath = "$HADOOP_CLASSPATH:" +
-                  s"${hadoopHome.trim}/share/hadoop/tools/lib/hadoop-aws-*.jar:" +
-                  s"${hadoopHome.trim}/share/hadoop/tools/lib/aws-java-sdk-bundle-*.jar"
-              }
-            } catch {
-              case e: Exception =>
-                error("Unable to source spark-env.sh", e)
-            }
-        }
-        env.put("HADOOP_CLASSPATH", classPath)
-        info(s"Set HADOOP_CLASSPATH = $classPath")
-      }
-    }
-  }
 }

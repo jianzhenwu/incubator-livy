@@ -27,13 +27,12 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.apache.livy.ByteUtils;
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.param.InteractiveOptions;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 import org.apache.livy.launcher.util.LauncherUtils;
-
-import static org.apache.livy.launcher.util.LauncherUtils.*;
 
 public class LivyOption extends LivyOptionParser {
 
@@ -328,7 +327,7 @@ public class LivyOption extends LivyOptionParser {
       password = Optional.ofNullable(password).orElse(
           Optional.ofNullable(System.getenv(
               LivyLauncherConfiguration.HADOOP_USER_RPCPASSWORD))
-              .orElse(passwordFromSDI()));
+              .orElse(LauncherUtils.passwordFromSDI()));
     } catch (IOException io) {
       logger.warn("Fail to load HADOOP_USER_RPCPASSWORD from sdi.", io);
     }
@@ -338,29 +337,29 @@ public class LivyOption extends LivyOptionParser {
             .orElse(System.getenv().get("SPARK_DRIVER_MEMORY")));
 
     driverCores = Optional.ofNullable(driverCores)
-        .orElse(firstInteger(sparkProperties.get(DRIVER_CORES)));
+        .orElse(LauncherUtils.firstInteger(sparkProperties.get(DRIVER_CORES)));
 
     executorMemory = Optional.ofNullable(executorMemory).orElse(
         Optional.ofNullable(sparkProperties.get(EXECUTOR_MEMORY))
             .orElse(System.getenv().get("SPARK_EXECUTOR_MEMORY")));
 
     executorCores = Optional.ofNullable(executorCores).orElse(
-        firstInteger(sparkProperties.get(EXECUTOR_CORES),
+        LauncherUtils.firstInteger(sparkProperties.get(EXECUTOR_CORES),
             System.getenv().get("SPARK_EXECUTOR_CORES")));
 
     name =
         Optional.ofNullable(name).orElse(sparkProperties.get("spark.app.name"));
     jars = Optional.ofNullable(jars)
-        .orElse(splitByComma(sparkProperties.get(JARS)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get(JARS)));
     files = Optional.ofNullable(files)
-        .orElse(splitByComma(sparkProperties.get(FILES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get(FILES)));
     archives = Optional.ofNullable(archives)
-        .orElse(splitByComma(sparkProperties.get(ARCHIVES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get(ARCHIVES)));
     pyFiles = Optional.ofNullable(pyFiles)
-        .orElse(splitByComma(sparkProperties.get(PY_FILES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get(PY_FILES)));
 
     numExecutors = Optional.ofNullable(numExecutors)
-        .orElse(firstInteger(sparkProperties.get(NUM_EXECUTORS)));
+        .orElse(LauncherUtils.firstInteger(sparkProperties.get(NUM_EXECUTORS)));
     queue = Optional.ofNullable(queue)
         .orElse(sparkProperties.get("spark.yarn.queue"));
 
@@ -380,12 +379,12 @@ public class LivyOption extends LivyOptionParser {
       printUsageAndExit(LauncherExitCode.optionError);
     }
     if (driverMemory != null
-        && LauncherUtils.byteStringAsBytes(driverMemory) <= 0) {
+        && ByteUtils.byteStringAsBytes(driverMemory) <= 0) {
       throw new IllegalArgumentException(
           "Driver memory must be a positive number");
     }
     if (executorMemory != null
-        && LauncherUtils.byteStringAsBytes(executorMemory) <= 0) {
+        && ByteUtils.byteStringAsBytes(executorMemory) <= 0) {
       throw new IllegalArgumentException(
           "Executor memory must be a positive number");
     }
