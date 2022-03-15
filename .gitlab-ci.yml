@@ -47,8 +47,6 @@ before_script:
 
 verify:
   stage: verify
-  tags:
-    - foundation
   retry: 2
   script:
     - mvn -s settings.xml ${MVN_FLAG} -Dmaven.javadoc.skip=true -B -V -e verify ${MVN_OPTS}
