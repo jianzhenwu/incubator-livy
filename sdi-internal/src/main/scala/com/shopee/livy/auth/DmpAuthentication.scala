@@ -63,7 +63,7 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     } else {
       error(s"Error when request $url get hadoop account $hadoopAccount password. " +
         s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException(s"Get Hadoop account password failure.")
+      throw new AuthClientException(s"Failed to get hadoop account $hadoopAccount password.")
     }
   }
 
@@ -85,7 +85,7 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     } else {
       error(s"Error when request $url validate hadoop account $hadoopAccount password. " +
         s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException(s"Invalid hadoop account.")
+      throw new AuthClientException(s"Failed to validate hadoop account $hadoopAccount.")
     }
   }
 

@@ -22,12 +22,16 @@ import javax.security.sasl.AuthenticationException
 import javax.servlet.{Filter, FilterChain, FilterConfig, ServletRequest, ServletResponse}
 import javax.servlet.http.{HttpServletRequest, HttpServletRequestWrapper, HttpServletResponse}
 
+import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.commons.codec.binary.Base64
 
 class SdiHttpBasicAuthenticationFilter extends Filter {
 
   val BASIC = "Basic"
   val AUTHORIZATION_HEADER = "Authorization"
+
+  private val objectMapper: ObjectMapper = new ObjectMapper()
+    .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
 
   override def init(filterConfig: FilterConfig): Unit = {
 
@@ -40,17 +44,32 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
     val httpRequest = request.asInstanceOf[HttpServletRequest]
     val httpResponse = response.asInstanceOf[HttpServletResponse]
 
-    val userInfo = basicUsernamePassword(httpRequest)
-
-    val requestUser = userInfo.fold {
-      "anonymous"
-    } { case (username, password) =>
-      val isAuth = DmpAuthentication().validate(username, password)
-      if (!isAuth) {
-        throw new AuthenticationException(s"Unauthorized user $username.")
+    var requestUser = "anonymous"
+    try {
+      val userInfo = basicUsernamePassword(httpRequest)
+      userInfo.foreach {
+        case (username, password) =>
+          val isAuth = DmpAuthentication().validate(username, password)
+          if (!isAuth) {
+            throw new AuthenticationException(s"Unauthorized user $username.")
+          }
+          requestUser = username
       }
-      username
+    } catch {
+      case ae: AuthenticationException =>
+        writeResponse(
+          httpResponse,
+          HttpServletResponse.SC_UNAUTHORIZED,
+          objectMapper.writeValueAsString(ae.getMessage))
+        return
+      case e =>
+        writeResponse(
+          httpResponse,
+          HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+          objectMapper.writeValueAsString(e.getMessage))
+        return
     }
+
     val authHttpRequest = new HttpServletRequestWrapper(httpRequest) {
       override def getAuthType: String = BASIC
 
@@ -76,6 +95,12 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
     } else {
       None
     }
+  }
+
+  private def writeResponse(response: HttpServletResponse, code: Int, message: String): Unit = {
+    response.setStatus(code)
+    response.getWriter.write(message)
+    response.getWriter.flush()
   }
 
   override def destroy(): Unit = {
