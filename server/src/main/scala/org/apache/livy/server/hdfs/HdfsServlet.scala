@@ -34,7 +34,7 @@ class HdfsServlet(
     with UrlGeneratorSupport
     with ContentEncodingSupport {
 
-  val HDFS_COMMAND_REGEX = "^(hadoop fs|hadoop dfs|hdfs dfs) (.*)".r
+  val HDFS_COMMAND_REGEX = "^(hadoop fs|hadoop dfs|hdfs dfs|dfs) (.*)".r
 
   error {
     case e: IllegalArgumentException =>
@@ -46,11 +46,14 @@ class HdfsServlet(
   }
 
   jpost[HdfsCommandRequest]("/cmd") { req =>
-    val cmd = req.cmd.trim
+    var cmd = req.cmd.trim
 
     val runnableCmd = if (!LivyConf.TEST_MODE) {
       cmd match {
         case HDFS_COMMAND_REGEX(_, _) =>
+          if (cmd.startsWith("dfs")) {
+            cmd = "hdfs " + cmd
+          }
         case _ => throw new IllegalArgumentException("Invalid operation: " + cmd)
       }
 
