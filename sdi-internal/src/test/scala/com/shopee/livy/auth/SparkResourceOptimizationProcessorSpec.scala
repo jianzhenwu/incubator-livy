@@ -70,4 +70,26 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     assert(appConf("spark.executor.memoryOverhead") == "1G")
   }
 
+  it("Should change the default value of dynamicMaxExecutors.") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.cores" -> "1",
+      "spark.dynamicAllocation.enabled" -> "true",
+      "spark.dynamicAllocation.initialExecutors" -> "1",
+      "spark.dynamicAllocation.minExecutors" -> "1",
+      "spark.executor.instances" -> "200")
+
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+
+    assert(appConf("spark.executor.cores") == "1")
+    assert(appConf("spark.dynamicAllocation.enabled") == "true")
+    assert(appConf("spark.dynamicAllocation.maxExecutors") == "200")
+    assert(appConf("spark.sql.shuffle.partitions").toInt == 200)
+    assert(appConf("spark.default.parallelism").toInt == 200)
+    assert(appConf("spark.driver.memoryOverhead") == "1G")
+    assert(appConf("spark.executor.memoryOverhead") == "1G")
+  }
+
 }

@@ -33,8 +33,19 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
 
     if ("true".equalsIgnoreCase(
       Option(appConf.get("spark.dynamicAllocation.enabled")).getOrElse("").trim)) {
-      val maxExecutors = Option(appConf.get("spark.dynamicAllocation.maxExecutors"))
-        .getOrElse("100")
+      val maxExecutorsNum =
+        Option(appConf.get("spark.dynamicAllocation.maxExecutors"))
+          .getOrElse("100").trim.toInt
+      val initialExecutorsNum =
+        Option(appConf.get("spark.dynamicAllocation.initialExecutors"))
+          .getOrElse("0").trim.toInt
+      val minExecutorsNum =
+        Option(appConf.get("spark.dynamicAllocation.minExecutors"))
+          .getOrElse("0").trim.toInt
+      val instancesNum = Option(appConf.get("spark.executor.instances"))
+        .getOrElse("0").trim.toInt
+      val maxExecutors = Math.max(Math.max(Math.max(maxExecutorsNum, initialExecutorsNum),
+        minExecutorsNum), instancesNum).toString
       appConf.put("spark.dynamicAllocation.maxExecutors", maxExecutors)
       parallelism = executorCores.trim.toInt * maxExecutors.trim.toInt
     } else {
