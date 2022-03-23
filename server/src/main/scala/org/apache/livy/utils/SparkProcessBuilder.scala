@@ -37,7 +37,9 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] val _conf =
     Option(ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-defaults.conf")) match {
       case Some(defaultConf) =>
-        defaultConf.asScala
+        val config = mutable.HashMap[String, String]()
+        defaultConf.asScala.foreach(kv => config.put(kv._1, kv._2))
+        config
       case None =>
         mutable.HashMap[String, String]()
     }

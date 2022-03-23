@@ -51,5 +51,14 @@ class SparkProcessBuilderSpec extends FunSpec with LivyBaseUnitTestSuite {
       assert(processBuilder.conf(SPARK_DEFAULT_CONFIG_KEY).orNull == "false",
         s"Config $SPARK_DEFAULT_CONFIG_KEY should be false")
     }
+
+    it("should support conf with null value") {
+      val processBuilder = new SparkProcessBuilder(livyConf, None)
+      processBuilder.conf("", null)
+      processBuilder.conf(null, null)
+      assert(processBuilder.conf("").contains(null))
+      val nullKey: String = null
+      assert(processBuilder.conf(nullKey).contains(null))
+    }
   }
 }
