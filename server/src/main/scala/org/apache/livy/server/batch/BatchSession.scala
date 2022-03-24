@@ -22,6 +22,7 @@ import java.lang.ProcessBuilder.Redirect
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
+import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, ExecutionContextExecutor}
 import scala.util.Random
@@ -31,6 +32,7 @@ import org.apache.hadoop.fs.Path
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
+import org.apache.livy.rsc.RSCConf
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
 import org.apache.livy.server.recovery.SessionStore
@@ -114,6 +116,14 @@ object BatchSession extends Logging {
         }
       }
     }
+
+    livyConf.iterator().asScala.foreach { e =>
+      val (key, value) = (e.getKey, e.getValue)
+      if (key.startsWith(RSCConf.RSC_CONF_PREFIX) && !builderConf.contains(key)) {
+        builderConf += (key -> value)
+      }
+    }
+
     builderConf.toMap
   }
 

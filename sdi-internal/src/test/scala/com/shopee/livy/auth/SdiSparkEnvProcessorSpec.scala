@@ -20,7 +20,7 @@ package com.shopee.livy.auth
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.{S3aEnvProcessor, SdiHadoopEnvProcessor}
+import com.shopee.livy.{DockerEnvProcessor, S3aEnvProcessor, SdiHadoopEnvProcessor}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -50,6 +50,10 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.driver.memoryOverhead" -> "100M",
       "spark.executor.memoryOverhead" -> "100M",
       S3aEnvProcessor.SPARK_S3A_ENABLED -> "true",
+      DockerEnvProcessor.SPARK_DOCKER_ENABLED -> "true",
+      DockerEnvProcessor.SPARK_DOCKER_IMAGE -> "centos7-java-base:v6.0",
+      DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
+        "/usr/share/java/hadoop:/usr/share/java/hadoop:ro",
       ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY -> "spark")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
@@ -75,6 +79,18 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.dynamicAllocation.maxExecutors").toInt == 50)
     assert(appConf("spark.driver.memoryOverhead") == "1G")
     assert(appConf("spark.executor.memoryOverhead") == "1G")
+
+    // docker conf should be in appConf when spark.docker.enabled
+    assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE") == "docker")
+    assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE") ==
+      "centos7-java-base:v6.0")
+    assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS") ==
+      "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
+    assert(appConf("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_TYPE") == "docker")
+    assert(appConf("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE") ==
+      "centos7-java-base:v6.0")
+    assert(appConf("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS") ==
+      "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
   }
 
 }

@@ -227,3 +227,6 @@
 
 # The tracking URL of application.
 # livy.server.yarn.application.tracking-url = http://keyhole.data-infra.shopee.io/keyhole/proxy?applicationId=%s
+
+# The configuration passed to sdi internal environment processor.
+# livy.rsc.spark.docker.mounts =
