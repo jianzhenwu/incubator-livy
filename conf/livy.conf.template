@@ -230,3 +230,6 @@
 
 # The configuration passed to sdi internal environment processor.
 # livy.rsc.spark.docker.mounts =
+# livy.rsc.spark.streaming.metrics.push.url =
+# livy.rsc.spark.streaming.metrics.push.token =
+# livy.rsc.spark.streaming.metrics.send.interval =

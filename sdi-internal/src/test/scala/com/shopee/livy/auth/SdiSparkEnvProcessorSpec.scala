@@ -20,7 +20,8 @@ package com.shopee.livy.auth
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.{DockerEnvProcessor, S3aEnvProcessor, SdiHadoopEnvProcessor}
+import com.shopee.livy.{DockerEnvProcessor, S3aEnvProcessor, SdiHadoopEnvProcessor,
+  StreamingMetricProcessor}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -54,6 +55,13 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       DockerEnvProcessor.SPARK_DOCKER_IMAGE -> "centos7-java-base:v6.0",
       DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
         "/usr/share/java/hadoop:/usr/share/java/hadoop:ro",
+      StreamingMetricProcessor.METRIC_ENABLED -> "true",
+      StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_URL ->
+        "test_url",
+      StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_TOKEN ->
+        "test_token",
+      StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_INTERVAL ->
+        "15",
       ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY -> "spark")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
@@ -91,6 +99,13 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "centos7-java-base:v6.0")
     assert(appConf("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS") ==
       "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
+
+    // streaming metric conf should be in appConf when spark.streaming.metrics.push.enabled
+    assert(appConf("spark.streaming.metrics.push.url") == "test_url")
+    assert(appConf("spark.streaming.metrics.push.token") == "test_token")
+    assert(appConf("spark.streaming.metrics.send.interval") == "15")
+    assert(appConf("spark.streaming.extraListeners") ==
+      "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener")
   }
 
 }
