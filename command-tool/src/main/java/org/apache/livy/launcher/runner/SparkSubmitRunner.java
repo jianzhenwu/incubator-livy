@@ -16,6 +16,8 @@
  */
 package org.apache.livy.launcher.runner;
 
+import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
@@ -48,6 +50,7 @@ import org.apache.livy.client.http.response.SessionLogResponse;
 import org.apache.livy.launcher.LivyOption;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
+import org.apache.livy.launcher.util.CipherUtils;
 import org.apache.livy.launcher.util.LauncherUtils;
 import org.apache.livy.launcher.util.UriUtil;
 import org.apache.livy.sessions.SessionState;
@@ -65,9 +68,11 @@ public class SparkSubmitRunner {
   private static final byte YARN_DIAGNOSTICS_READ_END = 0b100;
   private static final byte APP_LOG_READ_END = 0b111;
 
+  private static final String AES_SECRET = "livy.aes.secret";
+
   private final BatchRestClient restClient;
   private final LivyOption livyOptions;
-  private final Configuration hadoopConf;
+  private final Configuration hadoopConf = new Configuration();
   private final FileSystem fileSystem;
   private final UserGroupInformation userGroupInformation;
   private boolean running = true;
@@ -97,21 +102,14 @@ public class SparkSubmitRunner {
         throw new LivyLauncherException(LauncherExitCode.optionError);
       }
 
-      String hadoopConfDir = System.getenv("HADOOP_CONF_DIR");
-      if (StringUtils.isBlank(hadoopConfDir)) {
-        logger.error("System environment <HADOOP_CONF_DIR> can not be empty.");
-        throw new LivyLauncherException(LauncherExitCode.others);
+      boolean s3aEnabled = Boolean.parseBoolean(livyOption.getLauncherConf()
+          .getProperty(LauncherConf.Entry.FS_S3A_ENABLED.key()));
+      if (s3aEnabled) {
+        loadS3aConf();
+      } else {
+        loadHadoopConf();
       }
-      this.hadoopConf = new Configuration();
-      this.hadoopConf.addResource(new Path(hadoopConfDir, "core-site.xml"));
-      this.hadoopConf.addResource(new Path(hadoopConfDir, "hdfs-site.xml"));
-
-      String fsHdfsImpl = "fs.hdfs.impl";
-      if (StringUtils.isBlank(this.hadoopConf.get(fsHdfsImpl))) {
-        this.hadoopConf
-            .set(fsHdfsImpl, "org.apache.hadoop.hdfs.DistributedFileSystem");
-      }
-      this.fileSystem = FileSystem.get(this.hadoopConf);
+      this.fileSystem = FileSystem.newInstance(this.hadoopConf);
 
       userGroupInformation =
           UserGroupInformation.createRemoteUser(livyOption.getUsername());
@@ -204,6 +202,55 @@ public class SparkSubmitRunner {
     return exitCode;
   }
 
+  private void loadHadoopConf() {
+    String hadoopConfDir = System.getenv("HADOOP_CONF_DIR");
+    if (StringUtils.isBlank(hadoopConfDir)) {
+      logger.error("System environment <HADOOP_CONF_DIR> can not be empty.");
+      throw new LivyLauncherException(LauncherExitCode.others);
+    }
+    this.hadoopConf.addResource(new Path(hadoopConfDir, "core-site.xml"));
+    this.hadoopConf.addResource(new Path(hadoopConfDir, "hdfs-site.xml"));
+
+    String fsHdfsImpl = "fs.hdfs.impl";
+    if (StringUtils.isBlank(this.hadoopConf.get(fsHdfsImpl))) {
+      this.hadoopConf.set(fsHdfsImpl, "org.apache.hadoop.hdfs.DistributedFileSystem");
+    }
+  }
+
+  private void loadS3aConf() {
+    String s3aConfFile;
+    String livyHome = System.getenv("LIVY_LAUNCHER_HOME");
+    if (StringUtils.isBlank(livyHome)) {
+      logger.error("System environment LIVY_LAUNCHER_HOME not set");
+      throw new LivyLauncherException(LauncherExitCode.others);
+    } else {
+      s3aConfFile = livyHome + "/conf/livy-s3a.conf";
+    }
+
+    if (!new File(s3aConfFile).exists()) {
+      logger.error("livy-s3a config file {} does not exist", s3aConfFile);
+      throw new LivyLauncherException(LauncherExitCode.others,
+          "Cannot find livy-s3a config file");
+    }
+
+    logger.info("Load livy-s3a conf file {}.", s3aConfFile);
+    Properties props = new Properties();
+    try (FileInputStream fileInputStream = new FileInputStream(s3aConfFile)) {
+      props.load(fileInputStream);
+      props.forEach((key, value) -> {
+        if (key.toString().equals("fs.s3a.secret.key")) {
+          String secretKey = CipherUtils.decrypt(AES_SECRET, value.toString());
+          this.hadoopConf.set(key.toString(), secretKey);
+        } else {
+          this.hadoopConf.set(key.toString(), value.toString());
+        }
+      });
+    } catch (IOException e) {
+      logger.error("Fail to load livy-s3a config file {}.", s3aConfFile);
+      throw new LivyLauncherException(LauncherExitCode.others, e.getMessage());
+    }
+  }
+
   private BatchOptions uploadResources(BatchOptions batchOptions)
       throws IOException {
     String file = batchOptions.getFile();
@@ -230,7 +277,7 @@ public class SparkSubmitRunner {
 
   /**
    * file: copyFileToRemote,
-   * hdfs file: do nothing
+   * hdfs or s3 file: do nothing
    *
    * @param srcFile srcFile
    * @throws IOException e
@@ -261,6 +308,7 @@ public class SparkSubmitRunner {
       Path finalSrcPath = srcPath;
       userGroupInformation.doAs((PrivilegedAction<Boolean>) () -> {
         try {
+          logger.info("Uploading resource {} -> {}.", finalSrcPath, destPath);
           FileUtil.copy(
               finalSrcPath.getFileSystem(SparkSubmitRunner.this.hadoopConf),
               finalSrcPath, destFs, destPath, false,
@@ -270,6 +318,7 @@ public class SparkSubmitRunner {
           destFs.setPermission(destPath, new FsPermission(permission));
           return true;
         } catch (IOException e) {
+          logger.error("Failed to upload resource {}.", finalSrcPath);
           throw new LivyLauncherException(LauncherExitCode.others,
               e.getMessage(), e.getCause());
         }

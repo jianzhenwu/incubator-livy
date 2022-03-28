@@ -50,6 +50,14 @@
     </fileSet>
 
     <fileSet>
+      <directory>${project.parent.basedir}/conf</directory>
+      <outputDirectory>${assembly.name}/conf</outputDirectory>
+      <includes>
+        <include>livy-s3a.conf.template</include>
+      </includes>
+    </fileSet>
+
+    <fileSet>
       <directory>${project.basedir}/target/jars</directory>
       <outputDirectory>${assembly.name}/jars</outputDirectory>
       <includes>

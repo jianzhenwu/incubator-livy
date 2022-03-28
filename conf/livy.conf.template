@@ -233,3 +233,6 @@
 # livy.rsc.spark.streaming.metrics.push.url =
 # livy.rsc.spark.streaming.metrics.push.token =
 # livy.rsc.spark.streaming.metrics.send.interval =
+
+# Whether to enable access s3 filesystem.
+# livy.server.fs.s3a.enabled = true

@@ -35,7 +35,9 @@ public class LauncherConf extends ClientConf<LauncherConf> {
     STATEMENT_POLLING_INTERVAL_MAX("statement.pooling.interval.max", "1s"),
 
     SESSION_CREATE_PRINT_LOG("session.create.print-log", true),
-    SESSION_TRACKING_URL("session.tracking-url", null);
+    SESSION_TRACKING_URL("session.tracking-url", null),
+
+    FS_S3A_ENABLED("fs.s3a.enabled", true);
 
     private final String key;
     private final Object dflt;

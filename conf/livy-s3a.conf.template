@@ -14,22 +14,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# The url used to connect to Livy cluster
-# livy-url = http://xxx
-
-# The tracking URL of application.
-# livy.launcher.session.tracking-url = http://keyhole.data-infra.shopee.io/keyhole/proxy?applicationId=%s
-
-# livy.launcher.session.create.timeout = 5m
-# Timeout of running statement. 0 is not timeout.
-# livy.launcher.statement.timeout = 0
-
-# The pooling interval is calculated by math.min((math.log(i + 1) + offset) * step, max)
-# livy.launcher.statement.polling.interval.offset = 100ms
-# livy.launcher.statement.pooling.interval.step = 100ms
-# livy.launcher.statement.pooling.interval.max = 1s
-
-# Whether print inactivate session log in client size.
-# livy.launcher.session.create.print-log = true
-
-# livy.launcher.fs.s3a.enabled = true
+# The properties of s3 filesystem
+# fs.s3a.path.style.access = true
+# fs.s3a.access.key = Livy
+# fs.s3a.secret.key = EUsTUSZhUIPf7ZMtFbRzFQ==
+# fs.s3a.endpoint = https://s3g.data-infra.shopee.io
+# fs.s3a.impl = org.apache.hadoop.fs.s3a.S3AFileSystem
+# fs.defaultFS = s3a://livy/
