@@ -61,9 +61,10 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     if (responseView.isSuccess) {
       responseView.get.data
     } else {
-      error(s"Error when request $url get hadoop account $hadoopAccount password. " +
-        s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException(s"Failed to get hadoop account $hadoopAccount password.")
+      error(s"Internal authentication server error, " +
+        s"Error message: ${responseView.failed.get.getMessage}.")
+      throw new AuthClientException(s"Internal authentication server error, " +
+        s"Error message: ${responseView.failed.get.getMessage}.")
     }
   }
 
@@ -83,9 +84,10 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     if (responseView.isSuccess) {
       responseView.get.data
     } else {
-      error(s"Error when request $url validate hadoop account $hadoopAccount password. " +
-        s"Error message: ${responseView.failed.get.getMessage}")
-      throw new AuthClientException(s"Failed to validate hadoop account $hadoopAccount.")
+      error(s"Internal authentication server error, " +
+        s"Error message: ${responseView.failed.get.getMessage}.")
+      throw new AuthClientException(s"Internal authentication server error, " +
+        s"Error message: ${responseView.failed.get.getMessage}.")
     }
   }
 

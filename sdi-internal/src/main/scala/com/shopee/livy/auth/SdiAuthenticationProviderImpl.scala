@@ -28,7 +28,7 @@ class SdiAuthenticationProviderImpl()
 
   override def Authenticate(user: String, password: String): Unit = {
     if (!DmpAuthentication().validate(user, password)) {
-      throw new AuthenticationException(s"Error validating DMP authentication user: $user")
+      throw new AuthenticationException(s"username or password of account $user is not correct.")
     }
   }
 }
