@@ -37,6 +37,12 @@
     </dependency>
 
     <dependency>
+      <groupId>org.apache.livy</groupId>
+      <artifactId>livy-server</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
       <groupId>com.shopee.di</groupId>
       <artifactId>datasuite-auth-client</artifactId>
     </dependency>

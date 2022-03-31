@@ -23,6 +23,7 @@ import javax.security.sasl.AuthenticationException
 import org.apache.hive.service.auth.PasswdAuthenticationProvider
 
 import org.apache.livy.LivyConf
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 
 object AuthenticationProvider {
   // TODO: support PAM
@@ -70,6 +71,16 @@ class CustomAuthenticationProvider(conf: LivyConf) extends PasswdAuthenticationP
   }
 
   override def Authenticate(user: String, password: String): Unit = {
-    provider.Authenticate(user, password)
+    Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_TOTAL_COUNT)
+    try {
+      provider.Authenticate(user, password)
+    } catch {
+      case ae: AuthenticationException =>
+        Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_FAILED_COUNT)
+        throw ae
+      case e =>
+        Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_ERROR_COUNT)
+        throw e
+    }
   }
 }

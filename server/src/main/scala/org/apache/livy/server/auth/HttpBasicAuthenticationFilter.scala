@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.shopee.livy.auth
+package org.apache.livy.server.auth
 
 import java.nio.charset.StandardCharsets
 import javax.security.sasl.AuthenticationException
@@ -25,7 +25,9 @@ import javax.servlet.http.{HttpServletRequest, HttpServletRequestWrapper, HttpSe
 import com.fasterxml.jackson.databind.ObjectMapper
 import org.apache.commons.codec.binary.Base64
 
-class SdiHttpBasicAuthenticationFilter extends Filter {
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
+
+class HttpBasicAuthenticationFilter extends Filter {
 
   val BASIC = "Basic"
   val AUTHORIZATION_HEADER = "Authorization"
@@ -33,8 +35,13 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
   private val objectMapper: ObjectMapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
 
-  override def init(filterConfig: FilterConfig): Unit = {
+  private var provider: AuthenticationProvider = _
 
+  override def init(filterConfig: FilterConfig): Unit = {
+    val authType = filterConfig.getInitParameter("livy.server.auth.type")
+    val providerName = filterConfig.getInitParameter(
+      s"livy.server.auth.$authType.param.authentication.provider")
+    provider = AuthenticationProvider.apply(providerName)
   }
 
   override def doFilter(
@@ -49,20 +56,20 @@ class SdiHttpBasicAuthenticationFilter extends Filter {
       val userInfo = basicUsernamePassword(httpRequest)
       userInfo.foreach {
         case (username, password) =>
-          val isAuth = DmpAuthentication().validate(username, password)
-          if (!isAuth) {
-            throw new AuthenticationException(s"Unauthorized user $username.")
-          }
+          Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_TOTAL_COUNT)
+          provider.authenticate(username, password)
           requestUser = username
       }
     } catch {
       case ae: AuthenticationException =>
+        Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_FAILED_COUNT)
         writeResponse(
           httpResponse,
           HttpServletResponse.SC_UNAUTHORIZED,
           objectMapper.writeValueAsString(ae.getMessage))
         return
       case e =>
+        Metrics().incrementCounter(MetricsKey.CUSTOMIZE_AUTHENTICATION_ERROR_COUNT)
         writeResponse(
           httpResponse,
           HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

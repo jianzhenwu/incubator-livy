@@ -80,4 +80,15 @@ object MetricsKey {
   val YARN_APPLICATION_REFRESH_STATE_FAILED_COUNT =
     MetricsKey("yarn_application_refresh_state_failed_count",
       "Total Failed Yarn Application Count when Refresh Yarn State")
+
+  val CUSTOMIZE_AUTHENTICATION_ERROR_COUNT =
+    MetricsKey("customize_authentication_error_count",
+      "Error Count of Called Customize Authentication interface")
+  val CUSTOMIZE_AUTHENTICATION_FAILED_COUNT =
+    MetricsKey("customize_authentication_failed_count",
+      "Failed Count of Called Customize Authentication interface")
+  val CUSTOMIZE_AUTHENTICATION_TOTAL_COUNT =
+    MetricsKey("customize_authentication_total_count",
+      "Total Count of Called Customize Authentication interface")
+
 }
