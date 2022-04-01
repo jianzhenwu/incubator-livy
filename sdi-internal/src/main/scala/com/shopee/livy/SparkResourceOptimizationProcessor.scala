@@ -17,10 +17,12 @@
 
 package com.shopee.livy
 
-import org.apache.commons.lang3.StringUtils
-
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ByteUnit, ByteUtils, Logging}
 
+/**
+ * Do not overwrite the user's configuration.
+ * Only optimize configurations which with default values.
+ */
 class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Logging {
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
@@ -28,6 +30,8 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
     val executorCores = Option(appConf.get("spark.executor.cores"))
       .map(_.trim)
       .getOrElse("1")
+    appConf.putIfAbsent("spark.executor.cores", executorCores)
+    val executorCoresNum = executorCores.trim.toInt
 
     var parallelism = 0
 
@@ -46,30 +50,32 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
         .getOrElse("0").trim.toInt
       val maxExecutors = Math.max(Math.max(Math.max(maxExecutorsNum, initialExecutorsNum),
         minExecutorsNum), instancesNum).toString
-      appConf.put("spark.dynamicAllocation.maxExecutors", maxExecutors)
-      parallelism = executorCores.trim.toInt * maxExecutors.trim.toInt
+      appConf.putIfAbsent("spark.dynamicAllocation.maxExecutors", maxExecutors)
+      parallelism = executorCoresNum * maxExecutors.trim.toInt
     } else {
       val executorInstances = Option(appConf.get("spark.executor.instances"))
         .map(_.trim)
         .filter(!_.equals("0"))
         .getOrElse("50")
-      appConf.put("spark.executor.instances", executorInstances)
-      parallelism = executorCores.trim.toInt * executorInstances.toInt * 2
+      appConf.putIfAbsent("spark.executor.instances", executorInstances)
+      parallelism = executorCoresNum * executorInstances.toInt * 2
     }
 
-    appConf.put("spark.sql.shuffle.partitions", parallelism.toString)
-    appConf.put("spark.default.parallelism", parallelism.toString)
+    appConf.putIfAbsent("spark.sql.shuffle.partitions", parallelism.toString)
+    appConf.putIfAbsent("spark.default.parallelism", parallelism.toString)
 
-    val driverMemoryOverhead = appConf.get("spark.driver.memoryOverhead")
-    if (StringUtils.isBlank(driverMemoryOverhead)
-      || ByteUtils.byteStringAs(driverMemoryOverhead, ByteUnit.MiB) < 1024L) {
-      appConf.put("spark.driver.memoryOverhead", "1G")
-    }
+    val executorMemory = Option(appConf.get("spark.executor.memory"))
+      .getOrElse((4 * executorCoresNum).toString + "G")
+    appConf.putIfAbsent("spark.executor.memory", executorMemory)
 
-    val executorMemoryOverhead = appConf.get("spark.executor.memoryOverhead")
-    if (StringUtils.isBlank(executorMemoryOverhead)
-      || ByteUtils.byteStringAs(executorMemoryOverhead, ByteUnit.MiB) < 1024L) {
-      appConf.put("spark.executor.memoryOverhead", "1G")
-    }
+    val executorMemoryNum = ByteUtils.byteStringAs(executorMemory, ByteUnit.MiB)
+
+    val executorMemoryOverhead = Option(appConf.get("spark.executor.memoryOverhead"))
+      .getOrElse(Math.max(executorMemoryNum * 0.25, 1024).toInt.toString + "M")
+    appConf.putIfAbsent("spark.executor.memoryOverhead", executorMemoryOverhead)
+
+    val driverMemoryOverhead = Option(appConf.get("spark.driver.memoryOverhead"))
+      .getOrElse("1G")
+    appConf.putIfAbsent("spark.driver.memoryOverhead", driverMemoryOverhead)
   }
 }

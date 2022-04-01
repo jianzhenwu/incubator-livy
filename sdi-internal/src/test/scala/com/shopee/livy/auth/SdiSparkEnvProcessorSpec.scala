@@ -85,8 +85,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.sql.shuffle.partitions").toInt == 50)
     assert(appConf("spark.default.parallelism").toInt == 50)
     assert(appConf("spark.dynamicAllocation.maxExecutors").toInt == 50)
-    assert(appConf("spark.driver.memoryOverhead") == "1G")
-    assert(appConf("spark.executor.memoryOverhead") == "1G")
+    assert(appConf("spark.driver.memoryOverhead") == "100M")
+    assert(appConf("spark.executor.memoryOverhead") == "100M")
 
     // docker conf should be in appConf when spark.docker.enabled
     assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE") == "docker")
