@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.shopee.livy.auth
+package com.shopee.livy
 
 import java.util
 

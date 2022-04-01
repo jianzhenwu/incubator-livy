@@ -233,6 +233,11 @@
 # livy.rsc.spark.streaming.metrics.push.url =
 # livy.rsc.spark.streaming.metrics.push.token =
 # livy.rsc.spark.streaming.metrics.send.interval =
+# livy.rsc.yarn.cluster.policy.list.url = http://ip-10-128-154-11.idata-server.shopee.io:8069/ws/v1/cluster/policy/list
+# livy.rsc.yarn.cluster.yarn-cluster-at0.spark.rss.ha.master.hosts = 10.169.48.93,10.169.48.94,10.169.48.95
+# livy.rsc.yarn.cluster.yarn-cluster-at0.spark.rss.master.port = 9097
+# livy.rsc.yarn.cluster.yarn-cluster.spark.rss.ha.master.hosts = 10.130.24.168,10.130.26.2,10.130.24.100
+# livy.rsc.yarn.cluster.yarn-cluster.spark.rss.master.port = 9097
 
 # Whether to enable access s3 filesystem.
 # livy.server.fs.s3a.enabled = true

@@ -28,7 +28,8 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.S3aEnvProcessor",
     "com.shopee.livy.SparkResourceOptimizationProcessor",
     "com.shopee.livy.StreamingMetricProcessor",
-    "com.shopee.livy.DockerEnvProcessor"
+    "com.shopee.livy.DockerEnvProcessor",
+    "com.shopee.livy.RssEnvProcessor"
   )
 
   lazy val processorInstances: Seq[ApplicationEnvProcessor] =

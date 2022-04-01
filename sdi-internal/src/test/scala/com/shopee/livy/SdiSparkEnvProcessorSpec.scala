@@ -15,13 +15,13 @@
  * limitations under the License.
  */
 
-package com.shopee.livy.auth
+package com.shopee.livy
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.{DockerEnvProcessor, S3aEnvProcessor, SdiHadoopEnvProcessor,
-  StreamingMetricProcessor}
+import com.shopee.livy.auth.DmpAuthentication
+import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -36,6 +36,10 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     when(mockDmp.getPassword("spark")).thenReturn("123456")
 
     SdiHadoopEnvProcessor.mockDmpAuthentication = mockDmp
+
+    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
+    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
+    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
 
     val url = ClassLoaderUtils.getContextOrDefaultClassLoader
       .getResource("spark-conf")
@@ -62,7 +66,15 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
         "test_token",
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_INTERVAL ->
         "15",
-      ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY -> "spark")
+      ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY -> "spark",
+      RssEnvProcessor.SPARK_RSS_ENABLED -> "true",
+      RssEnvProcessor.SPARK_YARN_QUEUE -> "queue",
+      RssEnvProcessor.RSC_CONF_PREFIX + RssEnvProcessor.YARN_CLUSTER_POLICY_LIST_URL ->
+        "http://0.0.0.0/url",
+      "livy.rsc.yarn.cluster.cluster1.spark.rss.ha.master.hosts" -> "0.0.0.0",
+      "livy.rsc.yarn.cluster.cluster1.spark.rss.master.port" -> "9097",
+      "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
+      "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
 
@@ -106,6 +118,15 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.streaming.metrics.send.interval") == "15")
     assert(appConf("spark.streaming.extraListeners") ==
       "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener")
+
+    // rss conf should be in appConf when spark.rss.enabled
+    assert(appConf("spark.rss.ha.master.hosts") == "0.0.0.0")
+    assert(appConf("spark.rss.master.port") == "9097")
+    assert(appConf("spark.shuffle.manager") == "org.apache.spark.shuffle.rss.RssShuffleManager")
+    assert(appConf("spark.serializer") == "org.apache.spark.serializer.KryoSerializer")
+    assert(appConf("spark.shuffle.service.enabled") == "false")
+    assert(appConf("spark.sql.adaptive.enabled") == "false")
+    assert(appConf("spark.dynamicAllocation.shuffleTracking.enabled") == "true")
   }
 
 }
