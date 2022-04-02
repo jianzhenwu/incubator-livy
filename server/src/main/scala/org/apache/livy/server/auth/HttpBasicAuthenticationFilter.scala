@@ -38,9 +38,7 @@ class HttpBasicAuthenticationFilter extends Filter {
   private var provider: AuthenticationProvider = _
 
   override def init(filterConfig: FilterConfig): Unit = {
-    val authType = filterConfig.getInitParameter("livy.server.auth.type")
-    val providerName = filterConfig.getInitParameter(
-      s"livy.server.auth.$authType.param.authentication.provider")
+    val providerName = filterConfig.getInitParameter("authentication.provider")
     provider = AuthenticationProvider.apply(providerName)
   }
 

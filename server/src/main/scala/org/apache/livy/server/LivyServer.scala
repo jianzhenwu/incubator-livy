@@ -360,7 +360,6 @@ class LivyServer extends Logging {
         }.foreach { kv =>
           holder.setInitParameter(kv.getKey.substring(prefix.length), kv.getValue)
         }
-        holder.setInitParameter(AUTH_TYPE.key, customType)
         server.context.addFilter(holder, "/*", EnumSet.allOf(classOf[DispatcherType]))
         info(s"$customType auth enabled")
     }
