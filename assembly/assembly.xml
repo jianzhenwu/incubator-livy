@@ -84,6 +84,13 @@
       </includes>
     </fileSet>
     <fileSet>
+      <directory>${project.parent.basedir}/sdi-internal/target/jars</directory>
+      <outputDirectory>${assembly.name}/jars</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
+    <fileSet>
       <directory>${project.parent.basedir}/thriftserver/session/target/jars</directory>
       <outputDirectory>${assembly.name}/rsc-jars</outputDirectory>
       <includes>
