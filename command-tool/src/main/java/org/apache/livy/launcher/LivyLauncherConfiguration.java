@@ -25,5 +25,4 @@ public class LivyLauncherConfiguration {
       "HADOOP_USER_RPCPASSWORD";
 
   public static final String LIVY_URL = "livy-url";
-  public static final String SESSION_STAGING_DIR = "livy.session.staging-dir";
 }

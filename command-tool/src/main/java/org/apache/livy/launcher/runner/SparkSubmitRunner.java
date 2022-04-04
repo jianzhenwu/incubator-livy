@@ -56,7 +56,6 @@ import org.apache.livy.launcher.util.UriUtil;
 import org.apache.livy.sessions.SessionState;
 
 import static org.apache.livy.launcher.LivyLauncherConfiguration.HADOOP_USER_RPCPASSWORD;
-import static org.apache.livy.launcher.LivyLauncherConfiguration.SESSION_STAGING_DIR;
 
 public class SparkSubmitRunner {
 
@@ -334,7 +333,7 @@ public class SparkSubmitRunner {
     if (sessionDir == null) {
       // "livy.session.staging-dir"
       Path stagingDir = new Path(livyOptions
-          .getLivyConfByKey(SESSION_STAGING_DIR,
+          .getLivyConfByKey(LauncherConf.Entry.SESSION_STAGING_DIR.key(),
               new Path(fileSystem.getHomeDirectory(), ".livy-sessions")
                   .toString()));
 

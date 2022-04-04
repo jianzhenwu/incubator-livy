@@ -37,7 +37,8 @@ public class LauncherConf extends ClientConf<LauncherConf> {
     SESSION_CREATE_PRINT_LOG("session.create.print-log", true),
     SESSION_TRACKING_URL("session.tracking-url", null),
 
-    FS_S3A_ENABLED("fs.s3a.enabled", true);
+    FS_S3A_ENABLED("fs.s3a.enabled", true),
+    SESSION_STAGING_DIR("session.staging-dir", null);
 
     private final String key;
     private final Object dflt;
