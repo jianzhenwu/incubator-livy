@@ -26,6 +26,7 @@ import java.security.PrivilegedAction;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Properties;
 import java.util.UUID;
 
@@ -235,15 +236,21 @@ public class SparkSubmitRunner {
     logger.info("Load livy-s3a conf file {}.", s3aConfFile);
     Properties props = new Properties();
     try (FileInputStream fileInputStream = new FileInputStream(s3aConfFile)) {
+      Map<String, String> sparkProperties = livyOptions.getSparkProperties();
       props.load(fileInputStream);
       props.forEach((key, value) -> {
         if (key.toString().equals("fs.s3a.secret.key")) {
           String secretKey = CipherUtils.decrypt(AES_SECRET, value.toString());
           this.hadoopConf.set(key.toString(), secretKey);
+          sparkProperties.put("spark.hadoop." + key, secretKey);
         } else {
           this.hadoopConf.set(key.toString(), value.toString());
+          if (!key.toString().equals("fs.defaultFS")) {
+            sparkProperties.put("spark.hadoop." + key, value.toString());
+          }
         }
       });
+      sparkProperties.put("spark.s3a.enabled", "true");
     } catch (IOException e) {
       logger.error("Fail to load livy-s3a config file {}.", s3aConfFile);
       throw new LivyLauncherException(LauncherExitCode.others, e.getMessage());
