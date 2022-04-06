@@ -258,12 +258,12 @@ class ContextLauncher {
 
       Map<String, String> confView = conf.toMap();
       ApplicationEnvContext context = new ApplicationEnvContext(env, confView);
+      applicationEnvProcessor.process(context);
 
       confView.forEach((k,v) -> {
         conf.set(k, v);
       });
 
-      applicationEnvProcessor.process(context);
       final File confFile = writeConfToFile(conf);
 
       final SparkLauncher launcher = new SparkLauncher(env);
