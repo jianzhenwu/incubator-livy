@@ -48,6 +48,9 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
 
     Option(rssEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       val queue = appConf.get(SPARK_YARN_QUEUE)
+      if (StringUtils.isBlank(queue)) {
+        throw new Exception("The queue must be set by user.")
+      }
       val yarnCluster = yarnRouterMapping.getCluster(queue)
       appConf.asScala.filter { kv =>
         StringUtils.startsWith(kv._1, RSC_CONF_PREFIX + yarnCluster)
@@ -107,13 +110,13 @@ class YarnRouterMapping(policyListUrl: String) {
     })
 
   def startLoadMapping(): Unit = {
-    executor.schedule(
+    executor.scheduleWithFixedDelay(
       new Runnable {
         override def run(): Unit = {
           val policyMap = loadXmlFromUrl(new URL(policyListUrl))
           updatePolicyListCache(policyMap)
         }
-      }, refreshInterval, TimeUnit.MINUTES)
+      }, 0, refreshInterval, TimeUnit.MINUTES)
   }
 
   def getCluster(queue: String): String = {
@@ -121,6 +124,9 @@ class YarnRouterMapping(policyListUrl: String) {
       val policyMap = loadXmlFromUrl(new URL(policyListUrl))
       updatePolicyListCache(policyMap)
       val cluster = policyMap.get(queue)
+      if (cluster == null) {
+        throw new Exception(s"Not found yarn cluster for queue $queue.")
+      }
       cluster
     })
   }

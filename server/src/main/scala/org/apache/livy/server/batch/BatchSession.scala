@@ -117,6 +117,11 @@ object BatchSession extends Logging {
       }
     }
 
+    // Put spark.yarn.queue in conf so that RssEnvProcessor will get queue from appConf.
+    request.queue.foreach { queue =>
+      builderConf += ("spark.yarn.queue" -> queue)
+    }
+
     livyConf.iterator().asScala.foreach { e =>
       val (key, value) = (e.getKey, e.getValue)
       if (key.startsWith(RSCConf.RSC_CONF_PREFIX) && !builderConf.contains(key)) {

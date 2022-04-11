@@ -285,9 +285,19 @@ class BatchSessionSpec
         .set(LivyConf.TOOLKIT_JARS, tookKitJars.mkString(","))
       val req = mock[CreateBatchRequest]
       when(req.file).thenReturn(".jar")
+      when(req.queue).thenReturn(None)
       val builderConf = BatchSession.prepareBuilderConf(Map.empty, livyConf, None, req)
       // if livy.toolkit.jars are configured in LivyConf, it should be passed to builderConf.
       builderConf(LivyConf.SPARK_JARS).split(",").toSet === tookKitJars
+    }
+
+    it("should put spark.yarn.queue though request") {
+      val queue = "queue1"
+      val livyConf = new LivyConf()
+      val req = mock[CreateBatchRequest]
+      when(req.queue).thenReturn(Some(queue))
+      val builderConf = BatchSession.prepareBuilderConf(Map.empty, livyConf, None, req)
+      builderConf("spark.yarn.queue") should be (queue)
     }
 
     it("should set toolkit jars when batch session is created") {
