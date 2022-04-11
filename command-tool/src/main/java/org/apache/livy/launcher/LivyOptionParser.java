@@ -51,6 +51,12 @@ class LivyOptionParser {
   protected final String PROPERTIES_FILE = "--properties-file";
   protected final String PROXY_USER = "--proxy-user";
   protected final String PY_FILES = "--py-files";
+  protected final String REPOSITORIES = "--repositories";
+  protected final String PACKAGES = "--packages";
+  protected final String EXCLUDE_PACKAGES = "--exclude-packages";
+  protected final String DRIVER_JAVA_OPTIONS = "--driver-java-options";
+  protected final String DRIVER_LIBRARY_PATH = "--driver-library-path";
+  protected final String DRIVER_CLASS_PATH = "--driver-class-path";
 
   // Options that do not take arguments.
   protected final String HELP = "--help";

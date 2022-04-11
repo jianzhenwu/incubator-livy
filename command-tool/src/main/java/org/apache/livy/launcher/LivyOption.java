@@ -135,7 +135,7 @@ public class LivyOption extends LivyOptionParser {
           String k = value.substring(0, idx);
           String v = value.substring(idx + 1);
           // Allow space parameters.
-          this.sparkProperties.put(k.trim(), v);
+          this.sparkProperties.putIfAbsent(k.trim(), v);
         } catch (Exception e) {
           throw new IllegalArgumentException(
               String.format("Illegal Argument %s %s", CONF, value));
@@ -167,6 +167,24 @@ public class LivyOption extends LivyOptionParser {
         break;
       case PY_FILES:
         this.pyFiles.addAll(LauncherUtils.splitByComma(value));
+        break;
+      case REPOSITORIES:
+        this.sparkProperties.put("spark.jars.repositories", value);
+        break;
+      case PACKAGES:
+        this.sparkProperties.put("spark.jars.packages", value);
+        break;
+      case EXCLUDE_PACKAGES:
+        this.sparkProperties.put("spark.jars.excludes", value);
+        break;
+      case DRIVER_JAVA_OPTIONS:
+        this.sparkProperties.put("spark.driver.extraJavaOptions", value);
+        break;
+      case DRIVER_LIBRARY_PATH:
+        this.sparkProperties.put("spark.driver.extraLibraryPath", value);
+        break;
+      case DRIVER_CLASS_PATH:
+        this.sparkProperties.put("spark.driver.extraClassPath", value);
         break;
       case PROPERTIES_FILE:
         this.propertiesFile = value;
@@ -333,33 +351,33 @@ public class LivyOption extends LivyOptionParser {
     }
 
     driverMemory = Optional.ofNullable(driverMemory).orElse(
-        Optional.ofNullable(sparkProperties.get(DRIVER_MEMORY))
+        Optional.ofNullable(sparkProperties.get("spark.driver.memory"))
             .orElse(System.getenv().get("SPARK_DRIVER_MEMORY")));
 
     driverCores = Optional.ofNullable(driverCores)
-        .orElse(LauncherUtils.firstInteger(sparkProperties.get(DRIVER_CORES)));
+        .orElse(LauncherUtils.firstInteger(sparkProperties.get("spark.driver.cores")));
 
     executorMemory = Optional.ofNullable(executorMemory).orElse(
-        Optional.ofNullable(sparkProperties.get(EXECUTOR_MEMORY))
+        Optional.ofNullable(sparkProperties.get("spark.executor.memory"))
             .orElse(System.getenv().get("SPARK_EXECUTOR_MEMORY")));
 
     executorCores = Optional.ofNullable(executorCores).orElse(
-        LauncherUtils.firstInteger(sparkProperties.get(EXECUTOR_CORES),
+        LauncherUtils.firstInteger(sparkProperties.get("spark.executor.cores"),
             System.getenv().get("SPARK_EXECUTOR_CORES")));
 
     name =
         Optional.ofNullable(name).orElse(sparkProperties.get("spark.app.name"));
     jars = Optional.ofNullable(jars)
-        .orElse(LauncherUtils.splitByComma(sparkProperties.get(JARS)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get("spark.jars")));
     files = Optional.ofNullable(files)
-        .orElse(LauncherUtils.splitByComma(sparkProperties.get(FILES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get("spark.files")));
     archives = Optional.ofNullable(archives)
-        .orElse(LauncherUtils.splitByComma(sparkProperties.get(ARCHIVES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get("spark.archives")));
     pyFiles = Optional.ofNullable(pyFiles)
-        .orElse(LauncherUtils.splitByComma(sparkProperties.get(PY_FILES)));
+        .orElse(LauncherUtils.splitByComma(sparkProperties.get("spark.submit.pyFiles")));
 
     numExecutors = Optional.ofNullable(numExecutors)
-        .orElse(LauncherUtils.firstInteger(sparkProperties.get(NUM_EXECUTORS)));
+        .orElse(LauncherUtils.firstInteger(sparkProperties.get("spark.executor.instances")));
     queue = Optional.ofNullable(queue)
         .orElse(sparkProperties.get("spark.yarn.queue"));
 
