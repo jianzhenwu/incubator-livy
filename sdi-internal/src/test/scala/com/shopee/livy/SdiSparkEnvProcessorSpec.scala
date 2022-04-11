@@ -74,7 +74,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster1.spark.rss.ha.master.hosts" -> "0.0.0.0",
       "livy.rsc.yarn.cluster.cluster1.spark.rss.master.port" -> "9097",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
-      "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098")
+      "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
+      "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
 
@@ -127,6 +128,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.shuffle.service.enabled") == "false")
     assert(appConf("spark.sql.adaptive.enabled") == "false")
     assert(appConf("spark.dynamicAllocation.shuffleTracking.enabled") == "true")
+
+    // spark conf mapping should work
+    assert(appConf("spark.pyspark.driver.python") == "./bin/python")
   }
 
 }

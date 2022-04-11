@@ -24,6 +24,7 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
 object SdiSparkEnvProcessor {
 
   val processorNames = Seq(
+    "com.shopee.livy.SparkConfMappingProcessor",
     "com.shopee.livy.SdiHadoopEnvProcessor",
     "com.shopee.livy.S3aEnvProcessor",
     "com.shopee.livy.SparkResourceOptimizationProcessor",
