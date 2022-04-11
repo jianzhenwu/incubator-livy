@@ -60,7 +60,6 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
       appConf.put("spark.shuffle.manager", "org.apache.spark.shuffle.rss.RssShuffleManager")
       appConf.put("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
       appConf.put("spark.shuffle.service.enabled", "false")
-      appConf.put("spark.sql.adaptive.enabled", "false")
       appConf.put("spark.dynamicAllocation.shuffleTracking.enabled", "true")
     })
   }

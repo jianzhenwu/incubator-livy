@@ -126,7 +126,6 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.shuffle.manager") == "org.apache.spark.shuffle.rss.RssShuffleManager")
     assert(appConf("spark.serializer") == "org.apache.spark.serializer.KryoSerializer")
     assert(appConf("spark.shuffle.service.enabled") == "false")
-    assert(appConf("spark.sql.adaptive.enabled") == "false")
     assert(appConf("spark.dynamicAllocation.shuffleTracking.enabled") == "true")
 
     // spark conf mapping should work
