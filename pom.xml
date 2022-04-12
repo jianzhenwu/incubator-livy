@@ -177,9 +177,43 @@
     <maven.compiler.source>${java.version}</maven.compiler.source>
     <maven.compiler.target>${java.version}</maven.compiler.target>
 
+    <distMgmtSnapshotsId>data-infra-snapshot</distMgmtSnapshotsId>
+    <distMgmtSnapshotsName>Shopee Data Infra Snapshot Repository</distMgmtSnapshotsName>
+    <distMgmtSnapshotsUrl>https://di-nexus-repo.idata.shopeemobile.com/repository/maven-snapshot/</distMgmtSnapshotsUrl>
+    <distMgmtStagingId>data-infra-release</distMgmtStagingId>
+    <distMgmtStagingName>Shopee Data Infra Release Repository</distMgmtStagingName>
+    <distMgmtStagingUrl>https://di-nexus-repo.idata.shopeemobile.com/repository/maven-release/</distMgmtStagingUrl>
+
   </properties>
 
+  <distributionManagement>
+    <repository>
+      <id>${distMgmtStagingId}</id>
+      <name>${distMgmtStagingName}</name>
+      <url>${distMgmtStagingUrl}</url>
+    </repository>
+    <snapshotRepository>
+      <id>${distMgmtSnapshotsId}</id>
+      <name>${distMgmtSnapshotsName}</name>
+      <url>${distMgmtSnapshotsUrl}</url>
+    </snapshotRepository>
+  </distributionManagement>
+
   <repositories>
+    <repository>
+      <id>di-maven-central-mirror</id>
+      <!--
+        Data Infra Mirror of Maven Central, placed first so that it's used instead of flaky Maven Central.
+      -->
+      <name>Data Infra Maven Central mirror</name>
+      <url>https://di-nexus-repo.idata.shopeemobile.com/repository/maven-public/</url>
+      <releases>
+        <enabled>true</enabled>
+      </releases>
+      <snapshots>
+        <enabled>true</enabled>
+      </snapshots>
+    </repository>
     <repository>
       <id>central</id>
       <!-- This should be at top, it makes maven try the central repo first and then others and hence faster dep resolution -->

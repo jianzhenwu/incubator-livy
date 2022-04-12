@@ -48,7 +48,20 @@
         <include>*</include>
       </includes>
     </fileSet>
-
+    <fileSet>
+      <directory>${project.basedir}/conf-sg</directory>
+      <outputDirectory>${assembly.name}/conf-sg</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
+    <fileSet>
+      <directory>${project.basedir}/conf-us</directory>
+      <outputDirectory>${assembly.name}/conf-us</outputDirectory>
+      <includes>
+        <include>*</include>
+      </includes>
+    </fileSet>
     <fileSet>
       <directory>${project.parent.basedir}/conf</directory>
       <outputDirectory>${assembly.name}/conf</outputDirectory>
