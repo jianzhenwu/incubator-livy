@@ -81,7 +81,9 @@ class LivyOptionParser {
           { EXECUTOR_MEMORY }, { FILES }, { JARS }, { KEYTAB }, { MASTER },
           { NAME }, { NUM_EXECUTORS }, { PROPERTIES_FILE }, { PROXY_USER },
           { PY_FILES }, { QUEUE }, { LIVY_URL }, { USERNAME, "-u" },
-          { PASSWORD, "-p" } };
+          { PASSWORD, "-p" }, { REPOSITORIES }, { PACKAGES },
+          { EXCLUDE_PACKAGES }, { DRIVER_JAVA_OPTIONS },
+          { DRIVER_LIBRARY_PATH }, { DRIVER_CLASS_PATH } };
 
   /**
    * List of switches (command line options that do not take parameters) recognized by spark-submit.

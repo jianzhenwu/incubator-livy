@@ -18,6 +18,7 @@
 package org.apache.livy.launcher;
 
 import java.util.Arrays;
+import java.util.Map;
 
 import org.junit.Test;
 import static org.junit.Assert.assertEquals;
@@ -33,6 +34,13 @@ public class TestLivyOption {
             "--driver-cores", "1", "--executor-memory", "1G", "--files",
             "file1, file2", "--jars", "jar1, jar2", "--name", "testParser",
             "--proxy-user", "proxy-user", "--py-files", "file1, file2",
+            "--repositories", "myRepositories",
+            "--packages", "package1",
+            "--conf", "spark.jars.packages=package2",
+            "--exclude-packages", "ex_package",
+            "--driver-java-options", "opt1",
+            "--driver-library-path", "/path/driver/library",
+            "--driver-class-path", "classpath",
             "--archives", "archive1, archive2", "--executor-cores", "1",
             "--num-executors", "2", "--queue", "dev", "--livy-url", "livy-url",
             "--username", "username", "--password", "password", "a.jar" };
@@ -52,6 +60,13 @@ public class TestLivyOption {
     assertEquals(mockSparkSubmitOption.getProxyUser(), "proxy-user");
     assertEquals(mockSparkSubmitOption.getPyFiles().get(0), "file1");
     assertEquals(mockSparkSubmitOption.getPyFiles().get(1), "file2");
+    Map<String, String> sparkConf = mockSparkSubmitOption.getSparkProperties();
+    assertEquals(sparkConf.get("spark.jars.repositories"), "myRepositories");
+    assertEquals(sparkConf.get("spark.jars.packages"), "package1");
+    assertEquals(sparkConf.get("spark.jars.excludes"), "ex_package");
+    assertEquals(sparkConf.get("spark.driver.extraJavaOptions"), "opt1");
+    assertEquals(sparkConf.get("spark.driver.extraLibraryPath"), "/path/driver/library");
+    assertEquals(sparkConf.get("spark.driver.extraClassPath"), "classpath");
     assertEquals(mockSparkSubmitOption.getArchives().get(0), "archive1");
     assertEquals(mockSparkSubmitOption.getArchives().get(1), "archive2");
     assertEquals(mockSparkSubmitOption.getExecutorCores().intValue(), 1);
