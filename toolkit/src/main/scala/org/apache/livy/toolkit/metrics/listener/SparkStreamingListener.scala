@@ -36,6 +36,7 @@ private[metrics] class SparkStreamingListener extends StreamingListener with Log
   private val receiverInfos = new HashMap[Int, ReceiverInfo]
   private var pushGateway: PushGateway = null
   private val gauges: ConcurrentHashMap[MetricsKey, Long] = new ConcurrentHashMap[MetricsKey, Long]
+  private val SPARK_STREAMING_TYPE = "spark-streaming"
   init()
 
   override def onReceiverStarted(receiverStarted: StreamingListenerReceiverStarted): Unit = {
@@ -142,6 +143,7 @@ private[metrics] class SparkStreamingListener extends StreamingListener with Log
     pushGateway = new PushGateway()
       .setAppName(appName)
       .setAppId(appId)
+      .setAppType(SPARK_STREAMING_TYPE)
       .setQueueName(queueName)
       .setPushUrl(pushUrl)
       .setPushToken(pushToken)
