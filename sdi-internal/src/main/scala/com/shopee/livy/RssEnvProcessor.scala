@@ -114,6 +114,7 @@ class YarnRouterMapping(policyListUrl: String) extends Logging {
     Map("Content-type" -> "application/xml", "Accept" -> "application/xml")
 
   def startLoadMapping(): Unit = {
+    info(s"Start load yarn cluster policy mapping.")
     executor.scheduleWithFixedDelay(
       new Runnable {
         override def run(): Unit = {
@@ -136,6 +137,7 @@ class YarnRouterMapping(policyListUrl: String) extends Logging {
   }
 
   private def loadXmlFromUrl(url: String): java.util.Map[String, String] = {
+    info(s"loading yarn cluster policy mapping.")
     try {
       val requestBuilder = new Request.Builder()
       requestBuilder.headers(Headers.of(headers.asJava))
@@ -162,8 +164,10 @@ class YarnRouterMapping(policyListUrl: String) extends Logging {
 
   // Visible for testing
   private[livy] def updatePolicyListCache(updatedMap: java.util.Map[String, String]): Unit = {
+    info(s"updating yarn cluster policy mapping cache.")
     policyListCache.asScala.foreach(kv => {
       if (!updatedMap.containsKey(kv._1)) {
+        info(s"Deleting invalid policy mapping cache key ${kv._1}.")
         policyListCache.remove(kv._1)
       }
     })
