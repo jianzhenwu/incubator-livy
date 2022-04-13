@@ -59,13 +59,19 @@
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.livy</groupId>
+      <groupId>${project.groupId}</groupId>
       <artifactId>livy-toolkit_2.11</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
-      <groupId>org.apache.livy</groupId>
+      <groupId>${project.groupId}</groupId>
       <artifactId>livy-toolkit_2.12</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>livy-sdi-internal</artifactId>
       <version>${project.version}</version>
     </dependency>
   </dependencies>
