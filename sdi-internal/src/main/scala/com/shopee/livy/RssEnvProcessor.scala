@@ -17,13 +17,13 @@
 
 package com.shopee.livy
 
-import java.net.URL
 import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.JavaConverters._
 import scala.xml.XML
 
+import okhttp3.{Headers, OkHttpClient, Request}
 import org.apache.commons.lang3.StringUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
@@ -49,7 +49,7 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     Option(rssEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       val queue = appConf.get(SPARK_YARN_QUEUE)
       if (StringUtils.isBlank(queue)) {
-        throw new Exception("The queue must be set by user.")
+        throw new ProcessorException("The queue must be set by user.")
       }
       val yarnCluster = yarnRouterMapping.getCluster(queue)
       appConf.asScala.filter { kv =>
@@ -91,7 +91,7 @@ object YarnRouterMapping {
   }
 }
 
-class YarnRouterMapping(policyListUrl: String) {
+class YarnRouterMapping(policyListUrl: String) extends Logging {
 
   import YarnRouterMapping._
 
@@ -108,11 +108,16 @@ class YarnRouterMapping(policyListUrl: String) {
       }
     })
 
+  private val httpClient: OkHttpClient = new OkHttpClient()
+
+  private val headers: Map[String, String] =
+    Map("Content-type" -> "application/xml", "Accept" -> "application/xml")
+
   def startLoadMapping(): Unit = {
     executor.scheduleWithFixedDelay(
       new Runnable {
         override def run(): Unit = {
-          val policyMap = loadXmlFromUrl(new URL(policyListUrl))
+          val policyMap = loadXmlFromUrl(policyListUrl)
           updatePolicyListCache(policyMap)
         }
       }, 0, refreshInterval, TimeUnit.MINUTES)
@@ -120,27 +125,39 @@ class YarnRouterMapping(policyListUrl: String) {
 
   def getCluster(queue: String): String = {
     policyListCache.asScala.getOrElse(queue, {
-      val policyMap = loadXmlFromUrl(new URL(policyListUrl))
+      val policyMap = loadXmlFromUrl(policyListUrl)
       updatePolicyListCache(policyMap)
       val cluster = policyMap.get(queue)
       if (cluster == null) {
-        throw new Exception(s"Not found yarn cluster for queue $queue.")
+        throw new ProcessorException(s"Not found yarn cluster for queue $queue.")
       }
       cluster
     })
   }
 
-  private def loadXmlFromUrl(url: URL): java.util.Map[String, String] = {
-    val policyMap = new java.util.HashMap[String, String]()
-    (XML.load(url) \\ "policies").foreach(policy => {
-      val k = policy \\ "queueName"
-      val v = policy \\ "cluster"
-      val weight = policy \\ "weight"
-      if (weight.length == 1 && weight.text.toDouble == 100.0) {
-        policyMap.put(k.text, v.text)
-      }
-    })
-    policyMap
+  private def loadXmlFromUrl(url: String): java.util.Map[String, String] = {
+    try {
+      val requestBuilder = new Request.Builder()
+      requestBuilder.headers(Headers.of(headers.asJava))
+      val res = httpClient.newCall(requestBuilder.url(url).build()).execute()
+      val body = res.body().string()
+      res.body().close()
+
+      val policyMap = new java.util.HashMap[String, String]()
+      (XML.loadString(body) \\ "policies").foreach(policy => {
+        val k = policy \\ "queueName"
+        val v = policy \\ "cluster"
+        val weight = policy \\ "weight"
+        if (weight.length == 1 && weight.text.toDouble == 100.0) {
+          policyMap.put(k.text, v.text)
+        }
+      })
+      policyMap
+    } catch {
+      case e: Exception =>
+        error(s"failed to load yarn cluster policy mapping.", e)
+        throw new ProcessorException(e.getMessage, e.getCause)
+    }
   }
 
   // Visible for testing

@@ -44,7 +44,7 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
       if (StringUtils.isBlank(dockerImage)) {
         error(s"Please check conf $SPARK_DOCKER_IMAGE, " +
           s"Yarn container runtime docker image must be set by user")
-        throw new Exception(s"$SPARK_DOCKER_IMAGE must be set by user")
+        throw new ProcessorException(s"$SPARK_DOCKER_IMAGE must be set by user")
       }
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE", "docker")
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE", dockerImage)
