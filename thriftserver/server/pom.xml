@@ -278,12 +278,4 @@
       </plugin>
     </plugins>
   </build>
-
-  <distributionManagement>
-    <repository>
-      <id>di-central</id>
-      <name>di-central</name>
-      <url>https://di-nexus-repo.idata.shopeemobile.com/repository/maven-public/</url>
-    </repository>
-  </distributionManagement>
 </project>
