@@ -25,12 +25,15 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object StreamingMetricProcessor {
   val RSC_CONF_PREFIX = "livy.rsc."
 
-  val METRIC_ENABLED = "spark.streaming.metrics.push.enabled"
-  val PUSH_URL = "spark.streaming.metrics.push.url"
-  val PUSH_TOKEN = "spark.streaming.metrics.push.token"
-  val PUSH_INTERVAL = "spark.streaming.metrics.send.interval"
+  val STEAMING_METRIC_ENABLED = "spark.streaming.metrics.push.enabled"
+  val STRUCTURED_METRIC_ENABLED = "spark.structured.streaming.metrics.push.enabled"
+  val PUSH_URL = "spark.metrics.push.url"
+  val PUSH_TOKEN = "spark.metrics.push.token"
+  val PUSH_INTERVAL = "spark.metrics.send.interval"
   val EXTRA_LISTENERS = "spark.streaming.extraListeners"
+  val QUERY_LISTENERS = "spark.sql.streaming.streamingQueryListeners"
   val STEAMING_LISTENER = "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener"
+  val STRUCTURED_LISTENER = "org.apache.livy.toolkit.metrics.listener.StructuredStreamingListener"
   val DEFAULT_METRICS_SEND_INTERVAL = "15"
 }
 
@@ -41,23 +44,31 @@ class StreamingMetricProcessor extends ApplicationEnvProcessor with Logging {
     import StreamingMetricProcessor._
 
     val appConf = applicationEnvContext.appConf
-    val enabled = appConf.get(METRIC_ENABLED)
+    val streamingEnabled = appConf.get(STEAMING_METRIC_ENABLED)
+    val structuredEnabled = appConf.get(STRUCTURED_METRIC_ENABLED)
     val url = appConf.get(RSC_CONF_PREFIX + PUSH_URL)
     val token = appConf.get(RSC_CONF_PREFIX + PUSH_TOKEN)
     val interval = appConf.get(RSC_CONF_PREFIX + PUSH_INTERVAL)
 
-    Option(enabled).filter("true".equalsIgnoreCase).foreach(_ => {
+    Option(streamingEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
+      addPushGateWayConfig()
+      appConf.put(EXTRA_LISTENERS, STEAMING_LISTENER)
+    })
+    Option(structuredEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
+      addPushGateWayConfig()
+      appConf.put(QUERY_LISTENERS, STRUCTURED_LISTENER)
+    })
+
+    def addPushGateWayConfig(): Unit = {
       appConf.put(PUSH_URL, url)
       appConf.put(PUSH_TOKEN, token)
-      appConf.put(EXTRA_LISTENERS, STEAMING_LISTENER)
       Try(interval.toInt) match {
         case Success(_) => appConf.put(PUSH_INTERVAL, interval)
-        case _ => {
+        case _ =>
           appConf.put(PUSH_INTERVAL, DEFAULT_METRICS_SEND_INTERVAL)
           warn("Invalid conf of spark.streaming.metrics.send.interval, will set it to "
           + DEFAULT_METRICS_SEND_INTERVAL)
-        }
       }
-    })
+    }
   }
 }

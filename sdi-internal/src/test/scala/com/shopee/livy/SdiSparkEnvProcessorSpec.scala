@@ -60,7 +60,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       DockerEnvProcessor.SPARK_DOCKER_IMAGE -> "centos7-java-base:v6.0",
       DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
         "/usr/share/java/hadoop:/usr/share/java/hadoop:ro",
-      StreamingMetricProcessor.METRIC_ENABLED -> "true",
+      StreamingMetricProcessor.STEAMING_METRIC_ENABLED -> "true",
+      StreamingMetricProcessor.STRUCTURED_METRIC_ENABLED -> "true",
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_URL ->
         "test_url",
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_TOKEN ->
@@ -115,11 +116,14 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
 
     // streaming metric conf should be in appConf when spark.streaming.metrics.push.enabled
-    assert(appConf("spark.streaming.metrics.push.url") == "test_url")
-    assert(appConf("spark.streaming.metrics.push.token") == "test_token")
-    assert(appConf("spark.streaming.metrics.send.interval") == "15")
+    assert(appConf("spark.metrics.push.url") == "test_url")
+    assert(appConf("spark.metrics.push.token") == "test_token")
+    assert(appConf("spark.metrics.send.interval") == "15")
     assert(appConf("spark.streaming.extraListeners") ==
       "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener")
+    assert(appConf("spark.sql.streaming.streamingQueryListeners") ==
+      "org.apache.livy.toolkit.metrics.listener.StructuredStreamingListener")
+
 
     // rss conf should be in appConf when spark.rss.enabled
     assert(appConf("spark.rss.ha.master.hosts") == "0.0.0.0")

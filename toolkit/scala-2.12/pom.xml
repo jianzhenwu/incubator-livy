@@ -40,4 +40,13 @@
     <json4s.version>${json4s.spark-2.12.version}</json4s.version>
   </properties>
 
+  <dependencies>
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-sql_${scala.binary.version}</artifactId>
+      <version>3.1.2</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
 </project>

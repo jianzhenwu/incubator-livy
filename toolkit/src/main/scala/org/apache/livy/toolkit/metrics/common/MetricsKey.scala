@@ -21,6 +21,9 @@ package org.apache.livy.toolkit.metrics.common
 case class MetricsKey private(val name: String, val description: String)
 
 object MetricsKey {
+  /**
+   * It's spark streaming metrics below.
+   */
   val LAST_COMPLETED_BATCH_PROCESSING_DELAY =
     MetricsKey("last_completed_batch_processing_delay",
       "processing delay time of last completed batch.")
@@ -52,4 +55,49 @@ object MetricsKey {
   val TOTAL_RECEIVED_RECORDS =
     MetricsKey("total_received_records",
       "count of total received records")
+  /**
+   * It's structured streaming metrics below.
+   */
+  val COMPLETED_BATCHES =
+    MetricsKey("completed_batches", "Total number of successful completed batches in job")
+  val FAILED_BATCHES =
+    MetricsKey("failed_batches", "Number of failed batches")
+  val FINISHED_BATCHES =
+    MetricsKey("finished_batches", "Number of finished batches")
+  val NUM_INPUT_ROWS =
+    MetricsKey("num_input_rows",
+      "The aggregate(across all sources) number of records processed in job")
+  val NUM_OUTPUT_ROWS =
+    MetricsKey("num_output_rows",
+      "The number of rows written to the sink in job(-1 for Continuous mode)")
+  val INPUT_ROWS_PER_SECOND =
+    MetricsKey("input_rows_per_second",
+      "The aggregate(across all sources) rate at which spark is processing data")
+  val PROCESSED_ROWS_PER_SECOND =
+    MetricsKey("processed_rows_per_seconds",
+      "The aggregate(across all sources) rate at which Spark is processing data")
+  val NUM_ROWS_TOTAL =
+    MetricsKey("num_rows_total", "Number of total state rows")
+  val NUM_ROWS_UPDATED =
+    MetricsKey("num_rows_updated", "Number of updated state rows")
+  val Memory_USED_BYTES =
+    MetricsKey("memory_used_bytes", "Memory used by state")
+  val NUM_ROWS_DROPPED_BY_WATERMARK =
+    MetricsKey("num_rows_dropped_by_watermark", "Number of rows which are dropped by watermark")
+  val BATCH_DURATION =
+    MetricsKey("batch_duration", "Total number of completed batches in job")
+  val TRIGGER_EXECUTION_DURATION =
+    MetricsKey("trigger_execution_duration", "Duration of trigger execution")
+  val GET_LATEST_OFFSET_DURATION =
+    MetricsKey("get_latest_offset_duration", "Duration of getting most recent offset")
+  val GET_OFFSET_DURATION =
+    MetricsKey("get_offset_duration", "Duration of getting the maximum available offset for source")
+  val WAL_COMMIT_DURATION =
+    MetricsKey("wal_commit_duration", "Duration of committing new offset")
+  val GET_BATCH_DURATION =
+    MetricsKey("get_batch_duration", "Duration of getting data between the offsets(`start`,`end`)")
+  val Query_PLANNING_DURATION =
+    MetricsKey("query_planning_duration", "Duration of building a spark query plan for execution")
+  val RUN_CONTINUOUS_DURATION =
+    MetricsKey("run_continuous_duration", "Duration of Execution time about executed plan")
 }

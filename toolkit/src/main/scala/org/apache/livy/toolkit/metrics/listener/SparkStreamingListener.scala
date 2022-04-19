@@ -18,26 +18,25 @@
 
 package org.apache.livy.toolkit.metrics.listener
 
-import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.TimeUnit
 
 import scala.collection.mutable.HashMap
 
-import org.apache.spark.SparkEnv
 import org.apache.spark.streaming.Time
 import org.apache.spark.streaming.scheduler.{BatchInfo, ReceiverInfo, StreamingListener, StreamingListenerBatchCompleted, StreamingListenerBatchStarted, StreamingListenerBatchSubmitted, StreamingListenerReceiverError, StreamingListenerReceiverStarted, StreamingListenerReceiverStopped, StreamingListenerStreamingStarted}
 
 import org.apache.livy.Logging
-import org.apache.livy.toolkit.metrics.common.{Metrics, MetricsKey, MetricsVariable}
-import org.apache.livy.toolkit.metrics.prometheus.PushGateway
+import org.apache.livy.toolkit.metrics.MetricsInitializer
+import org.apache.livy.toolkit.metrics.common.{Metrics, MetricsKey}
 
-private[metrics] class SparkStreamingListener extends StreamingListener with Logging {
+private[metrics] class SparkStreamingListener extends StreamingListener
+  with MetricsInitializer with Logging {
+
   private val waitingBatch = new HashMap[Time, BatchInfo]
   private val runningBatch = new HashMap[Time, BatchInfo]
   private val receiverInfos = new HashMap[Int, ReceiverInfo]
-  private var pushGateway: PushGateway = null
-  private val gauges: ConcurrentHashMap[MetricsKey, Long] = new ConcurrentHashMap[MetricsKey, Long]
-  private val SPARK_STREAMING_TYPE = "spark-streaming"
-  init()
+
+  initialize()
 
   override def onReceiverStarted(receiverStarted: StreamingListenerReceiverStarted): Unit = {
     synchronized {
@@ -116,41 +115,7 @@ private[metrics] class SparkStreamingListener extends StreamingListener with Log
     }
   }
 
-  def registerGauge(key: MetricsKey, value: Long): Unit = {
-    if (!gauges.containsKey(key)) {
-      gauges.put(key, value)
-      Metrics().addGauge(key, new MetricsVariable[Long] {
-        override def getValue: Long = gauges.get(key)
-      })
-    } else {
-      warn("Gauge: " + key.name + " already registers in SparkStreamingListener.")
-    }
-  }
-
-  def init(): Unit = {
-    initPushgateway()
-    Metrics.init(pushGateway)
-    registerAllGauge()
-  }
-
-  def initPushgateway(): Unit = {
-    val conf = SparkEnv.get.conf
-    val appId = conf.getAppId
-    val appName = conf.get("spark.app.name")
-    val queueName = conf.get("spark.yarn.queue")
-    val pushUrl = conf.get("spark.streaming.metrics.push.url")
-    val pushToken = conf.get("spark.streaming.metrics.push.token")
-    pushGateway = new PushGateway()
-      .setAppName(appName)
-      .setAppId(appId)
-      .setAppType(SPARK_STREAMING_TYPE)
-      .setQueueName(queueName)
-      .setPushUrl(pushUrl)
-      .setPushToken(pushToken)
-      .buildTargetUrl()
-  }
-
-  def registerAllGauge(): Unit = {
+  override def registerAllGauge(): Unit = {
     registerGauge(MetricsKey.LAST_RECEIVED_BATCH_RECORDS, 0)
     registerGauge(MetricsKey.RECEIVERS, 0)
   }

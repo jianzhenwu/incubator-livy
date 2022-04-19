@@ -130,16 +130,10 @@ class PushGateway() extends Closeable with Logging {
     this
   }
 
-  def setAppType(appType: String): PushGateway = {
-    this.appType = appType
-    this
-  }
-
   def buildTargetUrl(): PushGateway = {
     targetUrl = url + "/metrics/job/" + URLEncoder.encode(appId, StandardCharsets.UTF_8.name) +
     "/queue/" + URLEncoder.encode(queue, StandardCharsets.UTF_8.name) +
-    "/appName/" + URLEncoder.encode(appName, StandardCharsets.UTF_8.name) +
-    "/appType/" + URLEncoder.encode(appType, StandardCharsets.UTF_8.name)
+    "/appName/" + URLEncoder.encode(appName, StandardCharsets.UTF_8.name)
     this
   }
 }
