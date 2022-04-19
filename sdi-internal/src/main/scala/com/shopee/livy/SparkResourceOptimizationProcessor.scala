@@ -57,7 +57,9 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
         .map(_.trim)
         .filter(!_.equals("0"))
         .getOrElse("50")
-      appConf.putIfAbsent("spark.executor.instances", executorInstances)
+      // If dynamic is false, the executors should not be 0 even if the session
+      // is interactive.
+      appConf.put("spark.executor.instances", executorInstances)
       parallelism = executorCoresNum * executorInstances.toInt * 2
     }
 

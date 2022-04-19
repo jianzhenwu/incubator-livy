@@ -36,6 +36,7 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
 
       val appConf = mutable.HashMap[String, String](
         "spark.executor.cores" -> "1",
+        "spark.executor.instances" -> "0",
         "spark.dynamicAllocation.enabled" -> "false")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
@@ -53,9 +54,25 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     }
   }
 
+  it("should set user conf for spark.executor.instances value " +
+    "when dynamicAllocation is false") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.cores" -> "1",
+      "spark.executor.instances" -> "200",
+      "spark.dynamicAllocation.enabled" -> "false")
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+    assert(appConf("spark.executor.cores") == "1")
+    assert(appConf("spark.dynamicAllocation.enabled") == "false")
+    assert(appConf("spark.executor.instances") == "200")
+  }
+
   it("should set default value when dynamicAllocation is true") {
     val appConf = mutable.HashMap[String, String](
       "spark.executor.cores" -> "2",
+      "spark.executor.instances" -> "0",
       "spark.dynamicAllocation.enabled" -> "true")
     val context = ApplicationEnvContext(new util.HashMap[String, String](),
       appConf.asJava)
@@ -80,7 +97,7 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
       "spark.dynamicAllocation.minExecutors" -> "1",
       "spark.executor.instances" -> "200",
       "spark.sql.shuffle.partitions" -> "400",
-      "spark.default.parallelism" -> "400",
+      "spark.default.parallelism" -> "500",
       "spark.executor.memory" -> "2G",
       "spark.executor.memoryOverhead" -> "512M",
       "spark.driver.memoryOverhead" -> "512M")
@@ -94,7 +111,7 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     assert(appConf("spark.dynamicAllocation.enabled") == "true")
     assert(appConf("spark.dynamicAllocation.maxExecutors") == "200")
     assert(appConf("spark.sql.shuffle.partitions").toInt == 400)
-    assert(appConf("spark.default.parallelism").toInt == 400)
+    assert(appConf("spark.default.parallelism").toInt == 500)
     assert(appConf("spark.executor.memory" ) == "2G")
     assert(appConf("spark.executor.memoryOverhead") == "512M")
     assert(appConf("spark.driver.memoryOverhead") == "512M")
