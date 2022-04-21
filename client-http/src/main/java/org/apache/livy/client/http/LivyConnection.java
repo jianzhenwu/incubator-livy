@@ -45,7 +45,7 @@ import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.impl.NoConnectionReuseStrategy;
+import org.apache.http.impl.DefaultConnectionReuseStrategy;
 import org.apache.http.impl.auth.SPNegoSchemeFactory;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
@@ -149,9 +149,9 @@ class LivyConnection {
       .evictExpiredConnections()
       .evictIdleConnections(config.getTimeAsMs(CONNECTION_IDLE_TIMEOUT), TimeUnit.MILLISECONDS)
       .setConnectionManager(new BasicHttpClientConnectionManager())
-      .setConnectionReuseStrategy(new NoConnectionReuseStrategy())
+      .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
       .setDefaultRequestConfig(reqConfig)
-      .setMaxConnTotal(1)
+      .setMaxConnTotal(2)
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
 
