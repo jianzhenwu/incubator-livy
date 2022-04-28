@@ -20,8 +20,11 @@ package org.apache.livy.launcher;
 import java.util.Arrays;
 import java.util.Map;
 
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.ExpectedException;
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertNull;
 
 import org.apache.livy.launcher.exception.LivyLauncherException;
 
@@ -150,5 +153,22 @@ public class TestLivyOption {
     assertEquals(mockParser.getLivyUrl(), "livy-url");
     assertEquals(mockParser.getUsername(), "username");
     assertEquals(mockParser.getPassword(), "password");
+  }
+
+  @Rule
+  public ExpectedException exception = ExpectedException.none();
+
+  @Test
+  public void testValidateOptions() {
+    String[] args = {"--username", "test", "--password", null};
+
+    exception.expect(IllegalArgumentException.class);
+    String message = String.format("Rpc password empty from client side for user: %s,"
+            + " please set `HADOOP_USER_RPCPASSWORD` in the system environment, "
+            + "or check sdi credentials in %s",
+        "test", String.format("%s/.sdi/credentials", System.getProperty("user.home")));
+    exception.expectMessage(message);
+    LivyOption livyOption = new SparkSubmitOption(Arrays.asList(args));
+    assertNull(livyOption.getPassword());
   }
 }

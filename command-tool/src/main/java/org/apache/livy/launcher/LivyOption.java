@@ -396,6 +396,13 @@ public class LivyOption extends LivyOptionParser {
     if (args.size() == 0) {
       printUsageAndExit(LauncherExitCode.optionError);
     }
+    if (password == null) {
+      String message = String.format("Rpc password empty from client side for user: %s, "
+          + "please set `HADOOP_USER_RPCPASSWORD` in the system environment, "
+          + "or check sdi credentials in %s",
+          username, String.format("%s/.sdi/credentials", System.getProperty("user.home")));
+      throw new IllegalArgumentException(message);
+    }
     if (driverMemory != null
         && ByteUtils.byteStringAsBytes(driverMemory) <= 0) {
       throw new IllegalArgumentException(
