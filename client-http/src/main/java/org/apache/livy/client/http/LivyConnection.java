@@ -40,6 +40,7 @@ import org.apache.http.client.config.AuthSchemes;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.client.methods.*;
 import org.apache.http.client.protocol.HttpClientContext;
+import org.apache.http.config.ConnectionConfig;
 import org.apache.http.config.Registry;
 import org.apache.http.config.RegistryBuilder;
 import org.apache.http.entity.ByteArrayEntity;
@@ -52,6 +53,7 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.LaxRedirectStrategy;
 import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
+import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
@@ -144,14 +146,16 @@ class LivyConnection {
     CredentialsProvider credsProvider = new BasicCredentialsProvider();
     credsProvider.setCredentials(AuthScope.ANY, credentials);
 
+    PoolingHttpClientConnectionManager manager = new PoolingHttpClientConnectionManager();
+    manager.setMaxTotal(2);
+
     HttpClientBuilder builder = HttpClientBuilder.create()
       .setRedirectStrategy(new LaxRedirectStrategy())
       .evictExpiredConnections()
       .evictIdleConnections(config.getTimeAsMs(CONNECTION_IDLE_TIMEOUT), TimeUnit.MILLISECONDS)
-      .setConnectionManager(new BasicHttpClientConnectionManager())
+      .setConnectionManager(manager)
       .setConnectionReuseStrategy(new DefaultConnectionReuseStrategy())
       .setDefaultRequestConfig(reqConfig)
-      .setMaxConnTotal(2)
       .setDefaultCredentialsProvider(credsProvider)
       .setUserAgent("livy-client-http");
 
