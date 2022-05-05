@@ -76,8 +76,30 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
       .getOrElse(Math.max(executorMemoryNum * 0.25, 1024).toInt.toString + "M")
     appConf.putIfAbsent("spark.executor.memoryOverhead", executorMemoryOverhead)
 
+    val executorExtraJavaOptions = appConf.get("spark.executor.extraJavaOptions")
+    if (executorExtraJavaOptions != null) {
+      if (!executorExtraJavaOptions.contains("-XX:MaxDirectMemorySize")) {
+        appConf.put("spark.executor.extraJavaOptions",
+          executorExtraJavaOptions ++ s" -XX:MaxDirectMemorySize=$executorMemoryOverhead")
+      }
+    } else {
+      appConf.put("spark.executor.extraJavaOptions",
+        s"-XX:MaxDirectMemorySize=$executorMemoryOverhead")
+    }
+
     val driverMemoryOverhead = Option(appConf.get("spark.driver.memoryOverhead"))
       .getOrElse("1G")
     appConf.putIfAbsent("spark.driver.memoryOverhead", driverMemoryOverhead)
+
+    val driverExtraJavaOptions = appConf.get("spark.driver.extraJavaOptions")
+    if (driverExtraJavaOptions != null) {
+      if (!driverExtraJavaOptions.contains("-XX:MaxDirectMemorySize")) {
+        appConf.put("spark.driver.extraJavaOptions",
+          driverExtraJavaOptions ++ s" -XX:MaxDirectMemorySize=$driverMemoryOverhead")
+      }
+    } else {
+      appConf.put("spark.driver.extraJavaOptions",
+        s"-XX:MaxDirectMemorySize=$driverMemoryOverhead")
+    }
   }
 }

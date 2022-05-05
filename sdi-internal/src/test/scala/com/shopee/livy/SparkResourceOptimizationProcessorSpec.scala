@@ -129,4 +129,48 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     assert(appConf("spark.executor.memory") == "512M")
     assert(appConf("spark.executor.memoryOverhead") == "1024M")
   }
+
+  it("should set extra java option -XX:MaxDirectMemorySize according to memoryOverhead") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.memoryOverhead" -> "2048M",
+      "spark.driver.memoryOverhead" -> "2048M"
+    )
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+
+    assert(appConf("spark.executor.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+    assert(appConf("spark.driver.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+  }
+
+  it("should set -XX:MaxDirectMemorySize when extraJavaOptions not contains MaxDirectMemorySize") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.extraJavaOptions" -> "-XX:+PrintGCDetails",
+      "spark.driver.extraJavaOptions" -> "-XX:+PrintGCDetails"
+    )
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+
+    assert(appConf("spark.executor.extraJavaOptions") ==
+      "-XX:+PrintGCDetails -XX:MaxDirectMemorySize=1024M")
+    assert(appConf("spark.driver.extraJavaOptions") ==
+      "-XX:+PrintGCDetails -XX:MaxDirectMemorySize=1G")
+  }
+
+  it("should not overwrite the -XX:MaxDirectMemorySize option set by user") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.extraJavaOptions" -> "-XX:MaxDirectMemorySize=2048M",
+      "spark.driver.extraJavaOptions" -> "-XX:MaxDirectMemorySize=2048M"
+    )
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+
+    assert(appConf("spark.executor.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+    assert(appConf("spark.driver.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+  }
 }
