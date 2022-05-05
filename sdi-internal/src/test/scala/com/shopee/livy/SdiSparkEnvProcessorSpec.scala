@@ -45,7 +45,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       .getResource("spark-conf")
 
     val env = mutable.HashMap[String, String](
-      "SPARK_CONF_DIR" -> url.getPath
+      "SPARK_CONF_DIR" -> url.getPath,
+      "SPARK_HOME" -> "/opt/spark-2.4.7-sdi-026-bin-2.10.sdi-008"
     )
 
     val appConf = mutable.HashMap[String, String](

@@ -255,6 +255,7 @@ class ContextLauncher {
         confDir = sparkHome + File.separator + "conf";
       }
       env.put("SPARK_CONF_DIR", confDir);
+      env.put(SPARK_HOME_ENV, sparkHome);
 
       Map<String, String> confView = conf.toMap();
       ApplicationEnvContext context = new ApplicationEnvContext(env, confView);
