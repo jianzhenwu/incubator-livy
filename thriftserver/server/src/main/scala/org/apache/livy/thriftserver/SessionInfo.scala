@@ -23,7 +23,9 @@ import org.apache.hive.service.rpc.thrift.TProtocolVersion
 
 import org.apache.livy.{ConcurrentBoundedLinkedQueue, Logging}
 
-case class SessionInfo(username: String,
+case class SessionInfo(
+    sessionId: Int,
+    username: String,
     ipAddress: String,
     forwardedAddresses: util.List[String],
     operationMessages: Option[ConcurrentBoundedLinkedQueue[String]],

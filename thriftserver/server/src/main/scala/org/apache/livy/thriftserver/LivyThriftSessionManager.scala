@@ -227,9 +227,10 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
       Some(new ConcurrentBoundedLinkedQueue[String](livyConf.getLong(
         LivyConf.THRIFT_OPERATION_LOG_MAX_SIZE)))
     } else None
+    val nextId = server.livySessionManager.nextId()
     sessionInfo.put(sessionHandle,
-      new SessionInfo(username, ipAddress, SessionInfo.getForwardedAddresses, operationMessages,
-        protocol))
+      new SessionInfo(nextId, username, ipAddress, SessionInfo.getForwardedAddresses,
+        operationMessages, protocol))
     val (initStatements, createInteractiveRequest, sessionId) =
       LivyThriftSessionManager.processSessionConf(sessionConf, supportUseDatabase)
     val createLivySession = () => {
@@ -240,7 +241,7 @@ class LivyThriftSessionManager(val server: LivyThriftServer, val livyConf: LivyC
       Metrics().incrementCounter(MetricsKey.THRIFT_SESSION_TOTAL_COUNT)
 
       val newSession = InteractiveSession.create(
-        server.livySessionManager.nextId(),
+        nextId,
         createInteractiveRequest.name,
         username,
         None,
