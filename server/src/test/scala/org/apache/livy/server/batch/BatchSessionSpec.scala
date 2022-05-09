@@ -17,7 +17,7 @@
 
 package org.apache.livy.server.batch
 
-import java.io.FileWriter
+import java.io.{BufferedReader, FileInputStream, FileWriter, InputStreamReader}
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
@@ -68,7 +68,7 @@ class BatchSessionSpec
     try {
       writer.write(
         """
-        show databases
+        select 1
         """.stripMargin)
     } finally {
       writer.close()
@@ -98,6 +98,12 @@ class BatchSessionSpec
     script
   }
 
+  val outputPath: Path = {
+    val log = Files.createTempFile("output-file", ".csv")
+    Files.delete(log.toFile.toPath)
+    log.toFile.toPath
+  }
+
   describe("A Batch process") {
     Metrics.init(new LivyConf())
     var sessionStore: SessionStore = null
@@ -105,6 +111,12 @@ class BatchSessionSpec
     before {
       sessionStore = mock[SessionStore]
       Events.init(new LivyConf())
+    }
+
+    after {
+      if (Files.exists(outputPath)) {
+        Files.delete(outputPath)
+      }
     }
 
     it("should create a process") {
@@ -301,6 +313,55 @@ class BatchSessionSpec
     }
 
     it("should set toolkit jars when batch session is created") {
+      val batch = createTestBatchSession(createBatchRequest(sql))
+      batch.start()
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be (true)
+      batch.stopSession()
+    }
+
+    it("should execute failure when output path is existed and overwrite is false") {
+      assert(!Files.exists(outputPath))
+      Files.createFile(outputPath)
+      val batch = createTestBatchSession(
+        createBatchRequest(sql, Option(outputPath), Option(false)))
+      batch.start()
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be (false)
+    }
+
+    it("should write output stream to specified path") {
+      assert(!Files.exists(outputPath))
+      val batch = createTestBatchSession(createBatchRequest(sql, Option(outputPath)))
+      batch.start()
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be (true)
+      batch.stopSession()
+      Files.exists(outputPath) should be (true)
+      var reader: BufferedReader = null
+      try {
+        val inputStream = new FileInputStream(outputPath.toFile)
+        reader = new BufferedReader(new InputStreamReader(inputStream))
+        var line = reader.readLine
+        while (line != null) {
+          line should be ("\"1\"")
+          line = reader.readLine()
+        }
+      } finally {
+        if (reader != null) reader.close()
+      }
+    }
+
+    def createTestBatchSession(req: CreateBatchRequest): BatchSession = {
       val conf = new LivyConf()
         .set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
         .set(LivyConf.LIVY_SPARK_VERSIONS, "v3_0")
@@ -310,24 +371,27 @@ class BatchSessionSpec
         .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "v3_0")
 
       val accessManager = new AccessManager(conf)
+      BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
+    }
 
+    def createBatchRequest(
+        sql: Path,
+        outputPath: Option[Path] = None,
+        overwrite: Option[Boolean] = None): CreateBatchRequest = {
       val req = new CreateBatchRequest()
       req.files = List[String](sql.toString)
       req.file = jar.toString
       req.className = Some("org.apache.livy.toolkit.SparkSqlBootstrap")
       req.args = List[String](sql.toString)
-
       req.conf = Map(
         "spark.driver.extraClassPath" -> sys.props("java.class.path"),
         "spark.livy.spark_version_name" -> "v3_0"
       )
-      val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
-      batch.start()
-      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
-      (batch.state match {
-        case SessionState.Success(_) => true
-        case _ => false
-      }) should be(true)
+      outputPath.foreach(path =>
+        req.conf += ("spark.livy.sql.bootstrap.output" -> path.toString))
+      overwrite.foreach(v =>
+        req.conf += ("spark.livy.sql.bootstrap.output.overwrite" -> v.toString))
+      req
     }
 
     def testRecoverSession(name: Option[String]): Unit = {

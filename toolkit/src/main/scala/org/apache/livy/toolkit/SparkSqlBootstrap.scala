@@ -18,13 +18,18 @@
 package org.apache.livy.toolkit
 
 import java.io._
+import java.net.URI
 import java.nio.charset.StandardCharsets
 import java.util
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 
 import com.univocity.parsers.csv.{CsvWriter, CsvWriterSettings}
 import org.apache.commons.cli.MissingArgumentException
+import org.apache.hadoop.fs.FileSystem
+import org.apache.hadoop.fs.Path
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 import org.apache.livy.Utils
@@ -36,8 +41,19 @@ object SparkSqlBootstrap {
     if (args.length < 1) {
       throw new MissingArgumentException("The first parameter sqlFileName is missing.")
     }
-    val sqlFileName: String = args(0)
     val spark: SparkSession = SparkSession.builder.enableHiveSupport.getOrCreate()
+    val sparkConf: SparkConf = spark.sparkContext.getConf
+    val sqlFileName: String = args(0)
+    val outputPath: Option[String] = if (sparkConf.contains("spark.livy.sql.bootstrap.output")) {
+      Option(sparkConf.get("spark.livy.sql.bootstrap.output"))
+    } else {
+      None
+    }
+    val overwrite: Boolean = if (sparkConf.contains("spark.livy.sql.bootstrap.output.overwrite")) {
+      Try (sparkConf.get("spark.livy.sql.bootstrap.output.overwrite").toBoolean).getOrElse(false)
+    } else {
+      false
+    }
     // https://jira.shopee.io/browse/SPDI-8214
     val writerSettings = new CsvWriterSettings()
     val format = writerSettings.getFormat
@@ -52,7 +68,14 @@ object SparkSqlBootstrap {
     writerSettings.setSkipEmptyLines(true)
     writerSettings.setQuoteAllFields(true)
     writerSettings.setQuoteEscapingEnabled(true)
-    val writer = new OutputStreamWriter(System.out, StandardCharsets.UTF_8)
+    val writer =
+      outputPath.fold(new OutputStreamWriter(System.out, StandardCharsets.UTF_8)) { file =>
+        val fs = FileSystem.get(new URI(file), spark.sparkContext.hadoopConfiguration)
+        if (fs.exists(new Path(file)) && !overwrite) {
+          throw new IllegalArgumentException(s"Output file $file is existed.")
+        }
+        new OutputStreamWriter(fs.create(new Path(file)), StandardCharsets.UTF_8)
+      }
     val csvWriter = new CsvWriter(writer, writerSettings)
 
     val sparkSqlBootstrap: SparkSqlBootstrap =
