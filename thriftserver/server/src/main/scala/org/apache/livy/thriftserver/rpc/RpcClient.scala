@@ -100,11 +100,7 @@ class RpcClient(livySession: InteractiveSession) extends Logging {
   def executeRegisterSession(sessionHandle: SessionHandle): JobHandle[_] = {
     info(s"RSC client is executing register session $sessionHandle")
     livySession.recordActivity()
-    if (rscClient.isAlive) {
-      rscClient.submit(new RegisterSessionJob(sessionId(sessionHandle)))
-    } else {
-      throw new RuntimeException("rsc Client is not alive.")
-    }
+    rscClient.submit(new RegisterSessionJob(sessionId(sessionHandle)))
   }
 
   /**
