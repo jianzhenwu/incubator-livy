@@ -205,6 +205,9 @@ public class LivyOption extends LivyOptionParser {
       case HELP:
         this.printUsageAndExit(LauncherExitCode.normal);
         break;
+      case VERBOSE:
+        logger.warn("Option {} is not support by livy.", arg);
+        break;
       default:
         return false;
     }

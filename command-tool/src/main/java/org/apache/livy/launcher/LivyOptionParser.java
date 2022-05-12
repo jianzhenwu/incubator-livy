@@ -60,6 +60,7 @@ class LivyOptionParser {
 
   // Options that do not take arguments.
   protected final String HELP = "--help";
+  protected final String VERBOSE = "--verbose";
 
   // YARN-only options.
   protected final String ARCHIVES = "--archives";
@@ -88,7 +89,7 @@ class LivyOptionParser {
   /**
    * List of switches (command line options that do not take parameters) recognized by spark-submit.
    */
-  final String[][] switches = { { HELP, "-h" } };
+  final String[][] switches = { { HELP, "-h" }, {VERBOSE, "-v"} };
 
   private final Pattern eqSeparatedOpt = Pattern.compile("(--[^=]+)=(.+)");
 
