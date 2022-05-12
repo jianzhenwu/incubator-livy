@@ -31,6 +31,7 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
       .map(_.trim)
       .getOrElse("1")
     appConf.putIfAbsent("spark.executor.cores", executorCores)
+    appConf.putIfAbsent("spark.executorEnv.STRICT_CORE_NUMBER", executorCores)
     val executorCoresNum = executorCores.trim.toInt
 
     var parallelism = 0
