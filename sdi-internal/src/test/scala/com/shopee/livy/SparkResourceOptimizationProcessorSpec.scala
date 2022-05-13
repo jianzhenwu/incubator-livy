@@ -44,7 +44,9 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
       processor.process(context)
 
       assert(appConf("spark.executor.cores") == "1")
-      assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER") == "1")
+      val strictCoreFraction =
+        appConf.getOrElse("spark.executor.strictCoreNumber.fraction", "3").toInt
+      assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER").toInt == strictCoreFraction * 1)
       assert(appConf("spark.dynamicAllocation.enabled") == "false")
       assert(appConf("spark.executor.instances") == "50")
       assert(appConf("spark.sql.shuffle.partitions").toInt == 100)
@@ -66,7 +68,9 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     val processor = new SparkResourceOptimizationProcessor()
     processor.process(context)
     assert(appConf("spark.executor.cores") == "1")
-    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER") == "1")
+    val strictCoreFraction =
+      appConf.getOrElse("spark.executor.strictCoreNumber.fraction", "3").toInt
+    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER").toInt == strictCoreFraction * 1)
     assert(appConf("spark.dynamicAllocation.enabled") == "false")
     assert(appConf("spark.executor.instances") == "200")
   }
@@ -82,7 +86,9 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     processor.process(context)
 
     assert(appConf("spark.executor.cores") == "2")
-    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER") == "2")
+    val strictCoreFraction =
+      appConf.getOrElse("spark.executor.strictCoreNumber.fraction", "3").toInt
+    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER").toInt == strictCoreFraction * 2)
     assert(appConf("spark.dynamicAllocation.enabled") == "true")
     assert(appConf("spark.dynamicAllocation.maxExecutors") == "100")
     assert(appConf("spark.sql.shuffle.partitions").toInt == 200)
@@ -111,7 +117,9 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     processor.process(context)
 
     assert(appConf("spark.executor.cores") == "1")
-    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER") == "1")
+    val strictCoreFraction =
+      appConf.getOrElse("spark.executor.strictCoreNumber.fraction", "3").toInt
+    assert(appConf("spark.executorEnv.STRICT_CORE_NUMBER").toInt == strictCoreFraction * 1)
     assert(appConf("spark.dynamicAllocation.enabled") == "true")
     assert(appConf("spark.dynamicAllocation.maxExecutors") == "200")
     assert(appConf("spark.sql.shuffle.partitions").toInt == 400)
