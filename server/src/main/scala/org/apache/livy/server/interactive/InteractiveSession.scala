@@ -90,7 +90,7 @@ object InteractiveSession extends Logging {
       sessionStore: SessionStore,
       mockApp: Option[SparkApp] = None,
       mockClient: Option[RSCClient] = None): InteractiveSession = {
-    val appTag = s"livy-session-$id-${Random.alphanumeric.take(8).mkString}"
+    val appTag = s"livy:session-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
     val reqSparkVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {

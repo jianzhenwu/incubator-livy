@@ -52,7 +52,7 @@ class BlackholeStateStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
           |  "id": 408107,
           |  "appId": "application_1541532370353_1465148",
           |  "state": "running",
-          |  "appTag": "livy-batch-408107-2jAOFzDy",
+          |  "appTag": "livy:batch-408107-2jAOFzDy",
           |  "owner": "batch_admin",
           |  "proxyUser": "batch_opts",
           |  "version": 1
