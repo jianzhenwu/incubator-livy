@@ -75,6 +75,34 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
     assert(dmpAuthentication.validate(hadoopAccount, password))
   }
 
+  test("should not throw exception while encountering unknown properties") {
+    val request1 = new Request.Builder()
+      .method("GET", null)
+      .url(httpUrl)
+      .build()
+    val responseBody1 =
+      """{"code":200,"message":"SUCCESS","data":"123456","otherMsg": "request success"}"""
+
+    when(httpClient.newCall(any())).thenReturn(remoteCall)
+    when(remoteCall.execute()).thenReturn(mockResponse(request1, responseBody1))
+    assert(dmpAuthentication.getPassword(hadoopAccount).equals(password))
+
+    val requestBody =
+      """{"account":"spark","password":"123456"}"""
+    val request2 = new Request.Builder()
+      .method("POST", RequestBody.create(
+        requestBody,
+        MediaType.parse("application/json")))
+      .url(httpUrl)
+      .build()
+    val responseBody2 =
+      """{"code":200,"message":"SUCCESS","data":true, "otherMsg": "request success"}"""
+
+    when(httpClient.newCall(any())).thenReturn(remoteCall)
+    when(remoteCall.execute()).thenReturn(mockResponse(request2, responseBody2))
+    assert(dmpAuthentication.validate(hadoopAccount, password))
+  }
+
   private def mockResponse(request: Request, responseBody: String): Response = {
     new Response.Builder()
       .request(request)

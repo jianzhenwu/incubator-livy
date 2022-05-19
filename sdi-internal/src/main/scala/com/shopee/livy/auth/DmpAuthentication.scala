@@ -23,7 +23,7 @@ import scala.reflect.ClassTag
 import scala.reflect.classTag
 import scala.util.{Failure, Success, Try}
 
-import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.shopee.livy.auth.DmpAuthentication._
 import okhttp3.{Headers, HttpUrl, MediaType, OkHttpClient, Request, RequestBody}
 
@@ -38,6 +38,7 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
 
   private val objectMapper: ObjectMapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
+    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   private val headers: Map[String, String] =
     Map("Content-type" -> "application/json", "X-DMP-Authorization" -> serverToken)
