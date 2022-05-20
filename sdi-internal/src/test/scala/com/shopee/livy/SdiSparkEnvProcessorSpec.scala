@@ -77,7 +77,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster1.spark.rss.master.port" -> "9097",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
-      "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python")
+      "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
+      "spark.livy.hudi.jar" -> "/path/hudi.jar")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
 
@@ -135,6 +136,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
     // spark conf mapping should work
     assert(appConf("spark.pyspark.driver.python") == "./bin/python")
+
+    assert(appConf("spark.aux.jar") == "/path/hudi.jar")
   }
 
 }
