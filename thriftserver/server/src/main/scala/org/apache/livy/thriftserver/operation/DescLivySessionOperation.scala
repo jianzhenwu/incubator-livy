@@ -73,6 +73,7 @@ class DescLivySessionOperation(sessionHandle: SessionHandle,
 
     if (hasNext) {
       sessionVar.addRow(Array(session.id.toString, session.appId.orNull,
+        session.state.state,
         session.logLines(Some("stdout")).mkString("\n"),
         session.logLines(Some("stderr")).mkString("\n"),
         session.logLines(Some("yarnDiagnostics")).mkString("\n")))
@@ -86,6 +87,7 @@ object DescLivySessionOperation {
   val SCHEMA: Schema = Schema(
     Field("id", BasicDataType("string"), "Livy session id."),
     Field("appId", BasicDataType("string"), "Spark application id."),
+    Field("state", BasicDataType("string"), "Livy session state"),
     Field("stdout", BasicDataType("string"), "Spark application client stdout log."),
     Field("stderr", BasicDataType("string"), "Spark application client stderr log."),
     Field("yarnDiagnostics", BasicDataType("string"),
