@@ -34,6 +34,17 @@ object RssEnvProcessor {
   val SPARK_RSS_ENABLED = "spark.rss.enabled"
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
+
+  val defaultConf = Map(
+    "spark.shuffle.manager" -> "org.apache.spark.shuffle.rss.RssShuffleManager",
+    "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
+    "spark.shuffle.service.enabled" -> "false",
+    "spark.dynamicAllocation.shuffleTracking.enabled" -> "true",
+    "spark.rss.limit.inflight.timeout" -> "3600s",
+    "spark.rss.shuffle.writer.mode" -> "sort",
+    "spark.rss.push.data.maxReqsInFlight" -> "100000",
+    "spark.rss.partition.split.threshold" -> "1024M"
+  )
 }
 
 class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
@@ -57,10 +68,7 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
       }.foreach { kv =>
         appConf.put(StringUtils.substringAfter(kv._1, RSC_CONF_PREFIX + yarnCluster + "."), kv._2)
       }
-      appConf.put("spark.shuffle.manager", "org.apache.spark.shuffle.rss.RssShuffleManager")
-      appConf.put("spark.serializer", "org.apache.spark.serializer.KryoSerializer")
-      appConf.put("spark.shuffle.service.enabled", "false")
-      appConf.put("spark.dynamicAllocation.shuffleTracking.enabled", "true")
+      appConf.putAll(defaultConf.asJava)
     })
   }
 }
