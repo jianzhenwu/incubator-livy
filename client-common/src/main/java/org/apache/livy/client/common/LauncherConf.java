@@ -55,7 +55,7 @@ public class LauncherConf extends ClientConf<LauncherConf> {
     public Object dflt() { return dflt; }
   }
 
-  protected LauncherConf(Properties config) {
+  public LauncherConf(Properties config) {
     super(config);
   }
 

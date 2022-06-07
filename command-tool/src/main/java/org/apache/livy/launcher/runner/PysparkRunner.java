@@ -60,7 +60,7 @@ public class PysparkRunner extends AbstractInteractiveRunner {
     } catch (Exception e) {
       // Run statement and print error info.
     }
-    StatementResponse statementResponse = restClient.runStatement(code);
+    StatementResponse statementResponse = runStatement(code);
     handleStatementResponse(statementResponse);
     builder.setLength(0);
     prompt = PYTHON_PROMPT_START;

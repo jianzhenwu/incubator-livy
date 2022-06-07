@@ -308,8 +308,6 @@ class InteractiveRestClientSpec extends FunSpecLike
       client.waitUntilSessionStarted()
       assert(client.getSessionId === 0)
       assert(client.isInteractive)
-      val mockStatement = client.runStatement("")
-      assert(mockStatement.getOutputData.getData.isEmpty)
     }
   }
 }

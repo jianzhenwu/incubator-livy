@@ -34,7 +34,6 @@ import org.apache.livy.LivyClient;
 import org.apache.livy.client.common.HttpMessages;
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.Serializer;
-import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
@@ -242,41 +241,6 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     return 0;
   }
 
-  public StatementResponse runStatement(String code) {
-
-    long startTime = System.currentTimeMillis();
-    long timeout =
-        HttpClient.this.config.getTimeAsMs(LauncherConf.Entry.STATEMENT_TIMEOUT);
-    long offset = HttpClient.this.config
-        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
-    long step = HttpClient.this.config
-        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
-    long max = HttpClient.this.config
-        .getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
-
-    Interval interval = new RetryInterval(offset, step, max);
-
-    int finalStatementId =
-        new RetryTask<Integer>(startTime, timeout, interval) {
-          @Override
-          public Integer task() throws ConnectException {
-            StatementResponse submitRes = submitStatement(code);
-            return submitRes.getId();
-          }
-        }.run();
-
-    return new RetryTask<StatementResponse>(startTime, timeout, interval) {
-      @Override
-      public StatementResponse task() throws ConnectException {
-        StatementResponse runRes = statementResult(finalStatementId);
-        if (StatementState.Available.toString().equals(runRes.getState())) {
-          return runRes;
-        }
-        return null;
-      }
-    }.run();
-  }
-
   public void addOrUploadResources(InteractiveOptions args) {
     try {
       this.addOrUploadResources(args.getFiles(), ADD_FILE, UPLOAD_FILE, FILE);
@@ -337,7 +301,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     return handle;
   }
 
-  private StatementResponse statementResult(int statementId)
+  public StatementResponse statementResult(int statementId)
       throws ConnectException, ServiceUnavailableException {
     try {
       return conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
@@ -349,7 +313,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     }
   }
 
-  private StatementResponse submitStatement(String code)
+  public StatementResponse submitStatement(String code)
       throws ConnectException, ServiceUnavailableException{
     try {
       StatementOptions req = new StatementOptions(code);
@@ -359,76 +323,6 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
-    }
-  }
-
-  static class RetryInterval implements Interval {
-
-    private final long offset;
-    private final long step;
-    private final long max;
-
-    public RetryInterval(long offset, long step, long max) {
-      this.offset = offset;
-      this.step = step;
-      this.max = max;
-    }
-
-    @Override
-    public long interval(int count) {
-      double t = Math.log(count + 1) * step + offset;
-      return Double.valueOf(Math.min(t, max)).longValue();
-    }
-  }
-
-  interface Interval {
-    long interval(int count);
-  }
-
-  abstract class RetryTask<T> {
-
-    private final long startTime;
-    private final long timeout;
-    private final Interval interval;
-
-
-    public RetryTask(long startTime, long timeout, Interval interval) {
-      this.startTime = startTime;
-      this.timeout = timeout;
-      this.interval = interval;
-    }
-
-    /**
-     * User define task.
-     */
-    public abstract T task() throws ConnectException;
-
-    public T run() {
-
-      int count = 0;
-      while (true) {
-        try {
-          T t = task();
-          if (t != null) {
-            return t;
-          }
-        } catch (ConnectException | ServiceUnavailableException e) {
-          logger.warn("Please wait, the session {} is recovering.", sessionId);
-        }
-
-        long currentTime = System.currentTimeMillis();
-        if (timeout > 0 && currentTime - startTime > timeout) {
-          throw new TimeoutException(
-              "Timeout with session " + HttpClient.this.sessionId);
-        }
-
-        count += 1;
-        try {
-          Thread.sleep(this.interval.interval(count));
-        } catch (InterruptedException e) {
-          throw new RuntimeException(e);
-        }
-      }
     }
   }
 }

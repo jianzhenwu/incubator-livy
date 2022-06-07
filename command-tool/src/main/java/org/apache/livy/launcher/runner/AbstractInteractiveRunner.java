@@ -18,7 +18,9 @@
 package org.apache.livy.launcher.runner;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.URI;
+import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -28,7 +30,11 @@ import jline.console.history.FileHistory;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
+import org.apache.livy.client.common.LauncherConf;
+import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.HttpClient;
+import org.apache.livy.client.http.exception.ServiceUnavailableException;
+import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.response.StatementOutput;
 import org.apache.livy.client.http.response.StatementResponse;
 import org.apache.livy.launcher.LivyOption;
@@ -38,6 +44,8 @@ import org.apache.livy.launcher.util.LauncherUtils;
 import org.apache.livy.launcher.util.UriUtil;
 
 public abstract class AbstractInteractiveRunner {
+  private static final String PROCESS_FORMAT = "%-23s %-60s %s";
+  private static final int PROGRESS_BAR_CHARS = 60;
 
   protected HttpClient restClient;
   protected ConsoleReader consoleReader;
@@ -48,11 +56,13 @@ public abstract class AbstractInteractiveRunner {
   protected String prompt;
 
   private final LivyOption livyOption;
+  private final LauncherConf launcherConf;
   private FileHistory fileHistory;
 
   public AbstractInteractiveRunner(LivyOption livyOption) {
     try {
       this.livyOption = livyOption;
+      this.launcherConf = new LauncherConf(livyOption.getLauncherConf());
       String livyUrl = livyOption.getLivyUrl();
       if (StringUtils.isBlank(livyUrl)) {
         logger().error("Option livy-url can not be empty.");
@@ -155,6 +165,73 @@ public abstract class AbstractInteractiveRunner {
    */
   public abstract void handleLine(String line);
 
+  public StatementResponse runStatement(String code) {
+    long startTime = System.currentTimeMillis();
+    long timeout = launcherConf.getTimeAsMs(LauncherConf.Entry.STATEMENT_TIMEOUT);
+    long offset = launcherConf.getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_OFFSET);
+    long step = launcherConf.getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_STEP);
+    long max = launcherConf.getTimeAsMs(LauncherConf.Entry.STATEMENT_POLLING_INTERVAL_MAX);
+
+    Interval interval = new RetryInterval(offset, step, max);
+
+    int finalStatementId =
+        new RetryTask<Integer>(startTime, timeout, interval) {
+          @Override
+          public Integer task() throws ConnectException {
+            StatementResponse submitRes = restClient.submitStatement(code);
+            return submitRes.getId();
+          }
+        }.run();
+
+    return new RetryTask<StatementResponse>(startTime, timeout, interval) {
+      @Override
+      public StatementResponse task() throws ConnectException {
+        StatementResponse runRes = restClient.statementResult(finalStatementId);
+        boolean isAvailable = StatementState.Available.toString().equals(runRes.getState());
+        printProgress(runRes.getProgress(), isAvailable);
+        if (isAvailable) {
+          return runRes;
+        }
+        return null;
+      }
+    }.run();
+  }
+
+  private void printProgress(double percent, boolean isAvailable) {
+    String progress = String.format(
+        PROCESS_FORMAT,
+        new Timestamp(System.currentTimeMillis()),
+        getInPlaceProgressBar(percent),
+        (int) (percent * 100) + "%");
+    try {
+      this.consoleReader.print("\r");
+      this.consoleReader.print(progress);
+      if (isAvailable) {
+        this.consoleReader.println();
+      }
+      this.consoleReader.flush();
+    } catch (IOException e) {
+      logger().error("Failed to print statement execute progress.");
+    }
+  }
+
+  private String getInPlaceProgressBar(double percent) {
+    StringWriter bar = new StringWriter();
+    bar.append("[");
+    int remainingChars = PROGRESS_BAR_CHARS - 4;
+    int completed = (int) (remainingChars * percent);
+    int pending = remainingChars - completed;
+    for (int i = 0; i < completed; i++) {
+      bar.append("=");
+    }
+    bar.append(">");
+    for (int i = 0; i < pending; i++) {
+      bar.append(" ");
+    }
+    bar.append("]");
+    return bar.toString();
+  }
+
   public void handleStatementResponse(StatementResponse statementResponse) {
 
     StatementOutput output = statementResponse.getOutputData();
@@ -213,4 +290,74 @@ public abstract class AbstractInteractiveRunner {
    * @return Logger
    */
   protected abstract Logger logger();
+
+  static class RetryInterval implements Interval {
+
+    private final long offset;
+    private final long step;
+    private final long max;
+
+    public RetryInterval(long offset, long step, long max) {
+      this.offset = offset;
+      this.step = step;
+      this.max = max;
+    }
+
+    @Override
+    public long interval(int count) {
+      double t = Math.log(count + 1) * step + offset;
+      return Double.valueOf(Math.min(t, max)).longValue();
+    }
+  }
+
+  interface Interval {
+    long interval(int count);
+  }
+
+  abstract class RetryTask<T> {
+
+    private final long startTime;
+    private final long timeout;
+    private final Interval interval;
+
+
+    public RetryTask(long startTime, long timeout, Interval interval) {
+      this.startTime = startTime;
+      this.timeout = timeout;
+      this.interval = interval;
+    }
+
+    /**
+     * User define task.
+     */
+    public abstract T task() throws ConnectException;
+
+    public T run() {
+
+      int count = 0;
+      while (true) {
+        try {
+          T t = task();
+          if (t != null) {
+            return t;
+          }
+        } catch (ConnectException | ServiceUnavailableException e) {
+          logger().warn("Please wait, the session {} is recovering.", restClient.getSessionId());
+        }
+
+        long currentTime = System.currentTimeMillis();
+        if (timeout > 0 && currentTime - startTime > timeout) {
+          throw new TimeoutException(
+              "Timeout with session " + restClient.getSessionId());
+        }
+
+        count += 1;
+        try {
+          Thread.sleep(this.interval.interval(count));
+        } catch (InterruptedException e) {
+          throw new RuntimeException(e);
+        }
+      }
+    }
+  }
 }

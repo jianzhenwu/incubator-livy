@@ -69,7 +69,7 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
     this.executeSetHiveVar(this.hiveVar);
 
     if (StringUtils.isNotBlank(dbName)) {
-      restClient.runStatement(String.format("use %s ", dbName));
+      runStatement(String.format("use %s ", dbName));
     }
 
     if (initFiles != null && initFiles.length > 0) {
@@ -95,7 +95,7 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
       for (Map.Entry<String, String> e : entries) {
         String code =
             String.format("set hivevar:%s=%s", e.getKey(), e.getValue());
-        restClient.runStatement(code);
+        runStatement(code);
       }
     }
   }
@@ -183,7 +183,7 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
       if (StringUtils.isBlank(sql)) {
         continue;
       }
-      StatementResponse statementResponse = restClient.runStatement(sql);
+      StatementResponse statementResponse = runStatement(sql);
       handleStatementResponse(statementResponse);
     }
   }

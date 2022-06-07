@@ -52,7 +52,7 @@ public class SparkShellRunner extends AbstractInteractiveRunner {
     }
     String result = ScalaInterpreter.parse(code);
     if (!ScalaInterpreter.Incomplete().equals(result)) {
-      StatementResponse statementResponse = restClient.runStatement(code);
+      StatementResponse statementResponse = runStatement(code);
       handleStatementResponse(statementResponse);
 
       builder.setLength(0);
