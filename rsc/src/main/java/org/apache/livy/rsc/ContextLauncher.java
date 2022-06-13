@@ -17,14 +17,7 @@
 
 package org.apache.livy.rsc;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.Reader;
-import java.io.Writer;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.nio.file.Files;
 import java.util.*;
@@ -67,14 +60,10 @@ class ContextLauncher {
   private static final String SPARK_ARCHIVES_KEY = "spark.yarn.dist.archives";
   private static final String SPARK_HOME_ENV = "SPARK_HOME";
 
-  private static ApplicationEnvProcessor applicationEnvProcessor;
+  private ApplicationEnvProcessor applicationEnvProcessor;
 
   static DriverProcessInfo create(RSCClientFactory factory, RSCConf conf)
       throws IOException {
-
-    applicationEnvProcessor = ApplicationEnvProcessor$.MODULE$.apply(Optional
-        .ofNullable(conf.get(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY))
-        .orElse("org.apache.livy.DefaultApplicationEnvProcessor"));
 
     ContextLauncher launcher = new ContextLauncher(factory, conf);
     return new DriverProcessInfo(launcher.promise, launcher.child.child,
@@ -99,6 +88,10 @@ class ContextLauncher {
     this.conf = conf;
     this.factory = factory;
     this.factoryUnrefed = false;
+
+    this.applicationEnvProcessor = ApplicationEnvProcessor$.MODULE$.apply(Optional
+        .ofNullable(conf.get(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY))
+        .orElse("org.apache.livy.DefaultSparkEnvProcessor"));
 
     final RegistrationHandler handler = new RegistrationHandler();
     try {
@@ -164,7 +157,7 @@ class ContextLauncher {
     }
   }
 
-  private static ChildProcess startDriver(final RSCConf conf, Promise<?> promise)
+  private ChildProcess startDriver(final RSCConf conf, Promise<?> promise)
       throws IOException {
     String livyJars = conf.get(LIVY_JARS);
     if (livyJars == null) {
@@ -223,6 +216,31 @@ class ContextLauncher {
       }
     }
 
+    String sparkHome = conf.get("livy.rsc.spark-home");
+    // unit test need get spark home from system env
+    if (sparkHome == null) {
+      sparkHome = System.getenv(SPARK_HOME_ENV);
+    }
+
+    // We define env to contain SPARK_HOME and SPARK_CONF_DIR,
+    // it will be set into the env of spark process.
+    Map<String, String> env = new HashMap<>();
+    // We define appConf to contain SPARK_CONF_DIR and USER_NAME,
+    // it will be used in processor.
+    Map<String, String> appConf = conf.toMap();
+
+    String confDir = conf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY);
+    if (confDir == null) {
+      confDir = sparkHome + File.separator + "conf";
+      appConf.put(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, confDir);
+    }
+    env.put("SPARK_CONF_DIR", confDir);
+    env.put(SPARK_HOME_ENV, sparkHome);
+
+    ApplicationEnvContext context = new ApplicationEnvContext(env, appConf);
+    applicationEnvProcessor.process(context);
+    appConf.forEach(conf::set);
+
     if (ContextLauncher.mockSparkSubmit != null) {
       LOG.warn("!!!! Using mock spark-submit. !!!!");
       final File confFile = writeConfToFile(conf);
@@ -243,27 +261,6 @@ class ContextLauncher {
       };
       return new ChildProcess(conf, promise, child, confFile);
     } else {
-      String sparkHome = conf.get("livy.rsc.spark-home");
-      // unit test need get spark home from system env
-      if (sparkHome == null) {
-        sparkHome = System.getenv(SPARK_HOME_ENV);
-      }
-
-      Map<String, String> env = new HashMap<>();
-      String confDir = conf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY);
-      if (confDir == null) {
-        confDir = sparkHome + File.separator + "conf";
-      }
-      env.put("SPARK_CONF_DIR", confDir);
-      env.put(SPARK_HOME_ENV, sparkHome);
-
-      Map<String, String> confView = conf.toMap();
-      ApplicationEnvContext context = new ApplicationEnvContext(env, confView);
-      applicationEnvProcessor.process(context);
-
-      confView.forEach((k,v) -> {
-        conf.set(k, v);
-      });
 
       final File confFile = writeConfToFile(conf);
 
@@ -305,31 +302,6 @@ class ContextLauncher {
         key = RSCConf.LIVY_SPARK_PREFIX + key;
       }
       confView.setProperty(key, e.getValue());
-    }
-
-    // Load the default Spark configuration.
-    String confDir = conf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY);
-    if (confDir == null && conf.get("livy.rsc.spark-home") != null) {
-      confDir = conf.get("livy.rsc.spark-home") + File.separator + "conf";
-    }
-
-    if (confDir != null) {
-      File sparkDefaults = new File(confDir + File.separator + "spark-defaults.conf");
-      if (sparkDefaults.isFile()) {
-        Properties sparkConf = new Properties();
-        Reader r = new InputStreamReader(new FileInputStream(sparkDefaults), UTF_8);
-        try {
-          sparkConf.load(r);
-        } finally {
-          r.close();
-        }
-
-        for (String key : sparkConf.stringPropertyNames()) {
-          if (!confView.containsKey(key)) {
-            confView.put(key, sparkConf.getProperty(key));
-          }
-        }
-      }
     }
 
     File file = File.createTempFile("livyConf", ".properties");

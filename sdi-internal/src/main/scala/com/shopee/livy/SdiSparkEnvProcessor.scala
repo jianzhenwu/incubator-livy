@@ -23,15 +23,23 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
 
 object SdiSparkEnvProcessor {
 
+  /**
+   * Do not change the order of DefaultsConfLivyProcessor and DefaultsConfSparkProcessor
+   * in processorNames. The spark-defaults.conf of Livy is available for all processors
+   * except SparkConfMappingProcessor, while the spark-defaults.conf of Spark
+   * is unavailable for all processors.
+   */
   val processorNames = Seq(
     "com.shopee.livy.SparkConfMappingProcessor",
+    "com.shopee.livy.DefaultsConfLivyProcessor",
     "com.shopee.livy.SdiHadoopEnvProcessor",
     "com.shopee.livy.S3aEnvProcessor",
     "com.shopee.livy.SparkResourceOptimizationProcessor",
     "com.shopee.livy.StreamingMetricProcessor",
     "com.shopee.livy.DockerEnvProcessor",
     "com.shopee.livy.RssEnvProcessor",
-    "com.shopee.livy.HudiConfProcessor"
+    "com.shopee.livy.HudiConfProcessor",
+    "com.shopee.livy.DefaultsConfSparkProcessor"
   )
 
   lazy val processorInstances: Seq[ApplicationEnvProcessor] =

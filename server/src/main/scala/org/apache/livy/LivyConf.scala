@@ -84,9 +84,9 @@ object LivyConf {
 
   // Set authentication to environment when start an application.
   val LIVY_SPARK_ENV_PROCESSOR = Entry(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
-    "org.apache.livy.DefaultApplicationEnvProcessor")
+    "org.apache.livy.DefaultSparkEnvProcessor")
   val LIVY_HADOOP_ENV_PROCESSOR = Entry(ClientConf.LIVY_HADOOP_ENV_PROCESSOR_KEY,
-    "org.apache.livy.DefaultApplicationEnvProcessor")
+    "org.apache.livy.DefaultHadoopEnvProcessor")
 
   val ACCESS_CONTROL_ENABLED = Entry("livy.server.access-control.enabled", false)
   // Allowed users to access Livy, by default any user is allowed to access Livy. If user want to

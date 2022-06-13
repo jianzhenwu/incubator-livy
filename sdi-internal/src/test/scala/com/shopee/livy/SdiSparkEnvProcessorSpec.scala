@@ -78,7 +78,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
       "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
-      "spark.livy.hudi.jar" -> "/path/hudi.jar")
+      "spark.livy.hudi.jar" -> "/path/hudi.jar",
+      "spark.driver.extraClassPath" -> "/user")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
 
@@ -142,6 +143,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.pyspark.driver.python") == "./bin/python")
 
     assert(appConf("spark.aux.jar") == "/path/hudi.jar")
+    // should merge spark-defaults.conf
+    assert(appConf("spark.driver.extraClassPath") == "/default:/livy:/user")
+    assert(!appConf.contains("spark.driver.extraLibraryPath"))
   }
 
 }

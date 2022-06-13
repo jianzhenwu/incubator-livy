@@ -15,68 +15,44 @@
  * limitations under the License.
  */
 
-package org.apache.livy
+package com.shopee.livy
 
 import java.io.File
 
-import scala.collection.JavaConverters.{mapAsScalaMapConverter, propertiesAsScalaMapConverter}
+import scala.collection.JavaConverters.mapAsScalaMapConverter
+import scala.collection.mutable
 
+import com.shopee.livy.utils.SparkConfUtils
+
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging, Utils}
 import org.apache.livy.client.common.ClientConf
 
-case class ApplicationEnvContext(env: java.util.Map[String, String],
-    appConf: java.util.Map[String, String])
-
-trait ApplicationEnvProcessor {
-
-  def process(applicationEnvContext: ApplicationEnvContext)
-
-}
-
-class DefaultHadoopEnvProcessor extends ApplicationEnvProcessor with Logging {
-  override def process(
-      applicationEnvContext: ApplicationEnvContext): Unit = {
-  }
-}
-
-class DefaultSparkEnvProcessor extends ApplicationEnvProcessor with Logging {
+class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
-    val appConf = applicationEnvContext.appConf
-    val sparkDefaults =
-      ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-defaults.conf")
-    if (null != sparkDefaults) {
-      sparkDefaults.asScala.foreach(kv => {
-        if (!appConf.containsKey(kv._1)) {
-          appConf.put(kv._1, kv._2)
-        }
-      })
-    }
 
+    val appConf = applicationEnvContext.appConf
     val sparkConfDir = appConf.asScala.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY)
+      .orElse(applicationEnvContext.env.asScala.get("SPARK_CONF_DIR"))
 
     sparkConfDir.foreach(dir => {
       val sparkDefaults = new File(dir + File.separator + "spark-defaults.conf")
       if (sparkDefaults.isFile) {
+        val sparkDefaultsConf = new mutable.HashMap[String, String]()
         val props = Utils.getPropertiesFromFile(sparkDefaults)
         props.foreach(kv => {
-          if (!appConf.containsKey(kv._1)) {
-            appConf.put(kv._1, kv._2)
+          // Contains configuration that needs to be merged into appConf.
+          if (appConf.containsKey(kv._1)) {
+            sparkDefaultsConf.put(kv._1, kv._2)
           }
+        })
+        val mergeConf = SparkConfUtils.mergeSparkConf(appConf.asScala, sparkDefaultsConf)
+        mergeConf.foreach(kv => {
+          appConf.put(kv._1, kv._2)
         })
       } else {
         logger.error(s"Fail to load ${sparkDefaults.getAbsolutePath}")
       }
     })
-  }
-
-}
-
-object ApplicationEnvProcessor {
-
-  def apply(clazz: String): ApplicationEnvProcessor = {
-    Class.forName(clazz)
-      .asSubclass(classOf[ApplicationEnvProcessor])
-      .getConstructor()
-      .newInstance()
   }
 }

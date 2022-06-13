@@ -17,13 +17,15 @@
 
 package org.apache.livy.utils
 
-import java.util
+import java.io.File
+import java.util.Properties
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, Logging}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging, Utils}
+import org.apache.livy.LivyConf.{SPARK_CONF_DIR, SPARK_HOME}
 import org.apache.livy.client.common.ClientConf
 
 class SparkProcessBuilder(livyConf: LivyConf,
@@ -34,15 +36,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _deployMode: Option[String] = None
   private[this] var _className: Option[String] = None
   private[this] var _name: Option[String] = None
-  private[this] val _conf =
-    Option(ClassLoaderUtils.loadAsPropertiesFromClasspath("spark-defaults.conf")) match {
-      case Some(defaultConf) =>
-        val config = mutable.HashMap[String, String]()
-        defaultConf.asScala.foreach(kv => config.put(kv._1, kv._2))
-        config
-      case None =>
-        mutable.HashMap[String, String]()
-    }
+  private[this] val _conf = mutable.HashMap[String, String]()
   private[this] var _driverClassPath: ArrayBuffer[String] = ArrayBuffer()
   private[this] var _proxyUser: Option[String] = None
   private[this] var _queue: Option[String] = None
@@ -85,7 +79,11 @@ class SparkProcessBuilder(livyConf: LivyConf,
   }
 
   def conf(key: String, value: String, admin: Boolean = false): SparkProcessBuilder = {
-    this._conf(key) = value
+    if (null != value) {
+      this._conf(key) = value
+    } else {
+      this._conf.remove(key)
+    }
     this
   }
 
@@ -175,6 +173,32 @@ class SparkProcessBuilder(livyConf: LivyConf,
     this
   }
 
+  private[utils] def createApplicationEnvContext(): ApplicationEnvContext = {
+    val appEnv = new java.util.HashMap[String, String]()
+    var sparkHome: String = null
+    val sparkConfDir = if (livyConf.sparkVersions.nonEmpty) {
+      sparkHome = livyConf.sparkHome(reqSparkVersion).get
+      livyConf.sparkConfDir(reqSparkVersion)
+    } else {
+      sparkHome = Option(livyConf.get(SPARK_HOME)).orElse(
+        sys.env.get("SPARK_HOME")).get
+      Option(livyConf.get(SPARK_CONF_DIR)).orElse(
+        Some(sparkHome + File.separator + "conf"))
+    }
+    appEnv.put("SPARK_HOME", sparkHome)
+
+    if (sparkConfDir.nonEmpty) {
+      appEnv.put("SPARK_CONF_DIR", sparkConfDir.get)
+      conf(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
+    }
+
+    conf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, _username)
+
+    val context = ApplicationEnvContext(appEnv, _conf.asJava)
+    applicationEnvProcessor.process(context)
+    context
+  }
+
   def start(file: Option[String], args: Traversable[String]): LineBufferedProcess = {
     var arguments = ArrayBuffer(_executable)
 
@@ -197,33 +221,20 @@ class SparkProcessBuilder(livyConf: LivyConf,
     addOpt("--name", _name)
     addOpt("--class", _className)
 
-    val appEnv = new util.HashMap[String, String]()
-    if (livyConf.sparkVersions.nonEmpty) {
-      val sparkHome = livyConf.sparkHome(reqSparkVersion).get
-      appEnv.put("SPARK_HOME", sparkHome)
-      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
-      if (sparkConfDir.nonEmpty) {
-        appEnv.put("SPARK_CONF_DIR", sparkConfDir.get)
-        _conf.put(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
-      }
-    }
-    // Can not set null value to conf.
-    Option(_username).foreach { username =>
-      _conf.put(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, username)
-    }
-
-    val context = ApplicationEnvContext(appEnv, _conf.asJava)
-    applicationEnvProcessor.process(context)
+    val context = this.createApplicationEnvContext()
+    val appEnv = context.env
 
     _conf.foreach { case (key, value) =>
       if (key == "spark.submit.pyFiles") {
-         arguments += "--py-files"
-         arguments += f"$value"
-      } else {
-         arguments += "--conf"
-         arguments += f"$key=$value"
+        arguments += "--py-files"
+        arguments += f"$value"
+      } else if (key != null && value != null) {
+        // Can not set null in Properties.
+        arguments += "--conf"
+        arguments += f"$key=$value"
       }
     }
+
     addList("--driver-class-path", _driverClassPath)
 
     if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {

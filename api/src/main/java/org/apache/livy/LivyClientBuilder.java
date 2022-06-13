@@ -20,11 +20,7 @@ package org.apache.livy;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Properties;
-import java.util.ServiceLoader;
+import java.util.*;
 
 /**
  * A builder for Livy clients.
@@ -76,7 +72,7 @@ public final class LivyClientBuilder {
     this.config = new Properties();
 
     if (loadDefaults) {
-      String[] confFiles = { "spark-defaults.conf", "livy-client.conf" };
+      String[] confFiles = { "livy-client.conf" };
 
       for (String file : confFiles) {
         Properties props = ClassLoaderUtils.loadAsPropertiesFromClasspath(file);
