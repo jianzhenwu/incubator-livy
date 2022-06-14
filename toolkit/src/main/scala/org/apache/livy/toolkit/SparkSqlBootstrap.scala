@@ -32,7 +32,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
-import org.apache.livy.Utils
+import org.apache.livy.{Logging, Utils}
 
 object SparkSqlBootstrap {
   @throws[IOException]
@@ -85,7 +85,7 @@ object SparkSqlBootstrap {
   }
 }
 
-class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) {
+class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) extends Logging {
 
   @throws[IOException]
   private def executeSqlFile(fileName: String): Unit = {
@@ -94,6 +94,7 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) {
     sqlList.asScala.foreach { e =>
       var sql: String = e
       if (isSqlEnd(sql)) sql = sql.substring(0, sql.length - 1)
+      info(s"Execute SQL: $sql")
       val dataset: DataFrame = spark.sql(sql)
       outputResult(dataset)
     }
