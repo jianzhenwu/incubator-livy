@@ -91,4 +91,10 @@ object MetricsKey {
     MetricsKey("customize_authentication_total_count",
       "Total Count of Called Customize Authentication interface")
 
+  val ZK_MANAGER_SYNC_PROCESSING_TIME = MetricsKey("zk_manager_sync_processing_time",
+    "Time to sync Zookeeper path")
+  val ZK_MANAGER_SYNC_TOTAL_COUNT = MetricsKey("zk_manager_sync_total_count",
+    "Total count of synchronized Zookeeper paths")
+  val ZK_MANAGER_SYNC_TIMEOUT_COUNT = MetricsKey("zk_manager_sync_timeout_count",
+    "Total count of Zookeeper path sync timeout")
 }

@@ -34,6 +34,7 @@ import org.apache.zookeeper.KeeperException.NoNodeException
 import org.apache.zookeeper.data.Stat
 
 import org.apache.livy.{LivyConf, Logging}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.utils.LivyUncaughtException
 
 class ZooKeeperManager(
@@ -104,6 +105,7 @@ class ZooKeeperManager(
 
   def awaitSync(key: String): Boolean = {
     val latch = new CountDownLatch(1)
+    Metrics().incrementCounter(MetricsKey.ZK_MANAGER_SYNC_TOTAL_COUNT)
     val callback = new BackgroundCallback() {
       override def processResult(client: CuratorFramework, event: CuratorEvent): Unit = {
         if (event.getType eq CuratorEventType.SYNC) latch.countDown()
@@ -111,7 +113,17 @@ class ZooKeeperManager(
     }
     curatorClient.sync.inBackground(callback).forPath(key)
     val timeout = livyConf.getTimeAsMs(LivyConf.ZK_SYNC_TIMEOUT)
-    latch.await(timeout, TimeUnit.MILLISECONDS)
+    var isSyncSuccess = false
+    try {
+      Metrics().startStoredScope(MetricsKey.ZK_MANAGER_SYNC_PROCESSING_TIME)
+      isSyncSuccess = latch.await(timeout, TimeUnit.MILLISECONDS)
+      if (!isSyncSuccess) {
+        Metrics().incrementCounter(MetricsKey.ZK_MANAGER_SYNC_TIMEOUT_COUNT)
+      }
+    } finally {
+      Metrics().endStoredScope(MetricsKey.ZK_MANAGER_SYNC_PROCESSING_TIME)
+    }
+    isSyncSuccess
   }
 
   def get[T: ClassTag](key: String, stat: Option[Stat] = None): Option[T] = {
