@@ -123,9 +123,15 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
                     val hadoopHome = Seq("bash", "-c",
                       "source " + conf + "/spark-env.sh; echo $HADOOP_HOME").!!
                     if (hadoopHome != null && hadoopHome.nonEmpty) {
+
+                      val hadoopLib = s"${hadoopHome.trim}/share/hadoop/tools/lib"
+                      val jars = this.getAwsJarsFromHadoopLib(hadoopLib)
+                      appConf.put("spark.jars",
+                        s"$jars,${appConf.getOrDefault("spark.jars", "")}")
+
                       classPath = "$HADOOP_CLASSPATH:" +
-                        s"${hadoopHome.trim}/share/hadoop/tools/lib/hadoop-aws-*.jar:" +
-                        s"${hadoopHome.trim}/share/hadoop/tools/lib/aws-java-sdk-bundle-*.jar"
+                        s"$hadoopLib/hadoop-aws-*.jar:" +
+                        s"$hadoopLib/aws-java-sdk-bundle-*.jar"
                     }
                   } catch {
                     case e: Exception =>
@@ -139,6 +145,19 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
         }
       }
     }
+  }
+
+  def getAwsJarsFromHadoopLib(hadoopLib: String): String = {
+    import reflect.io._
+    import Path._
+    s"$hadoopLib"
+      .toDirectory
+      .files
+      .map(_.path)
+      .filter(name => name matches
+        s"""$hadoopLib/((hadoop-aws)|(aws-java-sdk-bundle))-.*\\.jar"""
+      )
+      .mkString(",")
   }
 
 }
