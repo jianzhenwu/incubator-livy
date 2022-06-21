@@ -21,11 +21,13 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.shopee.livy.auth.DmpAuthentication
+import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils}
+import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 import org.apache.livy.client.common.ClientConf
 
 class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
@@ -78,7 +80,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
       "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
-      "spark.livy.hudi.jar" -> "/path/hudi.jar",
+      SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
       "spark.driver.extraClassPath" -> "/user")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava)
@@ -142,7 +144,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     // spark conf mapping should work
     assert(appConf("spark.pyspark.driver.python") == "./bin/python")
 
-    assert(appConf("spark.aux.jar") == "/path/hudi.jar")
+    assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar")
     // should merge spark-defaults.conf
     assert(appConf("spark.driver.extraClassPath") == "/default:/livy:/user")
     assert(!appConf.contains("spark.driver.extraLibraryPath"))

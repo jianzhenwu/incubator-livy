@@ -17,14 +17,30 @@
 
 package com.shopee.livy
 
+import scala.collection.mutable.ArrayBuffer
+
+import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
+
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
+import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
+
+object HudiConfProcessor {
+  val SPARK_LIVY_HUDI_JAR = "spark.livy.hudi.jar"
+}
 
 class HudiConfProcessor extends ApplicationEnvProcessor with Logging {
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
     val appConf = applicationEnvContext.appConf
 
-    Option(appConf.get("spark.livy.hudi.jar")).foreach { e =>
-      appConf.putIfAbsent("spark.aux.jar", e)
+    val jars = new ArrayBuffer[String]()
+    Option(appConf.get(SPARK_LIVY_HUDI_JAR))
+      .filter(_.nonEmpty)
+      .foreach(jars += _.trim)
+    Option(appConf.get(SPARK_AUX_JAR))
+      .filter(_.nonEmpty)
+      .foreach(jars += _.trim)
+    if (jars.nonEmpty) {
+      appConf.put(SPARK_AUX_JAR, jars.mkString(","))
     }
   }
 }

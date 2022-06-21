@@ -73,6 +73,8 @@ class DefaultSparkEnvProcessor extends ApplicationEnvProcessor with Logging {
 
 object ApplicationEnvProcessor {
 
+  val SPARK_AUX_JAR = "spark.aux.jar"
+
   def apply(clazz: String): ApplicationEnvProcessor = {
     Class.forName(clazz)
       .asSubclass(classOf[ApplicationEnvProcessor])

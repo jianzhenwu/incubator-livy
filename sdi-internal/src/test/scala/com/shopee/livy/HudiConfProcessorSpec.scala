@@ -22,10 +22,12 @@ import java.util
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
+import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.ApplicationEnvContext
+import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 
 class HudiConfProcessorSpec extends ScalatraSuite with FunSpecLike {
 
@@ -33,36 +35,35 @@ class HudiConfProcessorSpec extends ScalatraSuite with FunSpecLike {
 
     it("should overwrite hudi jar") {
       val appConf = mutable.HashMap[String, String](
-        "spark.livy.hudi.jar" -> "/path/hudi.jar")
+        SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
 
-      assert(appConf("spark.aux.jar") == "/path/hudi.jar")
+      assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar")
     }
 
-    it("should overwrite hudi jar even with empty value") {
+    it("should not overwrite hudi jar with empty value") {
       val appConf = mutable.HashMap[String, String](
-        "spark.livy.hudi.jar" -> "")
+        SPARK_LIVY_HUDI_JAR -> "")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
-
-      assert(appConf("spark.aux.jar") == "")
+      assert(!appConf.contains(SPARK_AUX_JAR))
     }
 
-    it("should not overwrite hudi jar when aux jar exists") {
+    it("should merge hudi jar") {
       val appConf = mutable.HashMap[String, String](
-        "spark.livy.hudi.jar" -> "/path/hudi.jar",
-        "spark.aux.jar" -> "/default/hudi.jar")
+        SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
+        SPARK_AUX_JAR -> "/path/others.jar")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
 
-      assert(appConf("spark.aux.jar") == "/default/hudi.jar")
+      assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar,/path/others.jar")
     }
   }
 }
