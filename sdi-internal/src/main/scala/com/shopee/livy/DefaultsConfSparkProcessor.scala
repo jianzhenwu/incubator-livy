@@ -24,7 +24,7 @@ import scala.collection.mutable
 
 import com.shopee.livy.utils.SparkConfUtils
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging, Utils}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging, SessionType, Utils}
 import org.apache.livy.client.common.ClientConf
 
 class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
@@ -35,14 +35,23 @@ class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
     val sparkConfDir = appConf.asScala.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY)
       .orElse(applicationEnvContext.env.asScala.get("SPARK_CONF_DIR"))
 
+    if (applicationEnvContext.sessionType.isEmpty) {
+      throw new ProcessorException(
+        "SessionType can not be empty when using DefaultsConfSparkProcessor.")
+    }
     sparkConfDir.foreach(dir => {
       val sparkDefaults = new File(dir + File.separator + "spark-defaults.conf")
       if (sparkDefaults.isFile) {
         val sparkDefaultsConf = new mutable.HashMap[String, String]()
         val props = Utils.getPropertiesFromFile(sparkDefaults)
         props.foreach(kv => {
-          // Contains configuration that needs to be merged into appConf.
-          if (appConf.containsKey(kv._1)) {
+          // Contains configuration that needs to be merged into appConf when
+          // using batches in order to reduce the length of submitting command.
+          if (applicationEnvContext.sessionType.get == SessionType.Batches) {
+            if (appConf.containsKey(kv._1)) {
+              sparkDefaultsConf.put(kv._1, kv._2)
+            }
+          } else {
             sparkDefaultsConf.put(kv._1, kv._2)
           }
         })

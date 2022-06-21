@@ -26,6 +26,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging, Utils}
 import org.apache.livy.LivyConf.{SPARK_CONF_DIR, SPARK_HOME}
+import org.apache.livy.SessionType
 import org.apache.livy.client.common.ClientConf
 
 class SparkProcessBuilder(livyConf: LivyConf,
@@ -194,7 +195,7 @@ class SparkProcessBuilder(livyConf: LivyConf,
 
     conf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, _username)
 
-    val context = ApplicationEnvContext(appEnv, _conf.asJava)
+    val context = ApplicationEnvContext(appEnv, _conf.asJava, Some(SessionType.Batches))
     applicationEnvProcessor.process(context)
     context
   }

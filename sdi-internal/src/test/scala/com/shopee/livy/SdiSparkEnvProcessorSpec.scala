@@ -26,7 +26,7 @@ import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, SessionType}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 import org.apache.livy.client.common.ClientConf
 
@@ -83,7 +83,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
       "spark.driver.extraClassPath" -> "/user")
 
-    val context = ApplicationEnvContext(env.asJava, appConf.asJava)
+    val context = ApplicationEnvContext(env.asJava, appConf.asJava,
+      Some(SessionType.Batches))
 
     val processor =
       ApplicationEnvProcessor.apply("com.shopee.livy.SdiSparkEnvProcessor")

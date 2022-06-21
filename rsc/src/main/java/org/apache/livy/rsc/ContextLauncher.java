@@ -28,6 +28,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.nio.file.attribute.PosixFilePermission.*;
 
+import scala.Some;
+
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.util.concurrent.Promise;
 import org.apache.spark.launcher.SparkLauncher;
@@ -37,6 +39,7 @@ import org.slf4j.LoggerFactory;
 import org.apache.livy.ApplicationEnvContext;
 import org.apache.livy.ApplicationEnvProcessor;
 import org.apache.livy.ApplicationEnvProcessor$;
+import org.apache.livy.SessionType;
 import org.apache.livy.client.common.ClientConf;
 import org.apache.livy.client.common.TestUtils;
 import org.apache.livy.rsc.driver.RSCDriverBootstrapper;
@@ -237,7 +240,8 @@ class ContextLauncher {
     env.put("SPARK_CONF_DIR", confDir);
     env.put(SPARK_HOME_ENV, sparkHome);
 
-    ApplicationEnvContext context = new ApplicationEnvContext(env, appConf);
+    ApplicationEnvContext context = new ApplicationEnvContext(env, appConf,
+        Some.apply(SessionType.Interactive));
     applicationEnvProcessor.process(context);
     appConf.forEach(conf::set);
 

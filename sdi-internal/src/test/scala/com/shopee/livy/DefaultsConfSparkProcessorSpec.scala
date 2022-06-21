@@ -23,13 +23,13 @@ import scala.collection.mutable
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
-import org.apache.livy.{ApplicationEnvContext, ClassLoaderUtils}
+import org.apache.livy.{ApplicationEnvContext, ClassLoaderUtils, SessionType}
 
 class DefaultsConfSparkProcessorSpec extends ScalatraSuite
   with FunSpecLike {
 
   describe("DefaultsConfSparkProcessor") {
-    it("should contain correct spark conf") {
+    it("should contain correct spark conf when using batches") {
 
       val url = ClassLoaderUtils.getContextOrDefaultClassLoader
         .getResource("spark-conf")
@@ -41,7 +41,8 @@ class DefaultsConfSparkProcessorSpec extends ScalatraSuite
       val appConf = mutable.HashMap[String, String](
         "spark.driver.extraClassPath" -> "/user"
       )
-      val context = ApplicationEnvContext(env.asJava, appConf.asJava)
+      val context = ApplicationEnvContext(env.asJava, appConf.asJava,
+        Some(SessionType.Batches))
       val processor = new DefaultsConfSparkProcessor()
       processor.process(context)
 
@@ -52,6 +53,30 @@ class DefaultsConfSparkProcessorSpec extends ScalatraSuite
         "spark.driver.extraJavaOptions").foreach( e =>
         assert(!appConf.contains(e))
       )
+    }
+
+    it("should contain correct spark conf when using interactive") {
+
+      val url = ClassLoaderUtils.getContextOrDefaultClassLoader
+        .getResource("spark-conf")
+
+      val env = mutable.HashMap[String, String](
+        "SPARK_CONF_DIR" -> url.getPath
+      )
+
+      val appConf = mutable.HashMap[String, String](
+        "spark.driver.extraClassPath" -> "/user"
+      )
+      val context = ApplicationEnvContext(env.asJava, appConf.asJava,
+        Some(SessionType.Interactive))
+      val processor = new DefaultsConfSparkProcessor()
+      processor.process(context)
+
+      assert(appConf("spark.driver.extraClassPath") == "/default:/user")
+      assert(appConf("spark.driver.extraLibraryPath") == "/default")
+
+      assert(appConf("spark.driver.defaultJavaOptions") == "-Ddefault")
+      assert(appConf("spark.driver.extraJavaOptions") == "-Ddefault")
     }
   }
 
