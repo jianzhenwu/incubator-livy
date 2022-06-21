@@ -112,15 +112,15 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) extends Loggi
 
     val outputLimit = spark.sparkContext.getConf
       .getInt("spark.livy.output.limit.count", 0)
-    val rows: util.List[Row] = if (outputLimit > 0) {
-      dataset.takeAsList(outputLimit)
+    val rows: Array[Row] = if (outputLimit > 0) {
+      dataset.take(outputLimit)
     } else {
-      dataset.collectAsList()
-    }
-    rows.asScala.filter(_.size > 0).foreach { row =>
-      csvWriter.writeRow(row.toSeq.map(_.asInstanceOf[Object]): _*)
+      dataset.collect()
     }
 
+    rows.foreach(row =>
+      csvWriter.writeRow(HiveResult.hiveResultStringForCsv(row).asJava)
+    )
     csvWriter.flush()
   }
 

@@ -21,6 +21,7 @@ import java.io.{BufferedReader, FileInputStream, FileWriter, InputStreamReader}
 import java.nio.file.{Files, Path}
 import java.util.concurrent.TimeUnit
 
+import scala.collection.mutable.ArrayBuffer
 import scala.concurrent.duration.Duration
 
 import org.mockito.Matchers
@@ -69,6 +70,21 @@ class BatchSessionSpec
       writer.write(
         """
         select 1
+        """.stripMargin)
+    } finally {
+      writer.close()
+    }
+    sql
+  }
+
+  val splitSql: Path = {
+    val sql = Files.createTempFile("livy-split-test", ".sql")
+    sql.toFile.deleteOnExit()
+    val writer = new FileWriter(sql.toFile)
+    try {
+      writer.write(
+        """
+        select split('a;b;c',';') as c1
         """.stripMargin)
     } finally {
       writer.close()
@@ -313,7 +329,7 @@ class BatchSessionSpec
     }
 
     it("should set toolkit jars when batch session is created") {
-      val batch = createTestBatchSession(createBatchRequest(sql))
+      val batch = createTestBatchSession(createSparkSqlBootstrapRequest(sql))
       batch.start()
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
       (batch.state match {
@@ -327,18 +343,20 @@ class BatchSessionSpec
       assert(!Files.exists(outputPath))
       Files.createFile(outputPath)
       val batch = createTestBatchSession(
-        createBatchRequest(sql, Option(outputPath), Option(false)))
+        createSparkSqlBootstrapRequest(sql, Option(outputPath), Option(false)))
       batch.start()
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
       (batch.state match {
         case SessionState.Success(_) => true
         case _ => false
       }) should be (false)
+      batch.stopSession()
     }
 
     it("should write output stream to specified path") {
       assert(!Files.exists(outputPath))
-      val batch = createTestBatchSession(createBatchRequest(sql, Option(outputPath)))
+      val batch = createTestBatchSession(
+        createSparkSqlBootstrapRequest(sql, Option(outputPath)))
       batch.start()
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
       (batch.state match {
@@ -352,10 +370,42 @@ class BatchSessionSpec
         val inputStream = new FileInputStream(outputPath.toFile)
         reader = new BufferedReader(new InputStreamReader(inputStream))
         var line = reader.readLine
+        val array = new ArrayBuffer[String]()
         while (line != null) {
-          line should be ("\"1\"")
+          array += line
           line = reader.readLine()
         }
+        array(0) should be ("\"1\"")
+        array(1) should be ("\"1\"")
+      } finally {
+        if (reader != null) reader.close()
+      }
+    }
+
+    it("should return an array while executing SQL with split()") {
+      assert(!Files.exists(outputPath))
+      val batch = createTestBatchSession(
+        createSparkSqlBootstrapRequest(splitSql, Option(outputPath)))
+      batch.start()
+      Utils.waitUntil({ () => !batch.state.isActive }, Duration(1, TimeUnit.MINUTES))
+      (batch.state match {
+        case SessionState.Success(_) => true
+        case _ => false
+      }) should be (true)
+      batch.stopSession()
+      Files.exists(outputPath) should be (true)
+      var reader: BufferedReader = null
+      try {
+        val inputStream = new FileInputStream(outputPath.toFile)
+        reader = new BufferedReader(new InputStreamReader(inputStream))
+        var line = reader.readLine
+        val array = new ArrayBuffer[String]()
+        while (line != null) {
+          array += line
+          line = reader.readLine()
+        }
+        array(0) should be ("\"c1\"")
+        array(1) should be ("\"[\"\"a\"\",\"\"b\"\",\"\"c\"\"]\"")
       } finally {
         if (reader != null) reader.close()
       }
@@ -374,7 +424,7 @@ class BatchSessionSpec
       BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
     }
 
-    def createBatchRequest(
+    def createSparkSqlBootstrapRequest(
         sql: Path,
         outputPath: Option[Path] = None,
         overwrite: Option[Boolean] = None): CreateBatchRequest = {
