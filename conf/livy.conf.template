@@ -242,3 +242,10 @@
 
 # Whether to enable access s3 filesystem.
 # livy.server.fs.s3a.enabled = true
+
+# Whether to enable clean session staging file.
+# livy.session.staging-dir =
+# livy.launcher.session.staging-dir =
+# livy.server.session.staging-dir.clean.enabled = false
+# livy.server.session.staging-dir.clean.interval = 1h
+# livy.server.session.staging-dir.max-age = 30d

@@ -22,19 +22,18 @@ import static org.junit.Assert.assertEquals;
 
 public class TestCipherUtils {
 
-  private final String AES_SECRET = "livy.aes.secret";
-  private final String ENCRYPTED = "RmBkaG/SYaClkVWZkCiutA==";
+  private final String ENCRYPTED = "89YgiZZlycwt1KY981wPrw==";
   private final String DECRYPTED = "s3a.secret.key";
 
   @Test
   public void testEncrypt() {
-    String encrypted =  CipherUtils.encrypt(AES_SECRET, DECRYPTED);
+    String encrypted =  CipherUtils.encrypt(DECRYPTED);
     assertEquals(ENCRYPTED, encrypted);
   }
 
   @Test
   public void testDecrypt() {
-    String decrypted =  CipherUtils.decrypt(AES_SECRET, ENCRYPTED);
+    String decrypted =  CipherUtils.decrypt(ENCRYPTED);
     assertEquals(DECRYPTED, decrypted);
   }
 }

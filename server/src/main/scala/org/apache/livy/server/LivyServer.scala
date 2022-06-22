@@ -71,6 +71,8 @@ class LivyServer extends Logging {
 
   private var ugi: UserGroupInformation = _
 
+  private var sessionStagingDirManager: SessionStagingDirManager = _
+
   def start(): Unit = {
     livyConf = new LivyConf().loadFromFile("livy.conf")
     accessManager = new AccessManager(livyConf)
@@ -173,6 +175,15 @@ class LivyServer extends Logging {
     }
 
     testRecovery(livyConf)
+
+    if (livyConf.getBoolean(FS_S3A_ENABLED)) {
+      livyConf.loadS3aConfFromFile("livy-s3a.conf")
+    }
+
+    if (livyConf.getBoolean(SESSION_STAGING_DIR_CLEAN_ENABLED)) {
+      sessionStagingDirManager = new SessionStagingDirManager(livyConf)
+      sessionStagingDirManager.start()
+    }
 
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
@@ -448,6 +459,9 @@ class LivyServer extends Logging {
   def stop(): Unit = {
     if (server != null) {
       server.stop()
+    }
+    if (sessionStagingDirManager != null) {
+      sessionStagingDirManager.stop()
     }
     Metrics.close()
   }

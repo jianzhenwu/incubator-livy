@@ -34,19 +34,20 @@ public class CipherUtils {
 
   private static final Logger logger = LoggerFactory.getLogger(CipherUtils.class);
 
+  private static final String KEY = "E5E9FA1BA31ECD1AE84F75CAAA474F3A";
+
   private static final String cipherName = "AES";
 
   private static final String algorithm = "MD5";
 
-  public static String encrypt(String secret, String value) {
-    byte[] encrypted = doCipherOp(Cipher.ENCRYPT_MODE, secret,
-        value.getBytes(StandardCharsets.UTF_8));
+  public static String encrypt(String value) {
+    byte[] encrypted = doCipherOp(Cipher.ENCRYPT_MODE, value.getBytes(StandardCharsets.UTF_8));
     return Base64.encodeBase64String(encrypted);
   }
 
-  public static String decrypt(String secret, String value) {
+  public static String decrypt(String value) {
     byte[] encrypted = Base64.decodeBase64(value);
-    byte[] decrypted = doCipherOp(Cipher.DECRYPT_MODE, secret, encrypted);
+    byte[] decrypted = doCipherOp(Cipher.DECRYPT_MODE, encrypted);
     return new String(decrypted, StandardCharsets.UTF_8);
   }
 
@@ -54,21 +55,15 @@ public class CipherUtils {
     return MessageDigest.getInstance(CipherUtils.algorithm).digest(secret.getBytes());
   }
 
-  private static byte[] doCipherOp(int mode, String secret, byte[] in) {
+  private static byte[] doCipherOp(int mode, byte[] in) {
     try {
       Cipher cipher = Cipher.getInstance(CipherUtils.cipherName);
       SecretKeySpec secretKeySpec =
-          new SecretKeySpec(getSecretKey(secret), CipherUtils.cipherName);
-      switch (mode) {
-        case Cipher.ENCRYPT_MODE:
-          cipher.init(Cipher.ENCRYPT_MODE, secretKeySpec);
-          break;
-        case Cipher.DECRYPT_MODE:
-          cipher.init(Cipher.DECRYPT_MODE, secretKeySpec);
-          break;
-        default:
-          throw new IllegalArgumentException(String.valueOf(mode));
+          new SecretKeySpec(getSecretKey(KEY), CipherUtils.cipherName);
+      if (mode != Cipher.ENCRYPT_MODE && mode != Cipher.DECRYPT_MODE) {
+        throw new IllegalArgumentException(String.valueOf(mode));
       }
+      cipher.init(mode, secretKeySpec);
       return cipher.doFinal(in);
     } catch (Exception e) {
       logger.error("Failed to do cipher operation.", e);

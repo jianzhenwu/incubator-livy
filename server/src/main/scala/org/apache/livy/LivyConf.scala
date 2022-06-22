@@ -62,6 +62,13 @@ object LivyConf {
   val LIVY_SPARK_VERSION = Entry("livy.spark.version", null)
 
   val SESSION_STAGING_DIR = Entry("livy.session.staging-dir", null)
+  val LIVY_LAUNCHER_SESSION_STAGING_DIR = Entry("livy.launcher.session.staging-dir", null)
+  val SESSION_STAGING_DIR_CLEAN_ENABLED =
+    Entry("livy.server.session.staging-dir.clean.enabled", false)
+  val SESSION_STAGING_DIR_CLEAN_INTERVAL =
+    Entry("livy.server.session.staging-dir.clean.interval", "1h")
+  val SESSION_STAGING_DIR_MAX_AGE = Entry("livy.server.session.staging-dir.max-age", "30d")
+
   val FILE_UPLOAD_MAX_SIZE = Entry("livy.file.upload.max.size", 100L * 1024 * 1024)
   val LOCAL_FS_WHITELIST = Entry("livy.file.local-dir-whitelist", null)
   val ENABLE_HIVE_CONTEXT = Entry("livy.repl.enable-hive-context", false)
@@ -352,6 +359,8 @@ object LivyConf {
 
   val YARN_TIMELINE_SERVER = Entry("livy.server.yarn.timeline.server", null)
 
+  val FS_S3A_ENABLED = Entry("livy.server.fs.s3a.enabled", false)
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
@@ -460,6 +469,18 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
       .map(Utils.getPropertiesFromFile)
       .foreach(loadFromMap)
     this
+  }
+
+  def loadS3aConfFromFile(name: String): Unit = {
+    val s3aConfigFile = getConfigFile(name)
+    if (s3aConfigFile.isEmpty) {
+      logger.error(s"livy-s3a config file $s3aConfigFile does not exist")
+      throw new Exception(s"Cannot find livy-s3a config file $name")
+    }
+    val props = s3aConfigFile.map(Utils.getPropertiesFromFile)
+    props.foreach(_.map { case (k, v) =>
+      hadoopConf.set(k, v)
+    })
   }
 
   def serverMetadata(): ServerMetadata = {

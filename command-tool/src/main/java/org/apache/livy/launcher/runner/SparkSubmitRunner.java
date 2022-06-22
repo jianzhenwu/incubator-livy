@@ -68,8 +68,6 @@ public class SparkSubmitRunner {
   private static final byte YARN_DIAGNOSTICS_READ_END = 0b100;
   private static final byte APP_LOG_READ_END = 0b111;
 
-  private static final String AES_SECRET = "livy.aes.secret";
-
   private final BatchRestClient restClient;
   private final LivyOption livyOptions;
   private final Configuration hadoopConf = new Configuration();
@@ -240,7 +238,7 @@ public class SparkSubmitRunner {
       props.load(fileInputStream);
       props.forEach((key, value) -> {
         if (key.toString().equals("fs.s3a.secret.key")) {
-          String secretKey = CipherUtils.decrypt(AES_SECRET, value.toString());
+          String secretKey = CipherUtils.decrypt(value.toString());
           this.hadoopConf.set(key.toString(), secretKey);
           sparkProperties.put("spark.hadoop." + key, secretKey);
         } else {
