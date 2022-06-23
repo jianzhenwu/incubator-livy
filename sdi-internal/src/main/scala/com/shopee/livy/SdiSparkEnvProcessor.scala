@@ -39,6 +39,7 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.DockerEnvProcessor",
     "com.shopee.livy.RssEnvProcessor",
     "com.shopee.livy.HudiConfProcessor",
+    "com.shopee.livy.SparkDatasourceProcessor",
     "com.shopee.livy.DefaultsConfSparkProcessor"
   )
 

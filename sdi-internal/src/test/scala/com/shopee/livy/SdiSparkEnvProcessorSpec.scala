@@ -20,13 +20,15 @@ package com.shopee.livy
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+import com.shopee.livy.SparkDatasourceProcessor._
+import com.shopee.livy.SparkDatasourceProcessorSpec._
 import com.shopee.livy.auth.DmpAuthentication
 import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, SessionType}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, SessionType}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 import org.apache.livy.client.common.ClientConf
 
@@ -85,6 +87,11 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
       Some(SessionType.Batches))
+    appConf ++= mutable.Map[String, String](
+      SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
+      SPARK_SQL_CATALOG_HBASE_ENABLED -> "true",
+      SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+    )
 
     val processor =
       ApplicationEnvProcessor.apply("com.shopee.livy.SdiSparkEnvProcessor")
@@ -145,7 +152,20 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     // spark conf mapping should work
     assert(appConf("spark.pyspark.driver.python") == "./bin/python")
 
-    assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar")
+    assert(appConf(SPARK_AUX_JAR).contains("/path/hudi.jar"))
+
+    // should add hbase datasource in hive
+    assert(appConf("spark.sql.catalog.hbase") ==
+      "org.apache.spark.sql.execution.datasources.v2.hbase.HBaseCatalog")
+    assert(appConf("spark.sql.catalog.hbase.hive.metastore.uris") ==
+      "thrift://hive.metastore")
+    assert(appConf("spark.sql.catalog.hbase.hive.metastore.warehouse.dir") ==
+      "/user/hive/warehouse")
+    assert(appConf("spark.sql.catalog.hbase.spark.sql.warehouse.dir") ==
+      "/user/hive/warehouse")
+    assert(appConf(SPARK_AUX_JAR).contains(HBASE_JARS))
+    assert(appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) == "hive")
+
     // should merge spark-defaults.conf
     assert(appConf("spark.driver.extraClassPath") == "/default:/livy:/user")
     assert(!appConf.contains("spark.driver.extraLibraryPath"))

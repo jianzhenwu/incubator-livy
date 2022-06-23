@@ -22,7 +22,6 @@ import java.util
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.SparkResourceOptimizationProcessor
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
