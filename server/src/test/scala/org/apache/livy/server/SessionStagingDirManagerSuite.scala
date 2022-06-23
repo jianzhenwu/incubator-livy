@@ -45,14 +45,6 @@ class SessionStagingDirManagerSuite extends FunSuite with BeforeAndAfterAll
     if (sessionStagingDirManager != null) {
       sessionStagingDirManager.stop()
     }
-    if (serverStagingTempDir != null) {
-      scala.util.Try(FileUtils.deleteDirectory(serverStagingTempDir))
-      serverStagingTempDir = null
-    }
-    if (clientStagingTempDir != null) {
-      scala.util.Try(FileUtils.deleteDirectory(clientStagingTempDir))
-      clientStagingTempDir = null
-    }
   }
 
   test("start session staging directory manager") {
@@ -68,16 +60,16 @@ class SessionStagingDirManagerSuite extends FunSuite with BeforeAndAfterAll
   }
 
   test("start remove session staging file") {
-    serverStagingTempDir = Files.createTempDirectory(".server_livy_session").toFile()
-    clientStagingTempDir = Files.createTempDirectory(".client_livy_session").toFile()
+    serverStagingTempDir = Files.createTempDirectory(".server_livy_session").toFile
+    clientStagingTempDir = Files.createTempDirectory(".client_livy_session").toFile
 
     livyConf.set(LivyConf.SESSION_STAGING_DIR_MAX_AGE, "100ms")
     livyConf.set(LivyConf.SESSION_STAGING_DIR, serverStagingTempDir.getAbsolutePath)
     livyConf.set(LivyConf.LIVY_LAUNCHER_SESSION_STAGING_DIR, clientStagingTempDir.getAbsolutePath)
 
-    File.createTempFile(".livy_session", "file1", serverStagingTempDir)
+    File.createTempFile(".livy_session_", "file1", serverStagingTempDir)
     assert(serverStagingTempDir.listFiles().length == 1)
-    File.createTempFile(".livy_session", "file2", clientStagingTempDir)
+    File.createTempFile(".livy_session_", "file2", clientStagingTempDir)
     assert(clientStagingTempDir.listFiles().length == 1)
 
     fs = FileSystem.newInstance(new Configuration())
@@ -86,5 +78,32 @@ class SessionStagingDirManagerSuite extends FunSuite with BeforeAndAfterAll
     Thread.sleep(livyConf.getTimeAsMs(LivyConf.SESSION_STAGING_DIR_MAX_AGE) + 5 * 1000)
     assert(serverStagingTempDir.listFiles.length == 0)
     assert(clientStagingTempDir.listFiles.length == 0)
+  }
+
+  test("should recursive remove session staging file") {
+    serverStagingTempDir = Files.createTempDirectory(".server_livy_session").toFile
+    clientStagingTempDir = Files.createTempDirectory(".client_livy_session").toFile
+    val serverStagingDir = Files.createDirectories(
+      new File(serverStagingTempDir, "tmp").toPath).toFile
+    val clientStagingDir = Files.createDirectories(
+      new File(clientStagingTempDir, "tmp").toPath).toFile
+    assert(serverStagingDir.isDirectory)
+    assert(clientStagingDir.isDirectory)
+
+    livyConf.set(LivyConf.SESSION_STAGING_DIR_MAX_AGE, "100ms")
+    livyConf.set(LivyConf.SESSION_STAGING_DIR, serverStagingTempDir.getAbsolutePath)
+    livyConf.set(LivyConf.LIVY_LAUNCHER_SESSION_STAGING_DIR, clientStagingTempDir.getAbsolutePath)
+
+    File.createTempFile(".livy_session_", "file1", serverStagingDir)
+    assert(serverStagingDir.listFiles().length == 1)
+    File.createTempFile(".livy_session_", "file2", clientStagingDir)
+    assert(clientStagingDir.listFiles().length == 1)
+
+    fs = FileSystem.newInstance(new Configuration())
+    sessionStagingDirManager = new SessionStagingDirManager(livyConf)
+    sessionStagingDirManager.start()
+    Thread.sleep(livyConf.getTimeAsMs(LivyConf.SESSION_STAGING_DIR_MAX_AGE) + 5 * 1000)
+    assert(!serverStagingDir.exists())
+    assert(!clientStagingDir.exists())
   }
 }

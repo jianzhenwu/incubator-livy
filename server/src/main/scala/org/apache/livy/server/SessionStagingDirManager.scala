@@ -102,12 +102,20 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
 
   private def removeSessionFile(fs: FileSystem, stagingDir: String): Unit = {
     try {
-      fs.listStatus(new Path(stagingDir))
-        .filter(f => (System.currentTimeMillis() - f.getModificationTime) > maxAge)
-        .foreach(f => {
-          info(s"Deleting expired session file ${f.getPath}.")
-          fs.delete(f.getPath, true)
-        })
+      val fileStatuses = fs.listStatus(new Path(stagingDir))
+      fileStatuses.foreach(f => {
+        if (f.isDirectory) {
+          removeSessionFile(fs, f.getPath.toString)
+          if (fs.listStatus(f.getPath).length == 0) {
+            fs.delete(f.getPath, false)
+          }
+        } else {
+          if ((System.currentTimeMillis() - f.getModificationTime) > maxAge) {
+            info(s"Deleting expired session file ${f.getPath}.")
+            fs.delete(f.getPath, true)
+          }
+        }
+      })
     } catch {
       case e: IOException =>
         error(s"Failed to clean session staging directory $stagingDir.", e);
