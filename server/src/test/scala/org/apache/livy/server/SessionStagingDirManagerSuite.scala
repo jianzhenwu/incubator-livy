@@ -54,7 +54,7 @@ class SessionStagingDirManagerSuite extends FunSuite with BeforeAndAfterAll
     }
     livyConf.set(LivyConf.SESSION_STAGING_DIR, "tmp")
     sessionStagingDirManager = new SessionStagingDirManager(livyConf)
-    assertThrows[FileNotFoundException] {
+    assertThrows[IllegalArgumentException] {
       sessionStagingDirManager.start()
     }
   }

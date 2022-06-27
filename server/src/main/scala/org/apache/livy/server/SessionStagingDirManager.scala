@@ -35,7 +35,8 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
 
   private val interval = livyConf.getTimeAsMs(SESSION_STAGING_DIR_CLEAN_INTERVAL)
 
-  private val fs: FileSystem = FileSystem.newInstance(livyConf.hadoopConf)
+  private var serverFs: FileSystem = _
+  private var clientFs: FileSystem = _
 
   private lazy val executor = Executors.newScheduledThreadPool(1,
     new ThreadFactory() {
@@ -56,17 +57,21 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
           s" ${LIVY_LAUNCHER_SESSION_STAGING_DIR.key}")
     }
     try {
-      if (serverStagingDir != null &&
-        !fs.getFileStatus(new Path(serverStagingDir)).isDirectory) {
-        throw new IllegalArgumentException(
-          s"Session staging directory ${SESSION_STAGING_DIR.key} " +
-            s"is not a directory: $serverStagingDir.")
+      if (serverStagingDir != null) {
+        serverFs = new Path(serverStagingDir).getFileSystem(livyConf.hadoopConf)
+        if (!serverFs.isDirectory(new Path(serverStagingDir))) {
+          throw new IllegalArgumentException(
+            s"Session staging directory ${SESSION_STAGING_DIR.key} " +
+              s"is not a directory: $serverStagingDir.")
+        }
       }
-      if (clientStagingDir != null &&
-        !fs.getFileStatus(new Path(clientStagingDir)).isDirectory) {
-        throw new IllegalArgumentException(
-          s"Session staging directory ${LIVY_LAUNCHER_SESSION_STAGING_DIR.key} " +
-            s"is not a directory: $serverStagingDir.")
+      if (clientStagingDir != null) {
+        clientFs = new Path(clientStagingDir).getFileSystem(livyConf.hadoopConf)
+        if (!clientFs.isDirectory(new Path(clientStagingDir))) {
+          throw new IllegalArgumentException(
+            s"Session staging directory ${LIVY_LAUNCHER_SESSION_STAGING_DIR.key} " +
+              s"is not a directory: $clientStagingDir.")
+        }
       }
     } catch {
       case f: FileNotFoundException =>
@@ -74,6 +79,7 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
           s" $serverStagingDir or $clientStagingDir."
         throw new FileNotFoundException(msg).initCause(f)
     }
+
     startSessionStagingCleaner()
   }
 
@@ -82,7 +88,12 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
     if (!executor.awaitTermination(5, TimeUnit.SECONDS)) {
       executor.shutdownNow()
     }
-    fs.close()
+    if (serverFs != null) {
+      serverFs.close()
+    }
+    if (clientFs != null) {
+      clientFs.close()
+    }
   }
 
   private def startSessionStagingCleaner(): Unit = {
@@ -91,10 +102,10 @@ class SessionStagingDirManager(livyConf: LivyConf) extends Logging {
       new Runnable {
         override def run(): Unit = {
           if (serverStagingDir != null) {
-            removeSessionFile(fs, serverStagingDir)
+            removeSessionFile(serverFs, serverStagingDir)
           }
           if (clientStagingDir != null) {
-            removeSessionFile(fs, clientStagingDir)
+            removeSessionFile(clientFs, clientStagingDir)
           }
         }
       }, 5 * 1000, interval, TimeUnit.MILLISECONDS)
