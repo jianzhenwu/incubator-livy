@@ -237,7 +237,7 @@ abstract class Session(
 
   protected def doAsOwner[T](fn: => T): T = {
     val user = proxyUser.getOrElse(owner)
-    if (user != null) {
+    if (user != null && livyConf.getBoolean(LivyConf.DO_AS_OWNER_ENABLE)) {
       val ugi = if (UserGroupInformation.isSecurityEnabled) {
         if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
           UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())
@@ -286,7 +286,7 @@ abstract class Session(
 
       val sessionDir = new Path(stagingRoot, UUID.randomUUID().toString())
       fs.mkdirs(sessionDir)
-      fs.setPermission(sessionDir, new FsPermission("700"))
+      fs.setPermission(sessionDir, new FsPermission("755"))
       stagingDir = sessionDir
       debug(s"Session $id staging directory is $stagingDir")
     }

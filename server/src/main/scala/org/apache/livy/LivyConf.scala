@@ -86,6 +86,7 @@ object LivyConf {
 
   val CSRF_PROTECTION = Entry("livy.server.csrf-protection.enabled", false)
 
+  val DO_AS_OWNER_ENABLE = Entry("livy.server.do-as-owner.enable", true)
   val IMPERSONATION_ENABLED = Entry("livy.impersonation.enabled", false)
   val SUPERUSERS = Entry("livy.superusers", null)
 
