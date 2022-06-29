@@ -40,7 +40,7 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
         val env = new JHashMap[String, String]()
         env.put("SPARK_HOME", spark)
         val appConf = new JHashMap[String, String]()
-        appConf.put(S3aEnvProcessor.SPARK_S3A_ENABLED, "true")
+        appConf.put(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED, "true")
 
         val ivyPath = Files.createTempDirectory("livy_ivy")
         appConf.put("spark.jars.ivy", ivyPath.toString)
@@ -70,7 +70,7 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
           "SPARK_HOME" -> e
         )
         val appConf = new JHashMap[String, String]()
-        appConf.put(S3aEnvProcessor.SPARK_S3A_ENABLED, "true")
+        appConf.put(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED, "true")
 
         val processor = new S3aEnvProcessor()
         val context = ApplicationEnvContext(env.asJava, appConf)

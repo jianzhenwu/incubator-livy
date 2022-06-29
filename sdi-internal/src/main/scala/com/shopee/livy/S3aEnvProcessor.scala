@@ -29,7 +29,10 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.client.common.ClientConf
 
 object S3aEnvProcessor {
+
+  @Deprecated
   val SPARK_S3A_ENABLED: String = "spark.s3a.enabled"
+  val SPARK_LIVY_S3A_ENABLED: String = "spark.livy.s3a.enabled"
 
   private val REPOSITORIES: String =
     "https://di-nexus-repo.idata.shopeemobile.com/repository/maven-release/," +
@@ -53,7 +56,8 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
     val appConf = applicationEnvContext.appConf
 
     val sparkConfDir = appConf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY)
-    val s3aEnabled = appConf.get(S3aEnvProcessor.SPARK_S3A_ENABLED)
+    val s3aEnabled = Option(appConf.get(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED))
+      .getOrElse(appConf.get(S3aEnvProcessor.SPARK_S3A_ENABLED))
 
     Option(s3aEnabled).filter("true".equalsIgnoreCase).foreach { _ =>
       appConf.put(S3A_PATH_STYLE_ACCESS, "true")

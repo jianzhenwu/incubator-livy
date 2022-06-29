@@ -24,8 +24,13 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object DockerEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc."
 
+  @Deprecated
   val SPARK_DOCKER_ENABLED: String = "spark.docker.enabled"
+  val SPARK_LIVY_DOCKER_ENABLED: String = "spark.livy.docker.enabled"
+  @Deprecated
   val SPARK_DOCKER_IMAGE: String = "spark.docker.image"
+  val SPARK_LIVY_DOCKER_IMAGE: String = "spark.livy.docker.image"
+
   val SPARK_DOCKER_MOUNTS: String = "spark.docker.mounts"
 }
 
@@ -36,15 +41,17 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
     import DockerEnvProcessor._
 
     val appConf = applicationEnvContext.appConf
-    val dockerEnabled = appConf.get(SPARK_DOCKER_ENABLED)
-    val dockerImage = appConf.get(SPARK_DOCKER_IMAGE)
+    val dockerEnabled = Option(appConf.get(SPARK_LIVY_DOCKER_ENABLED))
+      .getOrElse(appConf.get(SPARK_DOCKER_ENABLED))
+    val dockerImage = Option(appConf.get(SPARK_LIVY_DOCKER_IMAGE))
+      .getOrElse(appConf.get(SPARK_DOCKER_IMAGE))
     val dockerMounts = appConf.get(RSC_CONF_PREFIX + SPARK_DOCKER_MOUNTS)
 
     Option(dockerEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       if (StringUtils.isBlank(dockerImage)) {
-        error(s"Please check conf $SPARK_DOCKER_IMAGE, " +
+        error(s"Please check conf $SPARK_LIVY_DOCKER_IMAGE, " +
           s"Yarn container runtime docker image must be set by user")
-        throw new ProcessorException(s"$SPARK_DOCKER_IMAGE must be set by user")
+        throw new ProcessorException(s"$SPARK_LIVY_DOCKER_IMAGE must be set by user")
       }
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE", "docker")
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE", dockerImage)

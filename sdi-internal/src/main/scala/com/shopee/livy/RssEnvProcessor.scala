@@ -31,7 +31,9 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object RssEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc.yarn.cluster."
 
+  @Deprecated
   val SPARK_RSS_ENABLED = "spark.rss.enabled"
+  val SPARK_LIVY_RSS_ENABLED = "spark.livy.rss.enabled"
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
 
@@ -50,7 +52,8 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     val appConf = applicationEnvContext.appConf
     val yarnRouterMapping = YarnRouterMapping.apply(
       appConf.get(RSC_CONF_PREFIX + YARN_CLUSTER_POLICY_LIST_URL))
-    val rssEnabled = appConf.get(SPARK_RSS_ENABLED)
+    val rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
+      .getOrElse(appConf.get(SPARK_RSS_ENABLED))
 
     Option(rssEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       val queue = appConf.get(SPARK_YARN_QUEUE)

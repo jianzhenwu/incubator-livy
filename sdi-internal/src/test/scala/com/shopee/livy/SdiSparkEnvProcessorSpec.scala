@@ -59,13 +59,13 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.dynamicAllocation.enabled" -> "true",
       "spark.driver.memoryOverhead" -> "100M",
       "spark.executor.memoryOverhead" -> "100M",
-      S3aEnvProcessor.SPARK_S3A_ENABLED -> "true",
-      DockerEnvProcessor.SPARK_DOCKER_ENABLED -> "true",
-      DockerEnvProcessor.SPARK_DOCKER_IMAGE -> "centos7-java-base:v6.0",
+      S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED -> "true",
+      DockerEnvProcessor.SPARK_LIVY_DOCKER_ENABLED -> "true",
+      DockerEnvProcessor.SPARK_LIVY_DOCKER_IMAGE -> "centos7-java-base:v6.0",
       DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
         "/usr/share/java/hadoop:/usr/share/java/hadoop:ro",
-      StreamingMetricProcessor.STEAMING_METRIC_ENABLED -> "true",
-      StreamingMetricProcessor.STRUCTURED_METRIC_ENABLED -> "true",
+      StreamingMetricProcessor.STEAMING_LIVY_METRIC_ENABLED -> "true",
+      StreamingMetricProcessor.STRUCTURED_LIVY_METRIC_ENABLED -> "true",
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_URL ->
         "test_url",
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_TOKEN ->
@@ -73,7 +73,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       StreamingMetricProcessor.RSC_CONF_PREFIX + StreamingMetricProcessor.PUSH_INTERVAL ->
         "15",
       ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY -> "spark",
-      RssEnvProcessor.SPARK_RSS_ENABLED -> "true",
+      RssEnvProcessor.SPARK_LIVY_RSS_ENABLED -> "true",
       RssEnvProcessor.SPARK_YARN_QUEUE -> "queue",
       RssEnvProcessor.RSC_CONF_PREFIX + RssEnvProcessor.YARN_CLUSTER_POLICY_LIST_URL ->
         "http://0.0.0.0/url",
@@ -101,7 +101,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(env("HADOOP_USER_NAME") == "spark")
     assert(env("HADOOP_USER_RPCPASSWORD") == "123456")
 
-    // aws package should be in classpath when spark.s3a.enabled
+    // aws package should be in classpath when spark.livy.s3a.enabled
     assert(env("HADOOP_CLASSPATH") ==
       "$HADOOP_CLASSPATH:/hadoop/share/hadoop/tools/lib/hadoop-aws-*.jar:" +
         "/hadoop/share/hadoop/tools/lib/aws-java-sdk-bundle-*.jar")
@@ -115,7 +115,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.driver.memoryOverhead") == "100M")
     assert(appConf("spark.executor.memoryOverhead") == "100M")
 
-    // docker conf should be in appConf when spark.docker.enabled
+    // docker conf should be in appConf when spark.livy.docker.enabled
     assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE") == "docker")
     assert(appConf("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE") ==
       "centos7-java-base:v6.0")
@@ -127,7 +127,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS") ==
       "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
 
-    // streaming metric conf should be in appConf when spark.streaming.metrics.push.enabled
+    // streaming metric conf should be in appConf when spark.livy.streaming.metrics.push.enabled
     assert(appConf("spark.metrics.push.url") == "test_url")
     assert(appConf("spark.metrics.push.token") == "test_token")
     assert(appConf("spark.metrics.send.interval") == "15")
@@ -137,7 +137,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "org.apache.livy.toolkit.metrics.listener.StructuredStreamingListener")
 
 
-    // rss conf should be in appConf when spark.rss.enabled
+    // rss conf should be in appConf when spark.livy.rss.enabled
     assert(appConf("spark.rss.ha.master.hosts") == "0.0.0.0")
     assert(appConf("spark.rss.master.port") == "9097")
     assert(appConf("spark.shuffle.manager") == "org.apache.spark.shuffle.rss.RssShuffleManager")

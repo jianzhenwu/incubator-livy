@@ -248,7 +248,7 @@ public class SparkSubmitRunner {
           }
         }
       });
-      sparkProperties.put("spark.s3a.enabled", "true");
+      sparkProperties.put("spark.livy.s3a.enabled", "true");
     } catch (IOException e) {
       logger.error("Fail to load livy-s3a config file {}.", s3aConfFile);
       throw new LivyLauncherException(LauncherExitCode.others, e.getMessage());

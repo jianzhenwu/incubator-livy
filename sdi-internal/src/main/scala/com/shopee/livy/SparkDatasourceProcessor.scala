@@ -60,9 +60,10 @@ object SparkDatasourceProcessor {
 
   val switches = new mutable.HashMap[String, String]()
 
-  Seq("hbase", "jdbc", "kafka", "tfrecord").foreach(source =>
+  Seq("hbase", "jdbc", "kafka", "tfrecord").foreach { source =>
     switches.put(s"spark.sql.catalog.$source.enabled", source)
-  )
+    switches.put(s"spark.livy.sql.catalog.$source.enabled", source)
+  }
 }
 
 class SparkDatasourceProcessor extends ApplicationEnvProcessor {
@@ -71,7 +72,7 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
     val appConf = applicationEnvContext.appConf
     val catalogImpl = appConf.get(SPARK_SQL_DATASOURCE_CATALOG_IMPL)
 
-    val datasources = new ArrayBuffer[String]()
+    val datasources = new mutable.HashSet[String]()
     switches
       .filter(kv => "true".equalsIgnoreCase(appConf.get(kv._1)))
       .foreach(kv => datasources += kv._2)
