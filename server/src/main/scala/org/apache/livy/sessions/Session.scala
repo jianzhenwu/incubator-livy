@@ -237,7 +237,7 @@ abstract class Session(
 
   protected def doAsOwner[T](fn: => T): T = {
     val user = proxyUser.getOrElse(owner)
-    if (user != null && livyConf.getBoolean(LivyConf.DO_AS_OWNER_ENABLE)) {
+    if (user != null && livyConf.getBoolean(LivyConf.DO_AS_OWNER_ENABLED)) {
       val ugi = if (UserGroupInformation.isSecurityEnabled) {
         if (livyConf.getBoolean(LivyConf.IMPERSONATION_ENABLED)) {
           UserGroupInformation.createProxyUser(user, UserGroupInformation.getCurrentUser())

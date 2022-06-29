@@ -249,3 +249,6 @@
 # livy.server.session.staging-dir.clean.enabled = false
 # livy.server.session.staging-dir.clean.interval = 1h
 # livy.server.session.staging-dir.max-age = 30d
+
+# Whether to enable doAsOwner, this config support upload and remove file using Livy account.
+# livy.server.do-as-owner.enabled = false
