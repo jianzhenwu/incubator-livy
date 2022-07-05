@@ -49,6 +49,7 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
         val context = ApplicationEnvContext(env, appConf)
         processor.process(context)
 
+        assert(appConf.get(S3aEnvProcessor.S3A_PATH_STYLE_ACCESS) == "true")
         Array("hadoop-aws", "java-sdk-bundle").foreach { e =>
           assert(appConf.get("spark.jars").contains(e))
           assert(env.get("SPARK_DIST_CLASSPATH").contains(e))
@@ -74,6 +75,8 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
         val processor = new S3aEnvProcessor()
         val context = ApplicationEnvContext(env.asJava, appConf)
         processor.process(context)
+
+        assert(appConf.get(S3aEnvProcessor.S3A_PATH_STYLE_ACCESS) == "true")
 
         assert(!appConf.containsKey("spark.jars.packages"))
         assert(!appConf.containsKey("spark.jars.excludes"))

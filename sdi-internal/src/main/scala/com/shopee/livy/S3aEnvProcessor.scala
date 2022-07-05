@@ -21,7 +21,7 @@ import java.io.File
 import java.nio.file.Paths
 import java.util.Locale
 
-import com.shopee.livy.S3aEnvProcessor.{EXCLUSIONS, REPOSITORIES, S3A_CHANGE_DETECTION_MODE, S3A_CHANGE_DETECTION_VERSION_REQUIRED}
+import com.shopee.livy.S3aEnvProcessor.{EXCLUSIONS, REPOSITORIES, S3A_CHANGE_DETECTION_MODE, S3A_CHANGE_DETECTION_VERSION_REQUIRED, S3A_PATH_STYLE_ACCESS}
 import com.shopee.livy.utils.IvyUtils.{buildIvySettings, resolveMavenCoordinates}
 import org.apache.commons.io.filefilter.PrefixFileFilter
 
@@ -39,9 +39,10 @@ object S3aEnvProcessor {
 
   private val S3A_CHANGE_DETECTION_VERSION_REQUIRED =
     "spark.hadoop.fs.s3a.change.detection.version.required"
-
   private val S3A_CHANGE_DETECTION_MODE =
     "spark.hadoop.fs.s3a.change.detection.mode"
+  val S3A_PATH_STYLE_ACCESS =
+    "spark.hadoop.fs.s3a.path.style.access"
 }
 
 class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
@@ -55,6 +56,8 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
     val s3aEnabled = appConf.get(S3aEnvProcessor.SPARK_S3A_ENABLED)
 
     Option(s3aEnabled).filter("true".equalsIgnoreCase).foreach { _ =>
+      appConf.put(S3A_PATH_STYLE_ACCESS, "true")
+
       val sparkHome = env.get("SPARK_HOME")
 
       val sparkHomeFile = new File(sparkHome)
