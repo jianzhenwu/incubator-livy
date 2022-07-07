@@ -33,3 +33,8 @@ spark.yarn.maxAppAttempts 1
 spark.shuffle.io.clientThreads 8
 spark.stage.maxConsecutiveAttempts 4
 spark.jars.ivy /ldap_home/livy/livy_ivy2
+
+spark.rss.limit.inflight.timeout 3600s
+spark.rss.shuffle.writer.mode sort
+spark.rss.push.data.maxReqsInFlight 128
+spark.rss.partition.split.threshold 1024M

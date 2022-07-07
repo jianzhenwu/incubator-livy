@@ -143,10 +143,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.shuffle.manager") == "org.apache.spark.shuffle.rss.RssShuffleManager")
     assert(appConf("spark.serializer") == "org.apache.spark.serializer.KryoSerializer")
     assert(appConf("spark.shuffle.service.enabled") == "false")
-    assert(appConf("spark.dynamicAllocation.shuffleTracking.enabled") == "true")
     assert(appConf("spark.rss.limit.inflight.timeout") == "3600s")
     assert(appConf("spark.rss.shuffle.writer.mode") == "sort")
-    assert(appConf("spark.rss.push.data.maxReqsInFlight") == "100000")
+    assert(appConf("spark.rss.push.data.maxReqsInFlight") == "128")
     assert(appConf("spark.rss.partition.split.threshold") == "1024M")
 
     // spark conf mapping should work
