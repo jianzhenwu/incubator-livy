@@ -27,7 +27,7 @@ spark.executor.instances 0
 spark.reducer.maxBlocksInFlightPerAddress 512
 spark.reducer.maxReqsInFlight 256
 spark.reducer.maxSizeInFlight 256
-spark.maxRemoteBlockSizeFetchToMem 128m
+spark.network.maxRemoteBlockSizeFetchToMem 128m
 spark.sql.sources.parallelPartitionDiscovery.parallelism 10
 spark.yarn.maxAppAttempts 1
 spark.shuffle.io.clientThreads 8
