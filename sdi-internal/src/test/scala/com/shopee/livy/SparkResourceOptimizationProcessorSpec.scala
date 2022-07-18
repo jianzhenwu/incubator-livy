@@ -184,4 +184,21 @@ class SparkResourceOptimizationProcessorSpec extends ScalatraSuite
     assert(appConf("spark.executor.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
     assert(appConf("spark.driver.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
   }
+
+  it("should convent to megabytes when memoryOverhead without unit") {
+    val appConf = mutable.HashMap[String, String](
+      "spark.executor.memoryOverhead" -> "2048",
+      "spark.driver.memoryOverhead" -> "2048"
+    )
+    val context = ApplicationEnvContext(new util.HashMap[String, String](),
+      appConf.asJava)
+    val processor = new SparkResourceOptimizationProcessor()
+    processor.process(context)
+
+    assert(appConf("spark.executor.memoryOverhead") == "2048")
+    assert(appConf("spark.driver.memoryOverhead") == "2048")
+
+    assert(appConf("spark.executor.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+    assert(appConf("spark.driver.extraJavaOptions") == "-XX:MaxDirectMemorySize=2048M")
+  }
 }

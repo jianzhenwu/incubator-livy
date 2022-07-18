@@ -77,6 +77,7 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
     val executorMemoryNum = ByteUtils.byteStringAs(executorMemory, ByteUnit.MiB)
 
     val executorMemoryOverhead = Option(appConf.get("spark.executor.memoryOverhead"))
+      .map(ByteUtils.byteStringAs(_, ByteUnit.MiB).toString + "M")
       .getOrElse(Math.max(executorMemoryNum * 0.25, 1024).toInt.toString + "M")
     appConf.putIfAbsent("spark.executor.memoryOverhead", executorMemoryOverhead)
 
@@ -92,6 +93,7 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
     }
 
     val driverMemoryOverhead = Option(appConf.get("spark.driver.memoryOverhead"))
+      .map(ByteUtils.byteStringAs(_, ByteUnit.MiB).toString + "M")
       .getOrElse("1G")
     appConf.putIfAbsent("spark.driver.memoryOverhead", driverMemoryOverhead)
 
