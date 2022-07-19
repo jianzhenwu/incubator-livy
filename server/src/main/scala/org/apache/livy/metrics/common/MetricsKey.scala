@@ -73,7 +73,7 @@ object MetricsKey {
   val REST_SESSION_FOUND_IN_ALLOCATOR_COUNT = MetricsKey("rest_session_found_in_allocator_count",
     "Session is found in session allocator count")
   val REST_SESSION_FOUND_IN_NOWHERE_COUNT = MetricsKey("rest_session_found_in_nowhere_count",
-    "Session is found in session allocator count")
+    "Session is found in session nowhere count")
 
   val YARN_APPLICATION_KILLED_COUNT = MetricsKey("yarn_application_killed_count",
     "Total Killed Yarn Application Count by User")
