@@ -28,7 +28,7 @@ import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.ApplicationEnvContext
-import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
+import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 
 object SparkDatasourceProcessorSpec {
   val SPACE = " "
@@ -94,8 +94,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(HBASE_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(HBASE_JARS)
+      appConf(SPARK_JARS) should not include SPACE
 
     }
 
@@ -107,7 +107,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(JDBC_JARS)
+      appConf(SPARK_JARS) should include(JDBC_JARS)
     }
 
     it("should use kafka datasource in hive when enabled") {
@@ -118,8 +118,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(KAFKA_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(KAFKA_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use TFRecord datasource in hive when enabled") {
@@ -130,8 +130,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(TFRECORD_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(TFRECORD_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use hbase datasource in memory when enabled") {
@@ -142,8 +142,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(HBASE_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(HBASE_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use jdbc datasource in memory when enabled") {
@@ -154,8 +154,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(JDBC_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(JDBC_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use kafka datasource in memory when enabled") {
@@ -166,8 +166,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(KAFKA_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(KAFKA_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use TFRecord datasource in memory when enabled") {
@@ -178,8 +178,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(TFRECORD_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(TFRECORD_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use multiple datasources in hive when enabled") {
@@ -192,9 +192,9 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(HBASE_JARS)
-      appConf(SPARK_AUX_JAR) should include(JDBC_JARS)
-      appConf(SPARK_AUX_JAR) should not include SPACE
+      appConf(SPARK_JARS) should include(HBASE_JARS)
+      appConf(SPARK_JARS) should include(JDBC_JARS)
+      appConf(SPARK_JARS) should not include SPACE
     }
 
     it("should use multiple datasources in memory when enabled") {
@@ -207,8 +207,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_AUX_JAR) should include(HBASE_JARS)
-      appConf(SPARK_AUX_JAR) should include(JDBC_JARS)
+      appConf(SPARK_JARS) should include(HBASE_JARS)
+      appConf(SPARK_JARS) should include(JDBC_JARS)
     }
 
     it("should throw exception when using other catalog-impl") {
@@ -228,7 +228,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
-      appConf(SPARK_AUX_JAR) should include(HBASE_JARS)
+      appConf(SPARK_JARS) should include(HBASE_JARS)
       appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) should be ("hive")
     }
 

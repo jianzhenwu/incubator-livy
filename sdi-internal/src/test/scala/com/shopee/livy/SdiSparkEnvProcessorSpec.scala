@@ -23,13 +23,13 @@ import scala.collection.mutable
 import com.shopee.livy.SparkDatasourceProcessor._
 import com.shopee.livy.SparkDatasourceProcessorSpec._
 import com.shopee.livy.auth.DmpAuthentication
-import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
+import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoaderUtils, LivyConf, SessionType}
-import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
+import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 import org.apache.livy.client.common.ClientConf
 
 class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
@@ -162,7 +162,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "/user/hive/warehouse")
     assert(appConf("spark.sql.catalog.hbase.spark.sql.warehouse.dir") ==
       "/user/hive/warehouse")
-    assert(appConf(SPARK_AUX_JAR).contains(HBASE_JARS))
+    assert(appConf(SPARK_JARS).contains(HBASE_JARS))
     assert(appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) == "hive")
 
     // should merge spark-defaults.conf

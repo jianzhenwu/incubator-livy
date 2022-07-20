@@ -22,12 +22,11 @@ import java.util
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
+import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.ApplicationEnvContext
-import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 
 class HudiConfProcessorSpec extends ScalatraSuite with FunSpecLike {
 

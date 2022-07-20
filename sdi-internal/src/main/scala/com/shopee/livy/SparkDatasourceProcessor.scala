@@ -23,7 +23,7 @@ import scala.collection.mutable.ArrayBuffer
 import com.shopee.livy.SparkDatasourceProcessor._
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
-import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
+import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 
 /**
  * 1. Please add configurations below in livy/conf/spark-defaults.conf when using
@@ -95,8 +95,8 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
         }
         jars += dsJars
       }
-      Option(appConf.get(SPARK_AUX_JAR)).filter(_.nonEmpty).foreach(jars += _)
-      appConf.put(SPARK_AUX_JAR, jars.map(_.trim).mkString(","))
+      Option(appConf.get(SPARK_JARS)).filter(_.nonEmpty).foreach(jars += _)
+      appConf.put(SPARK_JARS, jars.map(_.trim).mkString(","))
     }
   }
 }

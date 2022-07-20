@@ -19,13 +19,13 @@ package com.shopee.livy
 
 import scala.collection.mutable.ArrayBuffer
 
-import com.shopee.livy.HudiConfProcessor.SPARK_LIVY_HUDI_JAR
+import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
-import org.apache.livy.ApplicationEnvProcessor.SPARK_AUX_JAR
 
 object HudiConfProcessor {
   val SPARK_LIVY_HUDI_JAR = "spark.livy.hudi.jar"
+  val SPARK_AUX_JAR = "spark.aux.jar"
 }
 
 class HudiConfProcessor extends ApplicationEnvProcessor with Logging {
