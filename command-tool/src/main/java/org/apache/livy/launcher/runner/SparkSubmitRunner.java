@@ -44,6 +44,7 @@ import org.slf4j.LoggerFactory;
 
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.http.BatchRestClient;
+import org.apache.livy.client.http.exception.AuthServerException;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.response.BatchSessionViewResponse;
@@ -189,8 +190,13 @@ public class SparkSubmitRunner {
           printSessionLog();
         }
         Thread.sleep(200);
-      } catch (ConnectException | ServiceUnavailableException ce) {
+      } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
         logger.warn("Please wait, the session {} is recovering.", sessionId);
+        try {
+          Thread.sleep(1000);
+        } catch (InterruptedException e) {
+          break;
+        }
       } catch (Exception e) {
         throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
             e.getCause());

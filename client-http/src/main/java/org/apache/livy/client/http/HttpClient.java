@@ -34,6 +34,7 @@ import org.apache.livy.LivyClient;
 import org.apache.livy.client.common.HttpMessages;
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.Serializer;
+import org.apache.livy.client.http.exception.AuthServerException;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
@@ -212,7 +213,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
               "Fail to create session %d. The final session status is %s.%n",
               this.sessionId, stateRes.getState()));
         }
-      } catch (ConnectException | ServiceUnavailableException e) {
+      } catch (ConnectException | ServiceUnavailableException | AuthServerException e) {
         logger.warn("The session {} is retrying.", this.sessionId, e);
       }
       long currentTime = System.currentTimeMillis();
@@ -235,7 +236,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       List<String> logs = sessionLogResponse.getLog();
       logs.forEach(System.err::println);
       return logs.size();
-    } catch (ConnectException | ServiceUnavailableException e) {
+    } catch (ConnectException | ServiceUnavailableException | AuthServerException e) {
       logger.warn("Fail to get session {} log.", sessionId, e);
     }
     return 0;
@@ -306,7 +307,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
     try {
       return conn.get(StatementResponse.class, "/%d/statements/%d", sessionId,
           statementId);
-    } catch (ConnectException | ServiceUnavailableException ce) {
+    } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
       throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e);
@@ -319,7 +320,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       StatementOptions req = new StatementOptions(code);
       return conn
           .post(req, StatementResponse.class, "/%d/statements", sessionId);
-    } catch (ConnectException | ServiceUnavailableException ce) {
+    } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
       throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());

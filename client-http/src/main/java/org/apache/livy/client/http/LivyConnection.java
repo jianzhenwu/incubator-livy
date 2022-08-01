@@ -56,6 +56,7 @@ import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.util.EntityUtils;
 
+import org.apache.livy.client.http.exception.AuthServerException;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import static org.apache.livy.client.http.HttpConf.Entry.*;
 import static org.apache.livy.client.http.SessionType.Interactive;
@@ -281,6 +282,11 @@ class LivyConnection {
             || statusCode == HttpStatus.SC_GATEWAY_TIMEOUT) {
           throw new ServiceUnavailableException(String
               .format("%s: %s", res.getStatusLine().getReasonPhrase(), error));
+        }
+        if (statusCode == HttpStatus.SC_INTERNAL_SERVER_ERROR
+            && error != null
+            && error.contains("Internal authentication server error")) {
+          throw new AuthServerException(error);
         }
         throw new IOException(String.format("%s: %s", res.getStatusLine().getReasonPhrase(),
           error));

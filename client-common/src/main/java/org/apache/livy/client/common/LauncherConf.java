@@ -29,6 +29,8 @@ public class LauncherConf extends ClientConf<LauncherConf> {
   public static enum Entry implements ConfEntry {
 
     SESSION_CREATE_TIMEOUT("session.create.timeout", "5m"),
+    SESSION_STOP_RETRY_COUNT("session.stop.retry.count", 5),
+    SESSION_STOP_RETRY_INTERVAL("session.stop.retry.interval", "1s"),
     STATEMENT_TIMEOUT("statement.timeout", "0s"),
     STATEMENT_POLLING_INTERVAL_OFFSET("statement.polling.interval.offset", "100ms"),
     STATEMENT_POLLING_INTERVAL_STEP("statement.pooling.interval.step", "100ms"),

@@ -20,14 +20,28 @@ import java.net.ConnectException;
 import java.net.URI;
 import java.util.*;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import org.apache.livy.client.common.LauncherConf;
+import org.apache.livy.client.http.exception.AuthServerException;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.param.BatchOptions;
 import org.apache.livy.client.http.response.BatchSessionViewResponse;
 
+import static org.apache.livy.client.common.LauncherConf.Entry.SESSION_STOP_RETRY_COUNT;
+import static org.apache.livy.client.common.LauncherConf.Entry.SESSION_STOP_RETRY_INTERVAL;
+
 public class BatchRestClient extends AbstractRestClient {
+
+  private static final Logger logger =
+      LoggerFactory.getLogger(BatchRestClient.class);
+
+  private LauncherConf launcherConf = null;
 
   public BatchRestClient(URI uri, Properties livyConf) {
     super(uri, new HttpConf(livyConf), false);
+    this.launcherConf = new LauncherConf(livyConf);
   }
 
   public BatchSessionViewResponse submitBatchJob(BatchOptions batchOptions) {
@@ -45,7 +59,7 @@ public class BatchRestClient extends AbstractRestClient {
   public BatchSessionViewResponse getBatchSessionView() throws ConnectException {
     try {
       return conn.get(BatchSessionViewResponse.class, "/%d", this.sessionId);
-    } catch (ConnectException | ServiceUnavailableException ce) {
+    } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
       throw ce;
     } catch (Exception e) {
       throw new RuntimeException(e.getMessage(), e.getCause());
@@ -54,18 +68,33 @@ public class BatchRestClient extends AbstractRestClient {
 
   @Override
   public void stop(boolean shutdownContext) {
-    try {
-      if (shutdownContext) {
-        conn.delete(Map.class, "/%s", sessionId);
-      }
-    } catch (Exception e) {
-      throw propagate(e);
-    } finally {
+
+    int retryCountMax = this.launcherConf.getInt(SESSION_STOP_RETRY_COUNT);
+    long retryInterval = this.launcherConf.getTimeAsMs(SESSION_STOP_RETRY_INTERVAL);
+
+    int retryCount = 0;
+    while (retryCount < retryCountMax) {
+      retryCount++;
       try {
-        conn.close();
+        if (shutdownContext) {
+          conn.delete(Map.class, "/%s", sessionId);
+        }
+        break;
+      } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
+        logger.info("Retry {} time to stop session.", retryCount);
+        try {
+          Thread.sleep(retryInterval);
+        } catch (InterruptedException e) {
+          break;
+        }
       } catch (Exception e) {
-        // Ignore.
+        throw propagate(e);
       }
+    }
+    try {
+      conn.close();
+    } catch (Exception e) {
+      logger.error("An exception occurred when closing the connection.", e);
     }
   }
 

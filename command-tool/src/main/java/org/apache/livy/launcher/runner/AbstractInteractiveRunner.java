@@ -33,6 +33,7 @@ import org.slf4j.Logger;
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.HttpClient;
+import org.apache.livy.client.http.exception.AuthServerException;
 import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.response.StatementOutput;
@@ -341,7 +342,7 @@ public abstract class AbstractInteractiveRunner {
           if (t != null) {
             return t;
           }
-        } catch (ConnectException | ServiceUnavailableException e) {
+        } catch (ConnectException | ServiceUnavailableException | AuthServerException e) {
           logger().warn("Please wait, the session {} is recovering.", restClient.getSessionId());
         }
 
