@@ -32,9 +32,9 @@ object StreamingMetricProcessor {
   val STRUCTURED_METRIC_ENABLED = "spark.structured.streaming.metrics.push.enabled"
   val STRUCTURED_LIVY_METRIC_ENABLED = "spark.livy.structured.streaming.metrics.push.enabled"
 
-  val PUSH_URL = "spark.metrics.push.url"
-  val PUSH_TOKEN = "spark.metrics.push.token"
-  val PUSH_INTERVAL = "spark.metrics.send.interval"
+  val PUSH_URL = "spark.streaming.metrics.push.url"
+  val PUSH_TOKEN = "spark.streaming.metrics.push.token"
+  val PUSH_INTERVAL = "spark.streaming.metrics.send.interval"
   val EXTRA_LISTENERS = "spark.streaming.extraListeners"
   val QUERY_LISTENERS = "spark.sql.streaming.streamingQueryListeners"
   val STEAMING_LISTENER = "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener"

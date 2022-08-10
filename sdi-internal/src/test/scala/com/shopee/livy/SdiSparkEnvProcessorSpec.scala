@@ -130,9 +130,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "/usr/share/java/hadoop:/usr/share/java/hadoop:ro")
 
     // streaming metric conf should be in appConf when spark.livy.streaming.metrics.push.enabled
-    assert(appConf("spark.metrics.push.url") == "test_url")
-    assert(appConf("spark.metrics.push.token") == "test_token")
-    assert(appConf("spark.metrics.send.interval") == "15")
+    assert(appConf("spark.streaming.metrics.push.url") == "test_url")
+    assert(appConf("spark.streaming.metrics.push.token") == "test_token")
+    assert(appConf("spark.streaming.metrics.send.interval") == "15")
     assert(appConf("spark.streaming.extraListeners") ==
       "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener")
     assert(appConf("spark.sql.streaming.streamingQueryListeners") ==
