@@ -38,8 +38,8 @@ before_script:
   -  apt-get -qq install python-pip
   -  apt-get -qq install libkrb5-dev
   -  apt-get -qq remove python-setuptools
-  -  python -m pip -q install --upgrade "pip < 10.0.0" "setuptools < 36"
-  -  python3 -m pip -q install --upgrade "pip < 10.0.0" "setuptools < 36"
+  -  python -m pip -q install --upgrade pip setuptools
+  -  python3 -m pip -q install --upgrade pip setuptools
   -  python -m pip -q install codecov cloudpickle
   -  python3 -m pip -q install cloudpickle
   -  python -m pip -q install "requests >= 2.10.0" pytest flaky flake8 requests-kerberos
