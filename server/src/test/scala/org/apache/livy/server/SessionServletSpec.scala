@@ -215,7 +215,7 @@ object SessionServletSpec {
 
       override protected def createSession(sessionId: Int, req: HttpServletRequest): MockSession = {
         if (sessionId == 203) {
-          throw new IllegalArgumentException("203")
+          throw new IllegalArgumentException("invalid request 203")
         }
 
         val params = bodyAs[Map[String, String]](req)
@@ -613,13 +613,15 @@ class ClusterEnabledSessionServletSpec
 
       // Deallocate should be called when request is invalid
       post("/mocks/", Map(), headers = headers) {
-        new String(bodyBytes).contains("DeallocateCallback") should be(true)
+        new String(bodyBytes).contains("invalid request 203") should be(true)
       }
 
       // Deallocate should be called when too many creating session
       servlet.livyConf.set(LivyConf.SESSION_MAX_CREATION, 0)
       post("/mocks/", Map(), headers = headers)  {
-        new String(bodyBytes).contains("DeallocateCallback") should be(true)
+        val a = new String(bodyBytes)
+        new String(bodyBytes).contains(
+          "Rejected, too many sessions are being created!") should be(true)
       }
       servlet.livyConf.set(LivyConf.SESSION_MAX_CREATION, 100)
 

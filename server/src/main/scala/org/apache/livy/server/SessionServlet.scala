@@ -203,6 +203,23 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     totalChildProceses >= livyConf.getInt(LivyConf.SESSION_MAX_CREATION)
   }
 
+  /**
+   * Deallocating server when the session can be deallocated, otherwise catch the
+   * IllegalStateException and do nothing.
+   * @param sessionId the id of session.
+   */
+  def deallocateServerQuietly(sessionId: Int): Unit = {
+    sessionAllocator.foreach { allocator =>
+      try {
+        allocator.deallocateServer(sessionManager.sessionType(), sessionId)
+      } catch {
+        case ise: IllegalStateException =>
+          SessionServlet.error(s"Fail to deallocate server for " +
+            s"${sessionManager.sessionType()} $sessionId", ise)
+      }
+    }
+  }
+
   private def createSessionInternal(sessionId: Int): ActionResult = {
     val serverNode = if (sessionAllocator.isDefined) {
       sessionAllocator.flatMap(_.findServer[R](sessionManager.sessionType(), sessionId))
@@ -217,7 +234,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
       // session allocated to current server or in standalone mode
       synchronized {
         if (tooManySessions) {
-          sessionAllocator.foreach(_.deallocateServer(sessionManager.sessionType(), sessionId))
+          deallocateServerQuietly(sessionId)
           BadRequest(ResponseMessage("Rejected, too many sessions are being created!"))
         } else {
           MDC.clear()
@@ -228,7 +245,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
             sessionManager.register(createSession(sessionId, request))
           } catch {
             case iae: IllegalArgumentException =>
-              sessionAllocator.foreach(_.deallocateServer(sessionManager.sessionType(), sessionId))
+              deallocateServerQuietly(sessionId)
               throw iae
           }
           Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
