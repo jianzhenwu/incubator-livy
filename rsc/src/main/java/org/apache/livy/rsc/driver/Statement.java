@@ -52,10 +52,14 @@ public class Statement {
   }
 
   public void updateProgress(double p) {
-    if (this.state.get().isOneOf(StatementState.Cancelled, StatementState.Available)) {
+    if (isFinished()) {
       this.progress = 1.0;
     } else {
       this.progress = p;
     }
+  }
+
+  public boolean isFinished() {
+    return state.get().isOneOf(StatementState.Cancelled, StatementState.Available);
   }
 }
