@@ -19,26 +19,41 @@ package com.shopee.livy
 
 import scala.collection.mutable
 
-import com.shopee.livy.IpynbConfProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS}
+import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.apache.commons.lang3.StringUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
-import org.apache.livy.LivyConf.{SPARK_ARCHIVES, SPARK_FILES, SPARK_JARS}
+import org.apache.livy.LivyConf.{SPARK_ARCHIVES, SPARK_FILES, SPARK_JARS, SPARK_PY_FILES}
 
-object IpynbConfProcessor {
+object IpynbEnvProcessor {
   val SPARK_LIVY_IPYNB_JARS = "spark.livy.ipynb.jars"
   val SPARK_LIVY_IPYNB_FILES = "spark.livy.ipynb.files"
   val SPARK_LIVY_IPYNB_ARCHIVES = "spark.livy.ipynb.archives"
+  val SPARK_LIVY_IPYNB_PY_FILES = "spark.livy.ipynb.pyFiles"
+
+  val SPARK_LIVY_IPYNB_ENV_ENABLED = "spark.livy.ipynb.env.enabled"
 
   val HADOOP_USER_NAME = "HADOOP_USER_NAME"
   val HADOOP_USER_RPCPASSWORD = "HADOOP_USER_RPCPASSWORD"
 }
 
-class IpynbConfProcessor extends ApplicationEnvProcessor with Logging {
+class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
 
     val appConf = applicationEnvContext.appConf
     val env = applicationEnvContext.env
+
+    val envEnabled = appConf.getOrDefault(SPARK_LIVY_IPYNB_ENV_ENABLED, "false")
+    if ("false".equalsIgnoreCase(envEnabled)) {
+      return
+    }
+
+    val sparkHome = env.get("SPARK_HOME").trim.stripSuffix("/")
+    val pysparkZip = s"$sparkHome/python/lib/pyspark.zip"
+    val py4jZip = s"$sparkHome/python/lib/py4j-*.zip"
+
+    appConf.put(SPARK_PY_FILES,
+      s"$pysparkZip,$py4jZip" + appConf.getOrDefault(SPARK_PY_FILES, ""))
 
     val ipynbJars = appConf.get(SPARK_LIVY_IPYNB_JARS)
     Option(ipynbJars).filter(_.nonEmpty).foreach(jars =>
@@ -52,9 +67,13 @@ class IpynbConfProcessor extends ApplicationEnvProcessor with Logging {
     Option(ipynbArchives).filter(_.nonEmpty).foreach(archives =>
       appConf.put(SPARK_ARCHIVES,
         appConf.getOrDefault(SPARK_ARCHIVES, "") + "," + archives.trim))
+    val ipynbPyFiles = appConf.get(SPARK_LIVY_IPYNB_PY_FILES)
+    Option(ipynbPyFiles).filter(_.nonEmpty).foreach(pyFiles =>
+      appConf.put(SPARK_PY_FILES,
+        appConf.getOrDefault(SPARK_PY_FILES, "") + "," + pyFiles.trim))
 
     val bucketNames = new mutable.HashSet[String]()
-    Seq(ipynbJars, ipynbFiles, ipynbArchives)
+    Seq(ipynbJars, ipynbFiles, ipynbArchives, ipynbPyFiles)
       .filter(StringUtils.isNotBlank(_))
       .filter(_.startsWith("s3a://"))
       .filter(_.length > 6)

@@ -38,7 +38,7 @@ import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionState}
 import org.apache.livy.sessions.Session._
-import org.apache.livy.utils.{AppInfo, SparkApp, SparkAppListener, SparkProcessBuilder}
+import org.apache.livy.utils.{AppInfo, LivySparkUtils, SparkApp, SparkAppListener, SparkProcessBuilder}
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 case class BatchRecoveryMetadata(
@@ -77,6 +77,18 @@ object BatchSession extends Logging {
 
     val builderConf = mutable.Map[String, String]()
     builderConf ++= conf
+
+    val (sparkMajorVersion, _) = if (livyConf.sparkVersions.isEmpty) {
+      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
+    } else {
+      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
+        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+      val sparkVersion = livyConf.get(confKey)
+      info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
+      LivySparkUtils.formatSparkVersion(sparkVersion)
+    }
+    builderConf += ("spark.livy.spark_major_version" -> sparkMajorVersion.toString)
+
     val scalaVersion = if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
       livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION.key + "." + reqSparkVersion.get)
     } else {

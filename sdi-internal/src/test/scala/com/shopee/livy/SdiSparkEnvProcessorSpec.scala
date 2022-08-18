@@ -24,7 +24,7 @@ import com.shopee.livy.SparkDatasourceProcessor._
 import com.shopee.livy.SparkDatasourceProcessorSpec._
 import com.shopee.livy.auth.DmpAuthentication
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
-import com.shopee.livy.IpynbConfProcessor.SPARK_LIVY_IPYNB_JARS
+import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
@@ -85,6 +85,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
       SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
       SPARK_LIVY_IPYNB_JARS -> "s3a://notebook/ipynb.jar",
+      SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
       "spark.driver.extraClassPath" -> "/user")
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,

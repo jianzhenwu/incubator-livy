@@ -141,6 +141,7 @@ class BatchSessionSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
       val accessManager = new AccessManager(conf)
       val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
@@ -156,6 +157,7 @@ class BatchSessionSpec
 
     it("should update appId and appInfo") {
       val conf = new LivyConf()
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
       val req = new CreateBatchRequest()
       val mockApp = mock[SparkApp]
       val accessManager = new AccessManager(conf)
@@ -180,6 +182,7 @@ class BatchSessionSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
       val accessManager = new AccessManager(conf)
       val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
@@ -195,6 +198,7 @@ class BatchSessionSpec
 
     it("should save ServerMetadata into session store") {
       val conf = new LivyConf()
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
       conf.set(LivyConf.SERVER_HOST, "126.0.0.1")
       conf.set(LivyConf.SERVER_PORT, 8999)
       val req = new CreateBatchRequest()
@@ -309,6 +313,7 @@ class BatchSessionSpec
         "file:///dummy-path/dummy2.jar",
         "hdfs:///dummy-path/dummy3.jar")
       val livyConf = new LivyConf(false)
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
         .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.12")
         .set(LivyConf.TOOLKIT_JARS, tookKitJars.mkString(","))
       val req = mock[CreateBatchRequest]
@@ -322,6 +327,7 @@ class BatchSessionSpec
     it("should put spark.yarn.queue though request") {
       val queue = "queue1"
       val livyConf = new LivyConf()
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
       val req = mock[CreateBatchRequest]
       when(req.queue).thenReturn(Some(queue))
       val builderConf = BatchSession.prepareBuilderConf(Map.empty, livyConf, None, req)

@@ -20,75 +20,97 @@ package com.shopee.livy
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.IpynbConfProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS}
+import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.ApplicationEnvContext
-import org.apache.livy.LivyConf.{SPARK_ARCHIVES, SPARK_FILES, SPARK_JARS}
+import org.apache.livy.LivyConf.{SPARK_ARCHIVES, SPARK_FILES, SPARK_JARS, SPARK_PY_FILES}
 
-class IpynbConfProcessorSpec extends ScalatraSuite with FunSpecLike {
+class IpynbEnvProcessorSpec extends ScalatraSuite with FunSpecLike {
 
   val hadoopUser = "John"
   val hadoopPassword = "123456"
+  val pyFiles = "/usr/share/spark/python/lib/pyspark.zip,/usr/share/spark/python/lib/py4j-*.zip"
   val env: mutable.Map[String, String] = mutable.HashMap[String, String](
     HADOOP_USER_NAME -> hadoopUser,
-    HADOOP_USER_RPCPASSWORD -> hadoopPassword
+    HADOOP_USER_RPCPASSWORD -> hadoopPassword,
+    "SPARK_HOME" -> "/usr/share/spark"
   )
 
-  describe("IpynbConfProcessor") {
-    it("should work when there are no dependencies") {
+  describe("IpynbEnvProcessor") {
+    it("should skip when spark.livy.ipynb.env.enabled is false") {
       val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "false"
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
-      val processor = new IpynbConfProcessor()
+      val processor = new IpynbEnvProcessor()
       processor.process(context)
-      appConf shouldBe empty
+      appConf should not contain (SPARK_PY_FILES -> pyFiles)
+    }
+
+    it("should work when there are no dependencies") {
+      val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true"
+      )
+      val context = ApplicationEnvContext(env.asJava, appConf.asJava)
+      val processor = new IpynbEnvProcessor()
+      processor.process(context)
+      appConf(SPARK_PY_FILES) should include (pyFiles)
     }
 
     it("should work when dependency is empty") {
       val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
         SPARK_LIVY_IPYNB_JARS -> ""
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
-      val processor = new IpynbConfProcessor()
+      val processor = new IpynbEnvProcessor()
       processor.process(context)
-      appConf should have size 1
+      appConf(SPARK_PY_FILES) should include (pyFiles)
     }
 
     it("should work when there is a bucket") {
       val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
         SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
         SPARK_LIVY_IPYNB_FILES -> "s3a://bucket_a/files/*",
-        SPARK_LIVY_IPYNB_ARCHIVES -> "s3a://bucket_a/archives/*"
+        SPARK_LIVY_IPYNB_ARCHIVES -> "s3a://bucket_a/archives/*",
+        SPARK_LIVY_IPYNB_PY_FILES -> "s3a://bucket_a/pyFiles/*"
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
-      val processor = new IpynbConfProcessor()
+      val processor = new IpynbEnvProcessor()
       processor.process(context)
       appConf(SPARK_JARS) should include("s3a://bucket_a/jars/*.jar")
       appConf(SPARK_FILES) should include("s3a://bucket_a/files/*")
       appConf(SPARK_ARCHIVES) should include("s3a://bucket_a/archives/*")
+      appConf(SPARK_PY_FILES) should include("s3a://bucket_a/pyFiles/*")
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.access.key") should be(hadoopUser)
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.secret.key") should be(hadoopPassword)
+      appConf(SPARK_PY_FILES) should include (pyFiles)
     }
 
     it("should work when there are multiple buckets") {
       val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
         SPARK_JARS -> "spark.jar",
         SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
         SPARK_LIVY_IPYNB_FILES -> "s3a://bucket_b/files/*",
-        SPARK_LIVY_IPYNB_ARCHIVES -> "s3a://bucket_c/archives/*"
+        SPARK_LIVY_IPYNB_ARCHIVES -> "s3a://bucket_c/archives/*",
+        SPARK_LIVY_IPYNB_PY_FILES -> "s3a://bucket_d/pyFiles/*"
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
-      val processor = new IpynbConfProcessor()
+      val processor = new IpynbEnvProcessor()
       processor.process(context)
       appConf(SPARK_JARS) should be ("spark.jar,s3a://bucket_a/jars/*.jar")
       appConf(SPARK_FILES) should include ("s3a://bucket_b/files/*")
       appConf(SPARK_ARCHIVES) should include ("s3a://bucket_c/archives/*")
-      Seq("bucket_a", "bucket_b", "bucket_c").foreach { bucket =>
+      appConf(SPARK_PY_FILES) should include ("s3a://bucket_d/pyFiles/*")
+      Seq("bucket_a", "bucket_b", "bucket_c", "bucket_d").foreach { bucket =>
         appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.access.key") should be(hadoopUser)
         appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.secret.key") should be(hadoopPassword)
       }
+      appConf(SPARK_PY_FILES) should include (pyFiles)
     }
   }
 }

@@ -40,7 +40,7 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.RssEnvProcessor",
     "com.shopee.livy.HudiConfProcessor",
     "com.shopee.livy.SparkDatasourceProcessor",
-    "com.shopee.livy.IpynbConfProcessor",
+    "com.shopee.livy.IpynbEnvProcessor",
     "com.shopee.livy.DefaultsConfSparkProcessor"
   )
 

@@ -100,6 +100,8 @@ class BatchSessionEventSpec extends FunSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
+
       val accessManager = new AccessManager(conf)
       val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
@@ -116,6 +118,8 @@ class BatchSessionEventSpec extends FunSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
+
       val accessManager = new AccessManager(conf)
       val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
@@ -131,6 +135,8 @@ class BatchSessionEventSpec extends FunSpec
       req.conf = Map("spark.driver.extraClassPath" -> sys.props("java.class.path"))
 
       val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
+
       val accessManager = new AccessManager(conf)
       val batch = BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
       batch.start()
