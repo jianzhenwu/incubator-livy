@@ -26,6 +26,7 @@ import scala.util.{Failure, Success, Try}
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.shopee.livy.auth.DmpAuthentication._
 import okhttp3.{Headers, HttpUrl, MediaType, OkHttpClient, Request, RequestBody}
+import org.apache.http.HttpStatus
 
 import org.apache.livy.Logging
 
@@ -102,10 +103,24 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
       requestBuilder.headers(Headers.of(headers))
     }
     val req = requestBuilder.method(method, body.orNull).url(url).build()
-    val res = httpClient.newCall(req).execute()
-    val resBody = res.body().string()
-    res.body().close()
-    resBody
+    var retryCnt = 3
+    while(retryCnt > 0) {
+      retryCnt -= 1
+      val res = httpClient.newCall(req).execute()
+      val traceId = res.header("trace-id")
+      val statusCode = res.code()
+      val resBody = res.body().string()
+
+      if (statusCode / 100 * 100 == HttpStatus.SC_OK) {
+        res.body().close()
+        return resBody
+      } else {
+        // log trace-id and retry.
+        error(s"RAM authentication failed. statusCode=$statusCode, " +
+          s"trace-id=$traceId, responseBody=$resBody")
+      }
+    }
+    throw new AuthClientException("RAM authentication failed.")
   }
 
   private def doAuthGet[T: ClassTag](
