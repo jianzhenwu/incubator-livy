@@ -31,10 +31,12 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
 
   describe("S3aEnvProcessorSpec") {
 
-    it("should import s3a package when spark higher than 3.1") {
+    it("should import s3a package when s3a enabled") {
 
       val sparks = Array("/opt/spark-3.2.1-sdi-006-bin-3.3.sdi-011",
-        "/opt/spark-3.1.1-sdi-006-bin-3.3.sdi-011")
+        "/opt/spark-3.1.1-sdi-006-bin-3.3.sdi-011",
+        "/opt/spark-3.0.2-sdi-022-bin-3.2.0-sdi-001",
+        "/opt/spark-2.4.7-sdi-026-bin-2.10.sdi-008")
 
       sparks.foreach(spark => {
         val env = new JHashMap[String, String]()
@@ -57,35 +59,5 @@ class S3aEnvProcessorSpec  extends ScalatraSuite with FunSpecLike {
       })
     }
 
-    it("should import s3a package in classpath when spark below 3.1") {
-
-      val sparkHomes = Array("/opt/spark-3.0.2-sdi-022-bin-3.2.0-sdi-001",
-        "/opt/spark-2.4.7-sdi-026-bin-2.10.sdi-008")
-
-      sparkHomes.foreach(e => {
-        val url = ClassLoaderUtils.getContextOrDefaultClassLoader
-          .getResource("spark-conf")
-        val env = mutable.HashMap[String, String](
-          "SPARK_CONF_DIR" -> url.getPath,
-          "SPARK_HOME" -> e
-        )
-        val appConf = new JHashMap[String, String]()
-        appConf.put(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED, "true")
-
-        val processor = new S3aEnvProcessor()
-        val context = ApplicationEnvContext(env.asJava, appConf)
-        processor.process(context)
-
-        assert(appConf.get(S3aEnvProcessor.S3A_PATH_STYLE_ACCESS) == "true")
-
-        assert(!appConf.containsKey("spark.jars.packages"))
-        assert(!appConf.containsKey("spark.jars.excludes"))
-        assert(!appConf.containsKey("spark.jars.repositories"))
-
-        assert(env("HADOOP_CLASSPATH") ==
-          "$HADOOP_CLASSPATH:/hadoop/share/hadoop/tools/lib/hadoop-aws-*.jar:" +
-            "/hadoop/share/hadoop/tools/lib/aws-java-sdk-bundle-*.jar")
-      })
-    }
   }
 }

@@ -17,6 +17,8 @@
 
 package com.shopee.livy
 
+import java.nio.file.Files
+
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
@@ -61,6 +63,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.driver.memoryOverhead" -> "100M",
       "spark.executor.memoryOverhead" -> "100M",
       S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED -> "true",
+      "spark.jars.ivy" -> Files.createTempDirectory("livy_ivy").toString,
       DockerEnvProcessor.SPARK_LIVY_DOCKER_ENABLED -> "true",
       DockerEnvProcessor.SPARK_LIVY_DOCKER_IMAGE -> "centos7-java-base:v6.0",
       DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
@@ -105,9 +108,10 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(env("HADOOP_USER_RPCPASSWORD") == "123456")
 
     // aws package should be in classpath when spark.livy.s3a.enabled
-    assert(env("HADOOP_CLASSPATH") ==
-      "$HADOOP_CLASSPATH:/hadoop/share/hadoop/tools/lib/hadoop-aws-*.jar:" +
-        "/hadoop/share/hadoop/tools/lib/aws-java-sdk-bundle-*.jar")
+    Array("hadoop-aws", "java-sdk-bundle").foreach { e =>
+      assert(appConf("spark.jars").contains(e))
+      assert(env("SPARK_DIST_CLASSPATH").contains(e))
+    }
 
     // should optimized spark conf
     assert(appConf("spark.executor.cores") == "1")
