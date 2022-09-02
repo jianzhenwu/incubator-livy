@@ -30,6 +30,11 @@
   <version>0.8.0-incubating-sdi-021</version>
   <packaging>pom</packaging>
 
+  <properties>
+    <livy.toolkit.jar>${project.build.directory}/jars/${project.artifactId}-${project.version}.jar</livy.toolkit.jar>
+    <livy.toolkit.shade.packageName>org.livy.toolkit.shaded</livy.toolkit.shade.packageName>
+  </properties>
+
   <dependencies>
 
     <dependency>
@@ -140,23 +145,53 @@
     <plugins>
       <plugin>
         <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
+        <artifactId>maven-shade-plugin</artifactId>
         <executions>
           <execution>
+            <id>shade</id>
             <phase>package</phase>
             <goals>
-              <goal>copy-dependencies</goal>
+              <goal>shade</goal>
             </goals>
+            <configuration>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <outputFile>${livy.toolkit.jar}</outputFile>
+              <artifactSet>
+                <includes>
+                  <include>*:*</include>
+                </includes>
+              </artifactSet>
+              <filters>
+                <filter>
+                  <artifact>*:*</artifact>
+                  <excludes>
+                    <exclude>META-INF/*.SF</exclude>
+                    <exclude>META-INF/*.DSA</exclude>
+                    <exclude>META-INF/*.RSA</exclude>
+                  </excludes>
+                </filter>
+              </filters>
+              <relocations combine.children="append">
+                <relocation>
+                  <pattern>com.google.gson.</pattern>
+                  <shadedPattern>${livy.toolkit.shade.packageName}.com.google.gson.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>com.vladsch.flexmark.</pattern>
+                  <shadedPattern>${livy.toolkit.shade.packageName}.com.vladsch.flexmark.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.apache.commons</pattern>
+                  <shadedPattern>${livy.toolkit.shade.packageName}.org.apache.commons</shadedPattern>
+                  <includes>
+                    <include>org.apache.commons.cli.*</include>
+                    <include>org.apache.commons.lang3.*</include>
+                  </includes>
+                </relocation>
+              </relocations>
+            </configuration>
           </execution>
         </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <outputDirectory>${project.build.directory}/jars</outputDirectory>
-        </configuration>
       </plugin>
 
       <plugin>
@@ -168,30 +203,6 @@
             <spark.master>local</spark.master>
           </systemProperties>
         </configuration>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>copy-dependencies</goal>
-            </goals>
-            <configuration>
-              <excludeArtifactIds>
-                json4s-ast_${scala.binary.version},
-                json4s-core_${scala.binary.version},
-                json4s-jackson_${scala.binary.version},
-                json4s-scalap_${scala.binary.version},
-                scala-xml_${scala.binary.version},
-                paranamer,
-                scalap
-              </excludeArtifactIds>
-            </configuration>
-          </execution>
-        </executions>
       </plugin>
     </plugins>
   </build>
