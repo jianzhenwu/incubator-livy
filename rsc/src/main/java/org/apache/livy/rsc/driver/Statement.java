@@ -19,6 +19,7 @@ package org.apache.livy.rsc.driver;
 
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonRawValue;
 
 public class Statement {
@@ -59,6 +60,7 @@ public class Statement {
     }
   }
 
+  @JsonIgnore
   public boolean isFinished() {
     return state.get().isOneOf(StatementState.Cancelled, StatementState.Available);
   }
