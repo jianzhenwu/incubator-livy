@@ -98,6 +98,7 @@ private class HadoopStreamingBootstrap(
   private[toolkit] def createShuffledRDD[K, V, C](
       mapperRDD: RDD[String],
       partitioner: String): ShuffledRDD[String, String, String] = {
+    val ordering = Ordering[String]
     partitioner match {
       case cmd if StringUtils.isNotBlank(cmd) =>
         new ShuffledRDD[String, String, String](
@@ -105,10 +106,12 @@ private class HadoopStreamingBootstrap(
           new HadoopShimPartitioner(
             HadoopStreamingUtil.getPartitioner[String, String](cmd),
             defaultNumPartitions(mapperRDD)))
+          .setKeyOrdering(ordering)
       case _ =>
         new ShuffledRDD[String, String, String](
           HadoopStreamingUtil.rddToPairRDD(mapperRDD, defaultSeparator),
           new HashPartitioner(defaultNumPartitions(mapperRDD)))
+          .setKeyOrdering(ordering)
     }
   }
 
@@ -146,9 +149,9 @@ object HadoopStreamingBootstrap {
 
   def main(args: Array[String]): Unit = {
     val option = new HadoopStreamingOption(args)
-    val executor = new HadoopStreamingBootstrap(new SparkConf(), option)
-    val spark = executor.createSession()
-    executor.execute(spark)
+    val bootstrap = new HadoopStreamingBootstrap(new SparkConf(), option)
+    val spark = bootstrap.createSession()
+    bootstrap.execute(spark)
     spark.stop()
   }
 }
