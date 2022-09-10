@@ -27,7 +27,8 @@ import com.shopee.livy.SparkDatasourceProcessorSpec._
 import com.shopee.livy.auth.DmpAuthentication
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
-import org.mockito.Matchers.anyString
+import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
+import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
@@ -36,6 +37,20 @@ import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 import org.apache.livy.client.common.ClientConf
 
 class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
+
+  override def beforeAll: Unit = {
+    IpynbEnvProcessor.mockFileSystem = Some(mock(classOf[FileSystem]))
+    val fs = IpynbEnvProcessor.mockFileSystem.get
+    val jarsStatus: Array[FileStatus] = Array(
+      new FileStatus(0, false, 0, 0, 0, new Path("s3a://bucket_a/jars/main.jar"))
+    )
+    when(fs.listStatus(new Path("s3a://bucket_a/jars/"))).thenReturn(jarsStatus)
+    when(fs.exists(any(classOf[Path]))).thenReturn(true)
+  }
+
+  override def afterAll(): Unit = {
+    IpynbEnvProcessor.mockFileSystem = None
+  }
 
   test("Test SdiSparkEnvProcessor") {
 
@@ -87,7 +102,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
       "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
       SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
-      SPARK_LIVY_IPYNB_JARS -> "s3a://notebook/ipynb.jar",
+      SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
       SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
       "spark.driver.extraClassPath" -> "/user")
 
@@ -173,7 +188,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) == "hive")
 
     // should merge ipynb jars into spark.jars
-    assert(appConf(SPARK_JARS).contains("s3a://notebook/ipynb.jar"))
+    assert(appConf(SPARK_JARS).contains("s3a://bucket_a/jars/main.jar"))
 
     // should merge spark-defaults.conf
     assert(appConf("spark.driver.extraClassPath") == "/default:/livy:/user")

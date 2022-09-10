@@ -17,10 +17,14 @@
 
 package com.shopee.livy
 
+import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
+import scala.collection.mutable.ArrayBuffer
 
 import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.apache.commons.lang3.StringUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.LivyConf.{SPARK_ARCHIVES, SPARK_FILES, SPARK_JARS, SPARK_PY_FILES}
@@ -35,10 +39,16 @@ object IpynbEnvProcessor {
 
   val HADOOP_USER_NAME = "HADOOP_USER_NAME"
   val HADOOP_USER_RPCPASSWORD = "HADOOP_USER_RPCPASSWORD"
+
+  private[livy] var mockFileSystem: Option[FileSystem] = None
 }
 
 class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
+
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
+
+    val configuration = new Configuration()
+    configuration.set("fs.s3a.impl.disable.cache", "false")
 
     val appConf = applicationEnvContext.appConf
     val env = applicationEnvContext.env
@@ -56,21 +66,15 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       s"$pysparkZip,$py4jZip" + appConf.getOrDefault(SPARK_PY_FILES, ""))
 
     val ipynbJars = appConf.get(SPARK_LIVY_IPYNB_JARS)
-    Option(ipynbJars).filter(_.nonEmpty).foreach(jars =>
-      appConf.put(SPARK_JARS,
-        appConf.getOrDefault(SPARK_JARS, "") + "," + jars.trim))
     val ipynbFiles = appConf.get(SPARK_LIVY_IPYNB_FILES)
-    Option(ipynbFiles).filter(_.nonEmpty).foreach(files =>
-      appConf.put(SPARK_FILES,
-        appConf.getOrDefault(SPARK_FILES, "") + "," + files.trim))
     val ipynbArchives = appConf.get(SPARK_LIVY_IPYNB_ARCHIVES)
-    Option(ipynbArchives).filter(_.nonEmpty).foreach(archives =>
-      appConf.put(SPARK_ARCHIVES,
-        appConf.getOrDefault(SPARK_ARCHIVES, "") + "," + archives.trim))
     val ipynbPyFiles = appConf.get(SPARK_LIVY_IPYNB_PY_FILES)
-    Option(ipynbPyFiles).filter(_.nonEmpty).foreach(pyFiles =>
-      appConf.put(SPARK_PY_FILES,
-        appConf.getOrDefault(SPARK_PY_FILES, "") + "," + pyFiles.trim))
+
+    val ipynbPackages = Array(
+      (SPARK_JARS, ipynbJars),
+      (SPARK_FILES, ipynbFiles),
+      (SPARK_ARCHIVES, ipynbArchives),
+      (SPARK_PY_FILES, ipynbPyFiles))
 
     val bucketNames = new mutable.HashSet[String]()
     Seq(ipynbJars, ipynbFiles, ipynbArchives, ipynbPyFiles)
@@ -87,6 +91,46 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
         env.get(HADOOP_USER_NAME))
       appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.$bucketName.secret.key",
         env.get(HADOOP_USER_RPCPASSWORD))
+    }
+
+    appConf.asScala.filter(kv => kv._1.startsWith("spark.hadoop.fs"))
+      .foreach {
+        kv => configuration.set(kv._1.substring("spark.hadoop.".length), kv._2)
+      }
+
+    val nonEmptyPackages = ipynbPackages
+      .filter(kv => StringUtils.isNotBlank(kv._2))
+
+    if (nonEmptyPackages.nonEmpty) {
+      val fs = IpynbEnvProcessor.mockFileSystem.getOrElse(
+        new Path(nonEmptyPackages.head._2).getFileSystem(configuration)
+      )
+      nonEmptyPackages
+        .foreach(kv => this.searchPackages(kv._2, appConf, kv._1, fs))
+
+      fs.close()
+    }
+  }
+
+  def searchPackages(packagesPaths: String, appConf: java.util.Map[String, String],
+      key: String, fs: FileSystem): Unit = {
+
+    val files = new ArrayBuffer[String]()
+    // s3a://bucket_a/jars/*.jar => packagesDir=s3a://bucket_a/jars/, others=*.jar
+    val regex = "(s3a://[^*]+)([*]*.*)".r
+
+    packagesPaths.trim match {
+      case regex(packagesDir, others) =>
+        info(s"Ipynb packages directory $packagesDir, others=$others")
+        val path = new Path(packagesDir)
+        if (!fs.exists(path)) return
+        fs.listStatus(path).foreach(fileStatus => {
+          files += fileStatus.getPath.toString
+        })
+        files += appConf.getOrDefault(key, "")
+        appConf.put(key, files.filter(_.nonEmpty).mkString(","))
+      case _ =>
+        warn(s"Fail to identify ipynb packages directory from $packagesPaths")
     }
   }
 }
