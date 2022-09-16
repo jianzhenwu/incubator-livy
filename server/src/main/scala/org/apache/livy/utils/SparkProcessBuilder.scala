@@ -24,13 +24,16 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+import org.apache.commons.lang3.StringUtils
+
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging, Utils}
 import org.apache.livy.LivyConf.{SPARK_CONF_DIR, SPARK_HOME}
 import org.apache.livy.SessionType
 import org.apache.livy.client.common.ClientConf
 
 class SparkProcessBuilder(livyConf: LivyConf,
-                          reqSparkVersion: Option[String] = None) extends Logging {
+                          reqSparkVersion: Option[String] = None,
+                          reqMasterYarnId: Option[String] = None) extends Logging {
 
   private[this] var _executable: String = livyConf.sparkSubmit(reqSparkVersion)
   private[this] var _master: Option[String] = None
@@ -191,6 +194,17 @@ class SparkProcessBuilder(livyConf: LivyConf,
     if (sparkConfDir.nonEmpty) {
       appEnv.put("SPARK_CONF_DIR", sparkConfDir.get)
       conf(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.get)
+    }
+
+    if (reqMasterYarnId.nonEmpty) {
+      conf(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY, reqMasterYarnId.get)
+      val hadoopConfDir = livyConf.hadoopConfDir(reqMasterYarnId.get)
+      if (StringUtils.isBlank(hadoopConfDir)) {
+        throw new IllegalArgumentException(s"Hadoop config directory is empty, " +
+          s"please check the master yarn ${reqMasterYarnId.get} configured directories")
+      }
+      appEnv.put("HADOOP_CONF_DIR", hadoopConfDir)
+      conf(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY, hadoopConfDir)
     }
 
     conf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, _username)

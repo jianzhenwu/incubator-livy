@@ -79,6 +79,29 @@ class InteractiveIT extends BaseIntegrationTestSuite {
     }
   }
 
+  test("basic interactive session with request master yarn id") {
+    val sparkConf = Map("spark.livy.master.yarn.id" -> "backup")
+    withNewSession(Spark, sparkConf) { s =>
+      s.run("1+1").verifyResult("res0: Int = 2\n")
+      s.run("""sc.getConf.get("spark.livy.master.yarn.id")""")
+        .verifyResult("res1: String = backup\n")
+
+      // Make sure appInfo is reported correctly.
+      val state = s.snapshot()
+      state.appInfo.driverLogUrl.value should include ("containerlogs")
+      state.appInfo.sparkUiUrl.value should startWith ("http")
+
+      // Stop session and verify the YARN app state is finished.
+      // This is important because if YARN app state is killed, Spark history is not archived.
+      val appId = s.appId()
+      s.stop()
+      eventually(timeout(5 seconds), interval(1 seconds)) {
+        val appReport = cluster.yarnClient.getApplicationReport(appId)
+        appReport.getYarnApplicationState() shouldEqual YarnApplicationState.FINISHED
+      }
+    }
+  }
+
   test("pyspark interactive session") {
     withNewSession(PySpark) { s =>
       s.run("1+1").verifyResult("2")

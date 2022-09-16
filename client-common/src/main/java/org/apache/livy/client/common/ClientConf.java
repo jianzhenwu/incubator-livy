@@ -66,6 +66,10 @@ public abstract class ClientConf<T extends ClientConf>
       "livy.application.hadoop-user-name";
   public static final String LIVY_APPLICATION_SPARK_CONF_DIR_KEY =
       "livy.application.spark-conf-dir";
+  public static final String LIVY_APPLICATION_MASTER_YARN_ID_KEY =
+      "livy.application.master-yarn-id";
+  public static final String LIVY_APPLICATION_HADOOP_CONF_DIR_KEY =
+      "livy.application.hadoop-conf-dir";
 
   static {
     TIME_SUFFIXES = new HashMap<>();

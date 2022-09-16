@@ -25,14 +25,15 @@ import org.scalatest.FunSpec
 import org.scalatest.Matchers._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, MasterMetadata, ServerMetadata}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
 class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
   describe("SessionStore") {
     case class TestRecoveryMetadata(
         id: Int,
-        serverMetadata: ServerMetadata) extends RecoveryMetadata {
+        serverMetadata: ServerMetadata,
+        masterMetadata: MasterMetadata) extends RecoveryMetadata {
 
       @JsonIgnore
       override def isServerDeallocatable(): Boolean = { true }
@@ -43,24 +44,28 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
     val sessionType = "test"
     val sessionPath = s"v1/$sessionType"
     val sessionManagerPath = s"v1/$sessionType/state"
+    val masterMetadata = MasterMetadata("local", None)
 
     val conf = new LivyConf()
     it("should set session state and session counter when saving a session.") {
       val stateStore = mock[StateStore]
       val sessionStore = new SessionStore(conf, stateStore)
 
-      val m = TestRecoveryMetadata(99, conf.serverMetadata())
+      val m = TestRecoveryMetadata(99, conf.serverMetadata(), masterMetadata)
       sessionStore.save(sessionType, m)
       verify(stateStore).set(s"$sessionPath/99", m)
     }
 
     it("should return existing sessions") {
       val validMetadata = Map(
-        "0" -> Some(TestRecoveryMetadata(0, null)),
-        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0))),
-        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0))),
+        "0" -> Some(TestRecoveryMetadata(0, null, null)),
+        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0),
+          MasterMetadata("local", null))),
+        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0),
+          MasterMetadata("local", None))),
         "5" -> None,
-        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
+        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata(),
+          MasterMetadata("local", Some("default")))))
       val corruptedMetadata = Map(
         "7" -> new RuntimeException("Test"),
         "11212" -> new RuntimeException("Test")
@@ -88,12 +93,16 @@ class SessionStoreSpec extends FunSpec with LivyBaseUnitTestSuite {
 
     it("should filter existing sessions by server metadata") {
       val validMetadata = Map(
-        "0" -> Some(TestRecoveryMetadata(0, null)),
-        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0))),
-        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0))),
-        "3" -> Some(TestRecoveryMetadata(1, ServerMetadata("126.0.0.1", 8998))),
+        "0" -> Some(TestRecoveryMetadata(0, null, null)),
+        "1" -> Some(TestRecoveryMetadata(1, ServerMetadata(null, 0),
+          MasterMetadata("local", null))),
+        "2" -> Some(TestRecoveryMetadata(1, ServerMetadata("", 0),
+          MasterMetadata("local", None))),
+        "3" -> Some(TestRecoveryMetadata(1, ServerMetadata("126.0.0.1", 8998),
+          MasterMetadata("local", Some("default")))),
         "5" -> None,
-        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata())))
+        "77" -> Some(TestRecoveryMetadata(77, conf.serverMetadata(),
+          MasterMetadata("local", Some("default")))))
       val corruptedMetadata = Map(
         "7" -> new RuntimeException("Test"),
         "11212" -> new RuntimeException("Test")

@@ -27,6 +27,7 @@ import okhttp3.{Headers, OkHttpClient, Request}
 import org.apache.commons.lang3.StringUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
+import org.apache.livy.client.common.ClientConf
 
 object RssEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc.yarn.cluster."
@@ -36,6 +37,8 @@ object RssEnvProcessor {
   val SPARK_LIVY_RSS_ENABLED = "spark.livy.rss.enabled"
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
+
+  val SPARK_RSS_YARN_ALLOWED_MASTER_IDS = "livy.rsc.yarn.spark.rss.allow.master.ids"
 
   val defaultConf = Map(
     "spark.shuffle.manager" -> "org.apache.spark.shuffle.rss.RssShuffleManager",
@@ -55,19 +58,29 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     val rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
       .getOrElse(appConf.get(SPARK_RSS_ENABLED))
 
-    Option(rssEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
-      val queue = appConf.get(SPARK_YARN_QUEUE)
-      if (StringUtils.isBlank(queue)) {
-        throw new ProcessorException("The queue must be set by user.")
-      }
-      val yarnCluster = yarnRouterMapping.getCluster(queue)
-      appConf.asScala.filter { kv =>
-        StringUtils.startsWith(kv._1, RSC_CONF_PREFIX + yarnCluster)
-      }.foreach { kv =>
-        appConf.put(StringUtils.substringAfter(kv._1, RSC_CONF_PREFIX + yarnCluster + "."), kv._2)
-      }
-      appConf.putAll(defaultConf.asJava)
-    })
+    Option(rssEnabled).filter("true".equalsIgnoreCase)
+      .foreach(_ => {
+        val masterYarn = appConf.get(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY)
+        if (masterYarn == null) {
+          throw new ProcessorException(s"The master yarn must be a valid value for RSS.")
+        }
+        if (!appConf.get(SPARK_RSS_YARN_ALLOWED_MASTER_IDS).split(",")
+          .map(_.toLowerCase().trim)
+          .contains(masterYarn.toLowerCase())) {
+          throw new ProcessorException(s"The master yarn $masterYarn is not allowed for RSS.")
+        }
+        val queue = appConf.get(SPARK_YARN_QUEUE)
+        if (StringUtils.isBlank(queue)) {
+          throw new ProcessorException("The queue must be set by user.")
+        }
+        val yarnCluster = yarnRouterMapping.getCluster(queue)
+        appConf.asScala.filter { kv =>
+          StringUtils.startsWith(kv._1, RSC_CONF_PREFIX + yarnCluster)
+        }.foreach { kv =>
+          appConf.put(StringUtils.substringAfter(kv._1, RSC_CONF_PREFIX + yarnCluster + "."), kv._2)
+        }
+        appConf.putAll(defaultConf.asJava)
+      })
   }
 }
 

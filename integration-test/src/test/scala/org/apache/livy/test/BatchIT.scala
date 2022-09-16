@@ -54,6 +54,21 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     }
   }
 
+  test("submit spark app with request master yarn id") {
+    val output = newOutputPath()
+    val sparkConf = Map("spark.livy.master.yarn.id" -> "backup")
+    withTestLib(classOf[SimpleSparkApp], List(output), sparkConf) { s =>
+      s.verifySessionSuccess()
+
+      // Make sure the test lib has created the test output.
+      cluster.fs.isDirectory(new Path(output)) shouldBe true
+
+      // Make sure appInfo is reported correctly.
+      val state = s.snapshot()
+      state.appInfo.sparkUiUrl.value should startWith ("http")
+    }
+  }
+
   test("submit an app that fails") {
     val output = newOutputPath()
     withTestLib(classOf[FailingApp], List(output)) { s =>

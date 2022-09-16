@@ -38,7 +38,7 @@ import org.scalatest.FunSpec
 import org.scalatest.concurrent.Eventually
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, Utils}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, MasterMetadata, Utils}
 import org.apache.livy.utils.SparkApp._
 
 class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
@@ -50,13 +50,26 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
     Thread.`yield`()
   }
 
+  SparkYarnApp.masterYarnIds = Seq("default", "backup")
+  SparkYarnApp.hadoopConfDirs = Seq(
+    "file:///dummy-path/hadoop-default-conf",
+    "file:///dummy-path/hadoop-backup-conf")
+
   describe("SparkYarnApp") {
     val TEST_TIMEOUT = 30 seconds
     val appId = ConverterUtils.toApplicationId("application_1467912463905_0021")
     val appIdOption = Some(appId.toString)
     val appTag = "fakeTag"
     val livyConf = new LivyConf()
-    livyConf.set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "30s")
+      .set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "30s")
+      .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default, backup")
+      .set(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID, "default")
+      .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR, "file:///dummy-path/hadoop-default-conf")
+      .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".default",
+        "file:///dummy-path/hadoop-default-conf")
+      .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".backup",
+        "file:///dummy-path/hadoop-backup-conf")
+    val masterMetadata = MasterMetadata("yarn", Option("default"))
 
     it("should poll YARN state and terminate") {
       Clock.withSleepMethod(mockSleep) {
@@ -110,10 +123,11 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val app = new SparkYarnApp(
           appTag,
           appIdOption,
+          masterMetadata,
           None,
           Some(mockAppListener),
           livyConf,
-          mockYarnClient)
+          Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
           assert(!app.yarnAppMonitorThread.isAlive,
@@ -147,7 +161,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         })
         when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
 
-        val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(appTag, appIdOption, masterMetadata, None, None,
+          livyConf, Some(mockYarnClient))
         Utils.waitUntil({ () => app.isRunning }, Duration(10, TimeUnit.SECONDS))
         cleanupThread(app.yarnAppMonitorThread) {
           app.kill()
@@ -190,10 +205,11 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val app = new SparkYarnApp(
           appTag,
           appIdOption,
+          masterMetadata,
           Some(mockSparkSubmit),
           None,
           livyConf,
-          mockYarnClient)
+          Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           app.kill()
           waitForCalledLatch.await(TEST_TIMEOUT.toMillis, TimeUnit.MILLISECONDS)
@@ -232,10 +248,11 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val app = new SparkYarnApp(
           appTag,
           appIdOption,
+          masterMetadata,
           Some(mockSparkSubmit),
           None,
           livyConf,
-          mockYarnClient)
+          Some(mockYarnClient))
 
         Eventually.eventually(Eventually.timeout(10 seconds), Eventually.interval(100 millis)) {
           assert(app.isRunning)
@@ -251,6 +268,14 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
     it("should end with state failed when spark submit start failed") {
       Clock.withSleepMethod(mockSleep) {
         val livyConf = new LivyConf()
+          .set(LivyConf.YARN_APP_LOOKUP_TIMEOUT, "30s")
+          .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default, backup")
+          .set(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID, "default")
+          .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR, "file:///dummy-path/hadoop-default-conf")
+          .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".default",
+            "file:///dummy-path/hadoop-default-conf")
+          .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".backup",
+            "file:///dummy-path/hadoop-backup-conf")
         val mockSparkSubmit = mock[LineBufferedProcess]
         when(mockSparkSubmit.isAlive).thenReturn(false)
         when(mockSparkSubmit.exitValue).thenReturn(-1)
@@ -258,6 +283,7 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val app = new SparkYarnApp(
           appTag,
           None,
+          masterMetadata,
           Some(mockSparkSubmit),
           None,
           livyConf)
@@ -269,11 +295,13 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           assert(app.state == SparkApp.State.FAILED,
             "SparkYarnApp should end with state failed when spark submit start failed")
         }
+
+
       }
     }
 
     it("should map YARN state to SparkApp.State correctly") {
-      val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf)
+      val app = new SparkYarnApp(appTag, appIdOption, masterMetadata, None, None, livyConf)
       cleanupThread(app.yarnAppMonitorThread) {
         assert(app.mapYarnState(appId, NEW, UNDEFINED) == State.STARTING)
         assert(app.mapYarnState(appId, NEW_SAVING, UNDEFINED) == State.STARTING)
@@ -313,7 +341,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val mockListener = mock[SparkAppListener]
         val mockSparkSubmit = mock[LineBufferedProcess]
         val app = new SparkYarnApp(
-          appTag, None, Some(mockSparkSubmit), Some(mockListener), livyConf, mockYarnClient)
+          appTag, None, masterMetadata, Some(mockSparkSubmit), Some(mockListener),
+          livyConf, Some(mockYarnClient))
 
         cleanupThread(app.yarnAppMonitorThread) {
           app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
@@ -333,14 +362,16 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
 
         when(mockAppReport.getApplicationId).thenReturn(appId)
         when(mockYarnClient.getApplications(Set("SPARK").asJava,
-          java.util.EnumSet.allOf(classOf[YarnApplicationState]), Set(appTag.toLowerCase()).asJava))
+          java.util.EnumSet.allOf(classOf[YarnApplicationState]),
+          Set(appTag.toLowerCase()).asJava))
           .thenThrow(new IOException())
           .thenReturn(List(mockAppReport).asJava)
 
         val mockListener = mock[SparkAppListener]
         val mockSparkSubmit = mock[LineBufferedProcess]
         val app = new SparkYarnApp(
-          appTag, None, Some(mockSparkSubmit), Some(mockListener), livyConf, mockYarnClient)
+          appTag, None, masterMetadata, Some(mockSparkSubmit), Some(mockListener),
+          livyConf, Some(mockYarnClient))
 
         cleanupThread(app.yarnAppMonitorThread) {
           app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
@@ -364,13 +395,15 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val mockYarnClient = mock[YarnClient]
 
         when(mockYarnClient.getApplications(Set("SPARK").asJava,
-          java.util.EnumSet.allOf(classOf[YarnApplicationState]), Set(appTag.toLowerCase()).asJava))
+          java.util.EnumSet.allOf(classOf[YarnApplicationState]),
+          Set(appTag.toLowerCase()).asJava))
           .thenThrow(new IOException())
 
         val mockListener = mock[SparkAppListener]
         val mockSparkSubmit = mock[LineBufferedProcess]
         val app = new SparkYarnApp(
-          appTag, None, Some(mockSparkSubmit), Some(mockListener), livyConf, mockYarnClient)
+          appTag, None, masterMetadata, Some(mockSparkSubmit), Some(mockListener),
+          livyConf, Some(mockYarnClient))
 
         cleanupThread(app.yarnAppMonitorThread) {
           app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
@@ -432,7 +465,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
         val mockListener = mock[SparkAppListener]
 
         val app = new SparkYarnApp(
-          appTag, appIdOption, None, Some(mockListener), livyConf, mockYarnClient)
+          appTag, appIdOption, masterMetadata, None, Some(mockListener),
+          livyConf, Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           getLogUrlCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
           done = true
@@ -464,7 +498,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           }
         })
 
-        val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(appTag, appIdOption, masterMetadata, None, None,
+          livyConf, Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           pollCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
           assert(app.state == SparkApp.State.STARTING)
@@ -517,7 +552,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
             }
           })
 
-        val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(appTag, appIdOption, masterMetadata, None, None,
+          livyConf, Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           pollCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
           assert(app.state == SparkApp.State.RUNNING)
@@ -542,7 +578,8 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
           .thenThrow(new IOException())
           .thenReturn(mockAppReport)
 
-        val app = new SparkYarnApp(appTag, appIdOption, None, None, livyConf, mockYarnClient)
+        val app = new SparkYarnApp(appTag, appIdOption, masterMetadata, None, None,
+          livyConf, Some(mockYarnClient))
         cleanupThread(app.yarnAppMonitorThread) {
           Thread.sleep(50)
           verify(mockYarnClient, atLeast(2)).getApplicationReport(appId)
@@ -562,11 +599,12 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
 
         SparkYarnApp.init(livyConf, Some(client))
 
-        SparkYarnApp.leakedAppTags.clear()
-        SparkYarnApp.leakedAppTags.put("leakApp", System.currentTimeMillis())
+        SparkYarnApp.masterYarnIdAppTagsMap(SparkYarnApp.defaultMasterYarnId).clear()
+        SparkYarnApp.masterYarnIdAppTagsMap(SparkYarnApp.defaultMasterYarnId)
+          .put("leakApp", System.currentTimeMillis())
 
         Eventually.eventually(Eventually.timeout(TEST_TIMEOUT), Eventually.interval(100 millis)) {
-          assert(SparkYarnApp.leakedAppTags.size() == 0)
+          assert(SparkYarnApp.masterYarnIdAppTagsMap(SparkYarnApp.defaultMasterYarnId).size() == 0)
         }
       }
     }

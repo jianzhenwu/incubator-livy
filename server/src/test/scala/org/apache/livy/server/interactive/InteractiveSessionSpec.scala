@@ -62,7 +62,8 @@ class InteractiveSessionSpec extends FunSpec
       sessionStore: SessionStore = mock[SessionStore],
       mockApp: Option[SparkApp] = None,
       conf: LivyConf = livyConf,
-      reqSparkVersion: Option[String] = None): InteractiveSession = {
+      reqSparkVersion: Option[String] = None,
+      reqMasterYarnId: Option[String] = None): InteractiveSession = {
     assume(sys.env.get("SPARK_HOME").isDefined, "SPARK_HOME is not set.")
 
     val req = new CreateInteractiveRequest()
@@ -78,6 +79,9 @@ class InteractiveSessionSpec extends FunSpec
     )
     if (reqSparkVersion.isDefined) {
       req.conf ++= Map("spark.livy.spark_version_name" -> reqSparkVersion.get)
+    }
+    if (reqMasterYarnId.isDefined) {
+      req.conf ++= Map("spark.livy.master.yarn.id" -> reqMasterYarnId.get)
     }
 
     InteractiveSession.create(0, None, null, None, conf, accessManager, req,
@@ -212,6 +216,34 @@ class InteractiveSessionSpec extends FunSpec
               classOf[InteractiveRecoveryMetadata])
             recoveryMetadata.serverMetadata.host should be ("126.0.0.1")
             recoveryMetadata.serverMetadata.port should be (8999)
+          }
+        })
+
+      session = createSession(sessionStore, Some(mockApp), conf)
+      session.start()
+
+      val expectedAppId = "APPID"
+      session.appIdKnown(expectedAppId)
+
+      verify(sessionStore, atLeastOnce()).save(
+        MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
+    it("should save MasterMetadata into session store") {
+      val conf = new LivyConf()
+      conf.setAll(livyConf)
+      conf.set(LivyConf.LIVY_SPARK_MASTER, "local")
+
+      val mockApp = mock[SparkApp]
+      val sessionStore = mock[SessionStore]
+      when(sessionStore.save(MockitoMatchers.eq(InteractiveSession.RECOVERY_SESSION_TYPE),
+        anyObject()))
+        .thenAnswer(new Answer[Unit]() {
+          override def answer(invocation: InvocationOnMock): Unit = {
+            val recoveryMetadata = invocation.getArgumentAt(1,
+              classOf[InteractiveRecoveryMetadata])
+            recoveryMetadata.masterMetadata.masterType should be ("local")
+            recoveryMetadata.masterMetadata.masterId should be (None)
           }
         })
 
@@ -435,6 +467,40 @@ class InteractiveSessionSpec extends FunSpec
         }
       assert(caught.getMessage == "spark version is not support")
     }
+
+    it("should failed to run spark with unsupported request master yarn id") {
+      val livyConf = new LivyConf(false)
+        .set(LivyConf.REPL_JARS, "livy-repl_2.11.jar,livy-repl_2.12.jar")
+        .set(LivyConf.LIVY_SPARK_VERSION, sys.env("LIVY_SPARK_VERSION"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION, "2.10")
+        .set(LivyConf.LIVY_SPARK_VERSIONS, "v2_0,v3_0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v2_0", "2.0")
+        .set(LivyConf.LIVY_SPARK_VERSION.key + ".v3_0", "3.0")
+        .set(LivyConf.SPARK_HOME.key + ".v2_0", "file:///dummy-path/spark2")
+        .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v2_0", "2.11")
+        .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
+        .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "v3_0")
+        .set(LivyConf.LIVY_SPARK_MASTER, "yarn")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default,backup")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID, "default")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".default",
+          "file:///dummy-path/hadoop-default-conf")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".backup",
+          "file:///dummy-path/hadoop-backup-conf")
+
+      val reqMasterYarnId = Some("yarn3")
+
+      val mockApp = mock[SparkApp]
+      val sessionStore = mock[SessionStore]
+
+      val caught =
+        intercept[IllegalArgumentException] {
+          val session = createSession(
+            sessionStore, Some(mockApp), livyConf, None, reqMasterYarnId)
+        }
+      assert(caught.getMessage == s"the master yarn ${reqMasterYarnId.get} is not support")
+    }
   }
 
   describe("recovery") {
@@ -444,7 +510,7 @@ class InteractiveSessionSpec extends FunSpec
       val mockClient = mock[RSCClient]
       when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
       val m = InteractiveRecoveryMetadata(78, Some("Test session"), None, "appTag",
-        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata())
+        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata(), null)
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
       s.start()
 
@@ -461,7 +527,7 @@ class InteractiveSessionSpec extends FunSpec
       val mockClient = mock[RSCClient]
       when(mockClient.submit(any(classOf[PingJob]))).thenReturn(mock[JobHandle[Void]])
       val m = InteractiveRecoveryMetadata(78, None, None, "appTag",
-        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata())
+        Spark, 0, null, None, Some(URI.create("")), conf.serverMetadata(), null)
       val s = InteractiveSession.recover(m, conf, sessionStore, None, Some(mockClient))
       s.start()
 
@@ -476,7 +542,7 @@ class InteractiveSessionSpec extends FunSpec
       val conf = new LivyConf()
       val sessionStore = mock[SessionStore]
       val m = InteractiveRecoveryMetadata(
-        78, None, Some("appId"), "appTag", Spark, 0, null, None, None, conf.serverMetadata())
+        78, None, Some("appId"), "appTag", Spark, 0, null, None, None, conf.serverMetadata(), null)
       val s = InteractiveSession.recover(m, conf, sessionStore, None)
       s.start()
       s.state shouldBe a[SessionState.Dead]

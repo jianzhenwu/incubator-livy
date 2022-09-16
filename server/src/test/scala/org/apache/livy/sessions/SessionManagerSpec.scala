@@ -28,7 +28,7 @@ import org.scalatest.{FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, MasterMetadata, ServerMetadata}
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.batch.{BatchRecoveryMetadata, BatchSession}
 import org.apache.livy.server.event.Events
@@ -243,10 +243,11 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
     def makeMetadata(
         id: Int,
         appTag: String,
-        serverMetadata: ServerMetadata): BatchRecoveryMetadata = {
+        serverMetadata: ServerMetadata,
+        masterMetadata: MasterMetadata): BatchRecoveryMetadata = {
       val conf = new LivyConf()
       BatchRecoveryMetadata(id, Some(s"test-session-$id"), None, appTag,
-        null, None, serverMetadata)
+        null, None, serverMetadata, masterMetadata)
     }
 
     def mockSession(id: Int): BatchSession = {
@@ -277,12 +278,13 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       val sessionType = "batch"
       val nextId = 99
+      val masterMetadata = MasterMetadata("local", None)
 
       val validMetadata = List(
-        makeMetadata(0, "t1", null),
-        makeMetadata(1, "t1", ServerMetadata(null, 0)),
-        makeMetadata(2, "t1", ServerMetadata("126.0.0.1", 8998)),
-        makeMetadata(77, "t2", conf.serverMetadata())).map(Try(_))
+        makeMetadata(0, "t1", null, masterMetadata),
+        makeMetadata(1, "t1", ServerMetadata(null, 0), masterMetadata),
+        makeMetadata(2, "t1", ServerMetadata("126.0.0.1", 8998), masterMetadata),
+        makeMetadata(77, "t2", conf.serverMetadata(), masterMetadata)).map(Try(_))
       val invalidMetadata = List(Failure(new Exception("Fake invalid metadata")))
       val sessionStore = mock[SessionStore]
       when(sessionStore.getNextSessionId(sessionType)).thenReturn(nextId)
@@ -306,10 +308,11 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       val sessionType = "batch"
       val sessionPath = s"v1/$sessionType"
+      val masterMetadata = MasterMetadata("local", None)
 
       val validMetadata = Map(
-        "0" -> Some(makeMetadata(0, "t1", ServerMetadata("126.0.0.1", 8998))),
-        "77" -> Some(makeMetadata(77, "t2", conf.serverMetadata())))
+        "0" -> Some(makeMetadata(0, "t1", ServerMetadata("126.0.0.1", 8998), masterMetadata)),
+        "77" -> Some(makeMetadata(77, "t2", conf.serverMetadata(), masterMetadata)))
       val stateStore = mock[StateStore]
       when(stateStore.getChildren(sessionPath))
         .thenReturn((validMetadata).keys.toList)
@@ -334,6 +337,7 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       val sessionType = "batch"
 
+      val masterMetadata = MasterMetadata("local", None)
       val validMetadata = List().map(Try(_))
       val sessionStore = mock[SessionStore]
       when(sessionStore.getAllSessions[BatchRecoveryMetadata](sessionType))
@@ -344,9 +348,10 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
       sm.size shouldBe validMetadata.size
 
       when(sessionStore.get[BatchRecoveryMetadata](sessionType, 0))
-        .thenReturn(Option(makeMetadata(0, "t0", conf.serverMetadata())))
+        .thenReturn(Option(makeMetadata(0, "t0", conf.serverMetadata(), masterMetadata)))
       when(sessionStore.get[BatchRecoveryMetadata](sessionType, 1))
-        .thenReturn(Option(makeMetadata(1, "t1", ServerMetadata("126.0.0.1", 8998))))
+        .thenReturn(Option(makeMetadata(1, "t1", ServerMetadata("126.0.0.1", 8998),
+          masterMetadata)))
 
       sm.recover(0)
       sm.recover(1)
@@ -363,7 +368,8 @@ class SessionManagerSpec extends FunSpec with Matchers with LivyBaseUnitTestSuit
 
       intercept[IllegalStateException] {
         when(sessionStore.get[BatchRecoveryMetadata](sessionType, 101))
-          .thenReturn(Option(makeMetadata(1, null, ServerMetadata("126.0.0.1", 8998))))
+          .thenReturn(Option(makeMetadata(1, null, ServerMetadata("126.0.0.1", 8998),
+            masterMetadata)))
         sm.recover(101)
       }
     }

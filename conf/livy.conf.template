@@ -213,6 +213,12 @@
 # livy.rsc.pyspark.archives.v2_4 =
 # livy.rsc.pyspark.archives.v3_1 =
 
+# Yarn router multiple cluster configurations.
+# livy.spark.master.yarn.ids = default, backup
+# livy.spark.master.yarn.ids.default = default
+# livy.spark.master.hadoop-conf-dir.default =
+# livy.spark.master.hadoop-conf-dir.backup=
+
 # A list of spark history for livy to select, this history info will also added to yarn tag
 # to convenient to keyhole.
 # livy.spark.history.name1.address = http://spark-history.data-infra.shopee.io
@@ -239,6 +245,7 @@
 # livy.rsc.yarn.cluster.yarn-cluster-at0.spark.rss.master.port = 9097
 # livy.rsc.yarn.cluster.yarn-cluster.spark.rss.ha.master.hosts = 10.130.24.168,10.130.26.2,10.130.24.100
 # livy.rsc.yarn.cluster.yarn-cluster.spark.rss.master.port = 9097
+# livy.rsc.yarn.spark.rss.allow.master.ids =
 
 # Whether to enable access s3 filesystem.
 # livy.server.fs.s3a.enabled = true

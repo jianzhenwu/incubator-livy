@@ -240,6 +240,17 @@ class ContextLauncher {
     env.put("SPARK_CONF_DIR", confDir);
     env.put(SPARK_HOME_ENV, sparkHome);
 
+    String masterYarnId = conf.get(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY);
+    if (masterYarnId != null) {
+      appConf.put(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY, masterYarnId);
+    }
+
+    String hadoopConfDir = conf.get(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY);
+    if (hadoopConfDir != null) {
+      appConf.put(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY, hadoopConfDir);
+      env.put("HADOOP_CONF_DIR", hadoopConfDir);
+    }
+
     ApplicationEnvContext context = new ApplicationEnvContext(env, appConf,
         Some.apply(SessionType.Interactive));
     applicationEnvProcessor.process(context);

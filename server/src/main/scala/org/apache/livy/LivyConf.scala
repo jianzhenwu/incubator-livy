@@ -55,6 +55,12 @@ object LivyConf {
   val LIVY_SPARK_VERSIONS = Entry("livy.server.spark.versions", null)
   val LIVY_SPARK_DEFAULT_VERSION = Entry("livy.server.spark.versions.default", null)
 
+  // Allow user use different master yarn ids, it is required to set supported master yarn
+  // by this configuration
+  val LIVY_SPARK_MASTER_YARN_IDS = Entry("livy.spark.master.yarn.ids", null)
+  val LIVY_SPARK_MASTER_YARN_DEFAULT_ID = Entry("livy.spark.master.yarn.ids.default", null)
+  val LIVY_SPARK_MASTER_HADOOP_CONF_DIR = Entry("livy.spark.master.hadoop-conf-dir", null)
+
   // Two configurations to specify Spark and related Scala version. These are internal
   // configurations will be set by LivyServer and used in session creation. It is not required to
   // set usually unless running with unofficial Spark + Scala combinations.
@@ -425,6 +431,8 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
 
   lazy val sparkVersions = configToSeq(LIVY_SPARK_VERSIONS)
 
+  lazy val masterYarnIds = configToSeq(LIVY_SPARK_MASTER_YARN_IDS)
+
   lazy val historyInfoList: List[HistoryInfo] = config.asScala
     .filter(_._1.startsWith("livy.spark.history"))
     .toSeq
@@ -518,6 +526,12 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
     } else {
       Option(get(SPARK_CONF_DIR)).orElse(Option(System.getenv("SPARK_CONF_DIR")))
     }
+  }
+
+  def hadoopConfDir(masterYarnIdKey: String): String = {
+    Option(get(LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + "." + masterYarnIdKey))
+      .getOrElse(throw new NoSuchElementException(
+        s"Cannot find hadoop config dir for master yarn id $masterYarnIdKey"))
   }
 
   /** Return the location of the PySparkArchives directory */

@@ -318,6 +318,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
 
   override def init(context: ServletContext): Unit = {
     val conf = new LivyConf()
+    val masterMetadata = mock(classOf[MasterMetadata])
     val stateStore = mock(classOf[SessionStore])
     val sessionIdGenerator = mock(classOf[SessionIdGenerator])
     val sessionManager = new InteractiveSessionManager(conf, stateStore, sessionIdGenerator,
@@ -338,11 +339,11 @@ private class HttpClientTestBootstrap extends LifeCycle {
         when(session.proxyUser).thenReturn(None)
         when(session.kind).thenReturn(Spark)
         when(session.recoveryMetadata).thenReturn(InteractiveRecoveryMetadata(id, None,
-          None, null, Spark, 1, null, None, null, livyConf.serverMetadata()))
+          None, null, Spark, 1, null, None, null, livyConf.serverMetadata(), masterMetadata))
         when(session.stop()).thenReturn(Future.successful(()))
         when(session.recoveryMetadata).thenReturn(
           InteractiveRecoveryMetadata(0, None, None, "", Spark,
-            0, "", None, None, ServerMetadata(req.serverName, req.serverPort)))
+            0, "", None, None, ServerMetadata(req.serverName, req.serverPort), masterMetadata))
         when(session.logLines(anyObject())).thenReturn(IndexedSeq.empty)
 
         val mockStatement = new Statement(0, "", StatementState.Available, "{}")

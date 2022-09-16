@@ -34,7 +34,7 @@ import org.scalatest.Entry
 import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{ExecuteRequest, LivyConf}
+import org.apache.livy.{ExecuteRequest, LivyConf, MasterMetadata}
 import org.apache.livy.client.common.HttpMessages.SessionInfo
 import org.apache.livy.rsc.driver.{Statement, StatementState}
 import org.apache.livy.server.AccessManager
@@ -101,7 +101,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
       )
       when(session.recoveryMetadata).thenReturn(
         InteractiveRecoveryMetadata(0, None, None, "", Spark,
-          0, "", None, None, livyConf.serverMetadata()))
+          0, "", None, None, livyConf.serverMetadata(), MasterMetadata("local", None)))
 
       session
     }
@@ -185,6 +185,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
     val kind = Spark
     val appInfo = AppInfo(Some("DRIVER LOG URL"), Some("SPARK UI URL"))
     val log = IndexedSeq[String]("log1", "log2")
+    val sparkMasterId = "yarn1"
 
     val session = mock[InteractiveSession]
     when(session.id).thenReturn(id)
@@ -200,7 +201,8 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
     when(session.recoveryMetadata).thenReturn(
       InteractiveRecoveryMetadata(id, name, Some(appId), "", kind,
-        100, owner, Some(proxyUser), None, new LivyConf().serverMetadata()))
+        100, owner, Some(proxyUser), None, new LivyConf().serverMetadata(),
+        MasterMetadata("local", None)))
 
     val req = mock[HttpServletRequest]
 

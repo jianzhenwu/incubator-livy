@@ -28,7 +28,7 @@ import org.scalatra.LifeCycle
 import org.scalatra.servlet.ScalatraListener
 import scala.concurrent.{ExecutionContext, Future}
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, ServerMetadata}
+import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf, MasterMetadata, ServerMetadata}
 import org.apache.livy.client.http.param.BatchOptions
 import org.apache.livy.metrics.common.Metrics
 import org.apache.livy.server.{AccessManager, WebServer}
@@ -90,6 +90,7 @@ private class RestClientBatchTestBootstrap extends LifeCycle {
 
   override def init(context: ServletContext): Unit = {
     val conf = new LivyConf()
+    val masterMetadata = mock(classOf[MasterMetadata])
     val stateStore = mock(classOf[SessionStore])
     val sessionIdGenerator = mock(classOf[SessionIdGenerator])
     val sessionManager = new BatchSessionManager(conf, stateStore, sessionIdGenerator,
@@ -110,12 +111,12 @@ private class RestClientBatchTestBootstrap extends LifeCycle {
         when(session.proxyUser).thenReturn(None)
 
         when(session.recoveryMetadata).thenReturn(BatchRecoveryMetadata(id, None,
-          None, null, null, None, livyConf.serverMetadata()))
+          None, null, null, None, livyConf.serverMetadata(), masterMetadata))
         when(session.stop()).thenReturn(Future.successful(()))
 
         when(session.recoveryMetadata).thenReturn(
           BatchRecoveryMetadata(0, None, None, "",
-            "", None, ServerMetadata(req.serverName, req.serverPort)))
+            "", None, ServerMetadata(req.serverName, req.serverPort), masterMetadata))
 
         require(HttpClientSpec.session == null, "Session already created?")
         session

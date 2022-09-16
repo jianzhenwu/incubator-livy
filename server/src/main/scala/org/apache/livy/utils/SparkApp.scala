@@ -20,7 +20,7 @@ package org.apache.livy.utils
 import scala.collection.JavaConverters._
 import scala.util.Random
 
-import org.apache.livy.LivyConf
+import org.apache.livy.{LivyConf, MasterMetadata}
 
 object AppInfo {
   val DRIVER_LOG_URL_NAME = "driverLogUrl"
@@ -111,11 +111,12 @@ object SparkApp {
   def create(
       uniqueAppTag: String,
       appId: Option[String],
+      masterMetadata: MasterMetadata,
       process: Option[LineBufferedProcess],
       livyConf: LivyConf,
       listener: Option[SparkAppListener]): SparkApp = {
     if (livyConf.isRunningOnYarn()) {
-      new SparkYarnApp(uniqueAppTag, appId, process, listener, livyConf)
+      new SparkYarnApp(uniqueAppTag, appId, masterMetadata, process, listener, livyConf)
     } else {
       require(process.isDefined, "process must not be None when Livy master is not YARN.")
       new SparkProcApp(process.get, listener)

@@ -28,7 +28,7 @@ import com.squareup.okhttp.{CacheControl, Request}
 import org.mockito.Mockito.when
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyConf, ServerMetadata}
+import org.apache.livy.{LivyConf, MasterMetadata, ServerMetadata}
 import org.apache.livy.cluster.{ClusterManager, ServerNode, SessionAllocator}
 import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSession, MockSessionView, MockSessionViews}
 import org.apache.livy.server.recovery.SessionStore
@@ -42,7 +42,8 @@ object SessionServletSpec {
   case class MockRecoveryMetadata(
        id: Int,
        owner: String,
-       serverMetadata: ServerMetadata) extends RecoveryMetadata {
+       serverMetadata: ServerMetadata,
+       masterMetadata: MasterMetadata) extends RecoveryMetadata {
 
     @JsonIgnore
     def isServerDeallocatable(): Boolean = { true }
@@ -51,11 +52,11 @@ object SessionServletSpec {
   }
 
   class MockSession(id: Int, owner: String, val proxyUser: Option[String], livyConf: LivyConf,
-                    mockAppId: Option[String] = None)
+                    masterMetadata: MasterMetadata, mockAppId: Option[String] = None)
     extends Session(id, None, owner, livyConf) {
 
     override def recoveryMetadata: RecoveryMetadata =
-      MockRecoveryMetadata(0, owner, livyConf.serverMetadata())
+      MockRecoveryMetadata(0, owner, livyConf.serverMetadata(), masterMetadata)
 
     override def state: SessionState = SessionState.Idle
 
@@ -91,7 +92,8 @@ object SessionServletSpec {
         val impersonatedUser = accessManager.checkImpersonation(
           proxyUser(req, params.get(PROXY_USER)), owner)
         val mockAppId = Some("application_1636710668288_619460")
-        new MockSession(sessionId, owner, impersonatedUser, conf, mockAppId)
+        val masterMetadata = MasterMetadata("local", None)
+        new MockSession(sessionId, owner, impersonatedUser, conf, masterMetadata, mockAppId)
       }
 
       override protected def clientSessionView(
@@ -132,15 +134,16 @@ object SessionServletSpec {
 
     val sessionStore = mock[SessionStore]
     val sessionIdGenerator = mock[SessionIdGenerator]
+    val masterMetadata = mock[MasterMetadata]
     when(sessionIdGenerator.isGlobalUnique()).thenReturn(true)
     val sessionManager = new SessionManager[MockSession, MockRecoveryMetadata](
       conf,
       { recoveryMetadata => new MockSession(recoveryMetadata.id,
-        recoveryMetadata.owner, None, conf) },
+        recoveryMetadata.owner, None, conf, recoveryMetadata.masterMetadata) },
       sessionStore,
       "test",
       sessionIdGenerator,
-      Some(Seq(new MockSession(1, "bob", None, conf))))
+      Some(Seq(new MockSession(1, "bob", None, conf, masterMetadata))))
 
     when(sessionIdGenerator.nextId(sessionManager.sessionType()))
       .thenReturn(200)
@@ -158,7 +161,7 @@ object SessionServletSpec {
     when(clusterManager.isNodeOnline(serverNode128)).thenReturn(false)
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 100))
-      .thenReturn(Some(MockRecoveryMetadata(100, "alice", conf.serverMetadata())))
+      .thenReturn(Some(MockRecoveryMetadata(100, "alice", conf.serverMetadata(), masterMetadata)))
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 100))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
 
@@ -169,7 +172,7 @@ object SessionServletSpec {
       .thenReturn(Some(serverNode126))
 
     when(sessionStore.get[MockRecoveryMetadata](sessionManager.sessionType(), 103))
-      .thenReturn(Some(MockRecoveryMetadata(103, "alice", conf.serverMetadata())))
+      .thenReturn(Some(MockRecoveryMetadata(103, "alice", conf.serverMetadata(), masterMetadata)))
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 103))
       .thenReturn(Some(serverNode128))
       .thenReturn(Some(ServerNode(conf.serverMetadata())))
@@ -202,9 +205,9 @@ object SessionServletSpec {
       sessionManager.sessionType(), serverMetadata = None))
       .thenReturn(ArrayBuffer(
           Success[MockRecoveryMetadata](MockRecoveryMetadata(100, "alice",
-            serverNode126.serverMetadata)),
+            serverNode126.serverMetadata, masterMetadata)),
           Success[MockRecoveryMetadata](MockRecoveryMetadata(103, "alice",
-            serverNode128.serverMetadata))))
+            serverNode128.serverMetadata, masterMetadata))))
 
 
     new SessionServlet(sessionManager,
@@ -222,7 +225,7 @@ object SessionServletSpec {
         val owner = remoteUser(req)
         val impersonatedUser = accessManager.checkImpersonation(
           proxyUser(req, params.get(PROXY_USER)), owner)
-        new MockSession(sessionId, owner, impersonatedUser, conf)
+        new MockSession(sessionId, owner, impersonatedUser, conf, masterMetadata)
       }
 
       override protected def clientSessionView(

@@ -188,7 +188,7 @@ class LivyServer extends Logging {
     // Initialize YarnClient ASAP to save time.
     if (livyConf.isRunningOnYarn()) {
       SparkYarnApp.init(livyConf)
-      Future { SparkYarnApp.yarnClient }
+      Future { SparkYarnApp.masterYarnIdClientMap }
     }
 
     if (livyConf.get(LivyConf.RECOVERY_STATE_STORE) == "zookeeper" ||

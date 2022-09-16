@@ -224,6 +224,42 @@ class BatchSessionSpec
         Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
     }
 
+    it("should save MasterMetadata into session store") {
+      val conf = new LivyConf()
+        .set(LivyConf.LIVY_SPARK_MASTER, "yarn")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default,backup")
+        .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "default")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".default",
+          "file:///dummy-path/hadoop-default-conf")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".backup",
+          "file:///dummy-path/hadoop-backup-conf")
+
+      val req = new CreateBatchRequest()
+      req.conf = Map(
+        "spark.livy.master.yarn.id" -> "default"
+      )
+      val mockApp = mock[SparkApp]
+      val accessManager = new AccessManager(conf)
+
+      when(sessionStore.save(Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject()))
+        .thenAnswer(new Answer[Unit]() {
+          override def answer(invocation: InvocationOnMock): Unit = {
+            val recoveryMetadata = invocation.getArgumentAt(1, classOf[BatchRecoveryMetadata])
+            recoveryMetadata.masterMetadata.masterType should be ("yarn")
+            recoveryMetadata.masterMetadata.masterId should be (Option("default"))
+          }
+        })
+
+      val batch = BatchSession.create(
+        0, None, req, conf, accessManager, null, None, sessionStore, Some(mockApp))
+      batch.start()
+      val expectedAppId = "APPID"
+      batch.appIdKnown(expectedAppId)
+
+      verify(sessionStore, atLeastOnce()).save(
+        Matchers.eq(BatchSession.RECOVERY_SESSION_TYPE), anyObject())
+    }
+
     it("should init spark environment by request spark version") {
       val req = new CreateBatchRequest()
       req.file = script.toString
@@ -304,6 +340,34 @@ class BatchSessionSpec
           batch.start()
         }
       assert(caught.getMessage == "spark version is not support")
+    }
+
+    it("should failed when unsupported request master yarn id") {
+      val req = new CreateBatchRequest()
+      req.file = script.toString
+      req.conf = Map(
+        "spark.driver.extraClassPath" -> sys.props("java.class.path"),
+        "spark.livy.master.yarn.id" -> "yarn3"
+      )
+      val conf = new LivyConf().set(LivyConf.LOCAL_FS_WHITELIST, sys.props("java.io.tmpdir"))
+        .set(LivyConf.REPL_JARS, "livy-repl_2.11.jar,livy-repl_2.12.jar")
+        .set(LivyConf.LIVY_SPARK_MASTER, "yarn")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default,backup")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID, "default")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".default",
+          "file:///dummy-path/hadoop-default-conf")
+        .set(LivyConf.LIVY_SPARK_MASTER_HADOOP_CONF_DIR.key + ".backup",
+          "file:///dummy-path/hadoop-backup-conf")
+
+      val accessManager = new AccessManager(conf)
+
+      val caught =
+        intercept[IllegalArgumentException] {
+          val batch = BatchSession.create(
+            0, None, req, conf, accessManager, null, None, sessionStore)
+          batch.start()
+        }
+      assert(caught.getMessage == s"the master yarn yarn3 is not support")
     }
 
     it("should set toolkit jars through livy conf") {
@@ -425,6 +489,9 @@ class BatchSessionSpec
         .set(LivyConf.SPARK_HOME.key + ".v3_0", sys.env("SPARK_HOME"))
         .set(LivyConf.LIVY_SPARK_SCALA_VERSION.key + ".v3_0", "2.12")
         .set(LivyConf.LIVY_SPARK_DEFAULT_VERSION, "v3_0")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS, "default")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_IDS + "default", "default")
+        .set(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID, "default")
 
       val accessManager = new AccessManager(conf)
       BatchSession.create(0, None, req, conf, accessManager, null, None, sessionStore)
@@ -441,7 +508,8 @@ class BatchSessionSpec
       req.args = List[String](sql.toString)
       req.conf = Map(
         "spark.driver.extraClassPath" -> sys.props("java.class.path"),
-        "spark.livy.spark_version_name" -> "v3_0"
+        "spark.livy.spark_version_name" -> "v3_0",
+        "spark.livy.master.yarn.id" -> "default"
       )
       outputPath.foreach(path =>
         req.conf += ("spark.livy.sql.bootstrap.output" -> path.toString))
@@ -455,7 +523,8 @@ class BatchSessionSpec
       val req = new CreateBatchRequest()
       val name = Some("Test Batch Session")
       val mockApp = mock[SparkApp]
-      val m = BatchRecoveryMetadata(99, name, None, "appTag", null, None, conf.serverMetadata())
+      val m = BatchRecoveryMetadata(99, name, None, "appTag", null, None,
+        conf.serverMetadata(), null)
       val batch = BatchSession.recover(m, conf, sessionStore, Some(mockApp))
 
       batch.state shouldBe (SessionState.Recovering)

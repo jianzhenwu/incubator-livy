@@ -30,7 +30,7 @@ import scala.util.Random
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.hadoop.fs.Path
 
-import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
+import org.apache.livy.{LivyConf, Logging, MasterMetadata, ServerMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.RSCConf
 import org.apache.livy.server.AccessManager
@@ -49,7 +49,8 @@ case class BatchRecoveryMetadata(
     owner: String,
     proxyUser: Option[String],
     serverMetadata: ServerMetadata,
-    version: Int = 1)
+    masterMetadata: MasterMetadata,
+    version: Int = 2)
   extends RecoveryMetadata {
 
   @JsonIgnore
@@ -157,6 +158,23 @@ object BatchSession extends Logging {
     val appTag = s"livy:batch-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
+    val reqMasterYarnId = if (livyConf.isRunningOnYarn()) {
+
+      val masterYarnId = Option(request.conf.getOrElse(
+        "spark.livy.master.yarn.id",
+        livyConf.get(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID)))
+
+      if (masterYarnId.isDefined && !livyConf.masterYarnIds.contains(masterYarnId.get)) {
+        throw new IllegalArgumentException(
+          s"the master yarn ${masterYarnId.get} is not support")
+      }
+      masterYarnId
+    } else {
+      None
+    }
+
+    val masterMetadata = MasterMetadata(livyConf.sparkMaster(), reqMasterYarnId)
+
     def createSparkAppInternal(s: BatchSession): SparkApp = {
       val conf = SparkApp.prepareSparkConf(
         appTag,
@@ -176,7 +194,7 @@ object BatchSession extends Logging {
 
       val builderConf = prepareBuilderConf(conf, livyConf, reqSparkVersion, request)
 
-      val builder = new SparkProcessBuilder(livyConf, reqSparkVersion)
+      val builder = new SparkProcessBuilder(livyConf, reqSparkVersion, reqMasterYarnId)
       builder.conf(builderConf)
       builder.username(owner)
 
@@ -210,7 +228,7 @@ object BatchSession extends Logging {
           childProcesses.decrementAndGet()
         }
       }
-      SparkApp.create(appTag, None, Option(sparkSubmit), livyConf, Option(s))
+      SparkApp.create(appTag, None, masterMetadata, Option(sparkSubmit), livyConf, Option(s))
     }
 
     def createSparkApp(s: BatchSession): SparkApp = {
@@ -233,6 +251,7 @@ object BatchSession extends Logging {
       livyConf,
       owner,
       impersonatedUser,
+      masterMetadata,
       sessionStore,
       mockApp.map { m => (_: BatchSession) => m }.getOrElse(createSparkApp))
   }
@@ -250,9 +269,15 @@ object BatchSession extends Logging {
       livyConf,
       m.owner,
       m.proxyUser,
+      m.masterMetadata,
       sessionStore,
       mockApp.map { m => (_: BatchSession) => m }.getOrElse { s =>
-        SparkApp.create(m.appTag, m.appId, None, livyConf, Option(s))
+        if (m.masterMetadata == null) {
+          SparkApp.create(m.appTag, m.appId,
+            MasterMetadata(livyConf.sparkMaster(), None), None, livyConf, Option(s))
+        } else {
+          SparkApp.create(m.appTag, m.appId, m.masterMetadata, None, livyConf, Option(s))
+        }
       })
   }
 }
@@ -265,6 +290,7 @@ class BatchSession(
     livyConf: LivyConf,
     owner: String,
     override val proxyUser: Option[String],
+    masterMetadata: MasterMetadata,
     sessionStore: SessionStore,
     sparkApp: BatchSession => SparkApp)
   extends Session(id, name, owner, livyConf) with SparkAppListener {
@@ -331,7 +357,8 @@ class BatchSession(
   override def infoChanged(appInfo: AppInfo): Unit = { this.appInfo = appInfo }
 
   override def recoveryMetadata: RecoveryMetadata =
-    BatchRecoveryMetadata(id, name, appId, appTag, owner, proxyUser, livyConf.serverMetadata())
+    BatchRecoveryMetadata(id, name, appId, appTag, owner, proxyUser,
+      livyConf.serverMetadata(), masterMetadata)
 
   private def triggerSessionEvent(): Unit = {
     val event: Event = new SessionEvent(SessionType.Batch, id, name, appId, appTag, owner,

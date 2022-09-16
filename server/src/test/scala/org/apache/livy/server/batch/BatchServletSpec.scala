@@ -93,7 +93,7 @@ class BatchServletSpec extends BaseSessionServletSpec[BatchSession, BatchRecover
     when(session.proxyUser).thenReturn(Some(proxyUser))
     when(session.recoveryMetadata).thenReturn(
       BatchRecoveryMetadata(id, name, Some(appId),
-        "", owner, Some(proxyUser), new LivyConf().serverMetadata()))
+        "", owner, Some(proxyUser), new LivyConf().serverMetadata(), null))
 
     val req = mock[HttpServletRequest]
 

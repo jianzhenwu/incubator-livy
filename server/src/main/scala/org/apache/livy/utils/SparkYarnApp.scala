@@ -16,9 +16,9 @@
  */
 package org.apache.livy.utils
 
-import java.io.IOException
+import java.io.{File, IOException}
 import java.util
-import java.util.concurrent.TimeoutException
+import java.util.concurrent.{ConcurrentHashMap, TimeoutException}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -30,34 +30,65 @@ import scala.util.Try
 import scala.util.control.NonFatal
 
 import com.google.common.collect.Lists
+import org.apache.commons.lang3.StringUtils
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.Path
 import org.apache.hadoop.yarn.api.records.{ApplicationId, ApplicationReport, FinalApplicationStatus, YarnApplicationState}
 import org.apache.hadoop.yarn.client.api.YarnClient
 import org.apache.hadoop.yarn.conf.YarnConfiguration
 import org.apache.hadoop.yarn.exceptions.ApplicationAttemptNotFoundException
 import org.apache.hadoop.yarn.util.ConverterUtils
 
-import org.apache.livy.{LivyConf, Logging, Utils}
+import org.apache.livy.{LivyConf, Logging, MasterMetadata, Utils}
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 
 object SparkYarnApp extends Logging {
 
   def init(livyConf: LivyConf, client: Option[YarnClient] = None): Unit = {
     mockYarnClient = client
+    masterYarnIds = livyConf.masterYarnIds
+    hadoopConfDirs = masterYarnIds.map(id => livyConf.hadoopConfDir(id))
     sessionLeakageCheckInterval = livyConf.getTimeAsMs(LivyConf.YARN_APP_LEAKAGE_CHECK_INTERVAL)
     sessionLeakageCheckTimeout = livyConf.getTimeAsMs(LivyConf.YARN_APP_LEAKAGE_CHECK_TIMEOUT)
-    leakedAppsGCThread.setDaemon(true)
-    leakedAppsGCThread.setName("LeakedAppsGCThread")
-    leakedAppsGCThread.start()
+    leakedAppsGCThreads.foreach(thread => {
+      thread.setDaemon(true)
+      thread.setName(s"LeakedAppsGCThread-${thread.getId}")
+      thread.start()
+    })
   }
+
+  private[utils] val defaultMasterYarnId = "default"
 
   private var mockYarnClient: Option[YarnClient] = None
 
-  // YarnClient is thread safe. Create once, share it across threads.
-  lazy val yarnClient = {
-    val c = YarnClient.createYarnClient()
-    c.init(new YarnConfiguration())
-    c.start()
-    c
+  private[utils] var masterYarnIds: Seq[String] = _
+  private[utils] var hadoopConfDirs: Seq[String] = _
+
+  lazy val masterYarnIdClientMap: Map[String, YarnClient] = {
+    // init default yarn client if master yarn id not configured.
+    if (masterYarnIds.isEmpty) {
+      val c = YarnClient.createYarnClient()
+      c.init(new YarnConfiguration())
+      c.start()
+      Map(defaultMasterYarnId -> c)
+    } else {
+      val yarnClients = hadoopConfDirs.map(confDir => {
+        val c = YarnClient.createYarnClient()
+        if (StringUtils.isNotBlank(confDir)) {
+          info(s"Load resources from the hadoop config directory $confDir to create yarn client")
+          val conf = new Configuration(false)
+          conf.addResource(
+            new Path(s"${new File(confDir).getCanonicalPath}/yarn-site.xml"))
+          c.init(conf)
+        } else {
+          throw new IllegalArgumentException(
+            s"Hadoop config directory is empty, please check the configured directories")
+        }
+        c.start()
+        c
+      })
+      masterYarnIds.zip(yarnClients).toMap
+    }
   }
 
   private def getYarnTagToAppIdTimeout(livyConf: LivyConf): FiniteDuration =
@@ -71,7 +102,13 @@ object SparkYarnApp extends Logging {
 
   private[utils] val appType = Set("SPARK").asJava
 
-  private[utils] val leakedAppTags = new java.util.concurrent.ConcurrentHashMap[String, Long]()
+  lazy val masterYarnIdAppTagsMap: Map[String, ConcurrentHashMap[String, Long]] = {
+    if (masterYarnIds.isEmpty) {
+      Map(defaultMasterYarnId -> new java.util.concurrent.ConcurrentHashMap[String, Long]())
+    } else {
+      masterYarnIds.zip(masterYarnIds.map(_ => new ConcurrentHashMap[String, Long]())).toMap
+    }
+  }
 
   private[utils] val appStates: java.util.EnumSet[YarnApplicationState] =
     util.EnumSet.allOf(classOf[YarnApplicationState])
@@ -80,15 +117,29 @@ object SparkYarnApp extends Logging {
 
   private var sessionLeakageCheckInterval: Long = _
 
-  private val leakedAppsGCThread = new Thread() {
-    override def run(): Unit = {
-      val client = {
-        mockYarnClient match {
-          case Some(client) => client
-          case None => yarnClient
-        }
-      }
+  private lazy val leakedAppsGCThreads: Seq[Thread] = mockYarnClient match {
+    case Some(client) => Seq(createLeakedAppsGCThread(defaultMasterYarnId, client))
+    case None => masterYarnIdClientMap.map(kv => {
+      createLeakedAppsGCThread(kv._1, kv._2)
+    }).toSeq
+  }
 
+  private def getLeakedAppTags(masterYarnId: Option[String]): ConcurrentHashMap[String, Long] = {
+    if (masterYarnId.isEmpty) {
+      masterYarnIdAppTagsMap(defaultMasterYarnId)
+    } else {
+      masterYarnIdAppTagsMap.getOrElse(
+        masterYarnId.get,
+        throw new NoSuchElementException(
+          s"Cannot find leaked app tags for master yarn ${masterYarnId.get}"))
+    }
+  }
+
+  private def createLeakedAppsGCThread(
+      masterYarnId: String,
+      client: YarnClient): Thread = new Thread() {
+    override def run(): Unit = {
+      val leakedAppTags = SparkYarnApp.getLeakedAppTags(Some(masterYarnId))
       while (true) {
         if (!leakedAppTags.isEmpty) {
           // kill the app if found it and remove it if exceeding a threshold
@@ -139,10 +190,11 @@ object SparkYarnApp extends Logging {
 class SparkYarnApp private[utils] (
     appTag: String,
     appIdOption: Option[String],
+    masterMetadata: MasterMetadata,
     process: Option[LineBufferedProcess],
     listener: Option[SparkAppListener],
     livyConf: LivyConf,
-    yarnClient: => YarnClient = SparkYarnApp.yarnClient) // For unit test.
+    yarnClientOption: => Option[YarnClient] = None) // For unit test.
   extends SparkApp
   with Logging {
   import SparkYarnApp._
@@ -151,6 +203,19 @@ class SparkYarnApp private[utils] (
   private val appIdPromise: Promise[ApplicationId] = Promise()
   private[utils] var state: SparkApp.State = SparkApp.State.STARTING
   private var yarnDiagnostics: IndexedSeq[String] = IndexedSeq.empty[String]
+
+  private val yarnClient: YarnClient = yarnClientOption.getOrElse {
+    if (masterMetadata.masterId.nonEmpty) {
+      info(s"Get yarn client for master yarn: ${masterMetadata.masterId.get}")
+      SparkYarnApp.masterYarnIdClientMap.getOrElse(
+        masterMetadata.masterId.get,
+        throw new NoSuchElementException(
+          s"Cannot find yarn client for master yarn ${masterMetadata.masterId.get}"))
+    } else {
+      info(s"Master yarn is not defined, using default yarn client")
+      masterYarnIdClientMap(defaultMasterYarnId)
+    }
+  }
 
   override def log(logType: Option[String] = None): IndexedSeq[String] = {
     logType match {
@@ -229,7 +294,7 @@ class SparkYarnApp private[utils] (
         error(s"Error get application by tags: ${ioe.getMessage}")
         Lists.newArrayList[ApplicationReport]()
     }
-    info(s"getApplication by tag cost ${System.currentTimeMillis() - startTime}")
+    info(s"getApplication by tag $appTag cost ${System.currentTimeMillis() - startTime}")
     val appReport = if (appList.isEmpty) {
        None
     } else {
@@ -241,7 +306,7 @@ class SparkYarnApp private[utils] (
       case None =>
         if (deadline.isOverdue) {
           process.foreach(_.destroy())
-          leakedAppTags.put(appTag, System.currentTimeMillis())
+          getLeakedAppTags(masterMetadata.masterId).put(appTag, System.currentTimeMillis())
           if(lastIOE == null) {
             val appLookupTimeoutSecs = livyConf.getTimeAsMs(LivyConf.YARN_APP_LOOKUP_TIMEOUT) / 1000
             throw new IllegalStateException(s"No YARN application is found with tag" +

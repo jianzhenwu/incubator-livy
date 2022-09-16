@@ -30,6 +30,7 @@ import scala.concurrent.duration.{Duration, FiniteDuration}
 import scala.util.Random
 
 import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.launcher.SparkLauncher
 
@@ -60,7 +61,8 @@ case class InteractiveRecoveryMetadata(
     proxyUser: Option[String],
     rscDriverUri: Option[URI],
     serverMetadata: ServerMetadata,
-    version: Int = 1)
+    masterMetadata: MasterMetadata,
+    version: Int = 2)
   extends RecoveryMetadata {
 
   @JsonIgnore
@@ -103,6 +105,23 @@ object InteractiveSession extends Logging {
       throw new IllegalArgumentException("spark version is not support")
     }
 
+
+    val reqMasterYarnId: Option[String] = if (livyConf.isRunningOnYarn()) {
+
+      val masterYarnId = Option(request.conf.getOrElse(
+        "spark.livy.master.yarn.id",
+        livyConf.get(LivyConf.LIVY_SPARK_MASTER_YARN_DEFAULT_ID)))
+
+      if (masterYarnId.isDefined && !livyConf.masterYarnIds.contains(masterYarnId.get)) {
+        throw new IllegalArgumentException(s"the master yarn ${masterYarnId.get} is not support")
+      }
+      masterYarnId
+    } else {
+      None
+    }
+
+    val masterMetadata = MasterMetadata(livyConf.sparkMaster(), reqMasterYarnId)
+
     val client = mockClient.orElse {
       val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
         request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
@@ -130,6 +149,7 @@ object InteractiveSession extends Logging {
       val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
       info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
         s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
+
       val builder = new LivyClientBuilder()
         .setAll(builderProperties.asJava)
         .setConf("livy.client.session-id", id.toString)
@@ -141,6 +161,17 @@ object InteractiveSession extends Logging {
         .setConf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, owner)
         .setConf(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
           livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
+
+      if (reqMasterYarnId.nonEmpty) {
+        builder.setConf(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY, reqMasterYarnId.get)
+        val hadoopConfDir = livyConf.hadoopConfDir(reqMasterYarnId.get)
+        if (StringUtils.isBlank(hadoopConfDir)) {
+          throw new IllegalArgumentException(s"Hadoop config directory is empty, " +
+            s"please check the master yarn ${reqMasterYarnId.get} configured directories")
+        }
+        builder.setConf(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY,
+          livyConf.hadoopConfDir(reqMasterYarnId.get))
+      }
 
       Option(builder.build().asInstanceOf[RSCClient])
     }
@@ -157,6 +188,7 @@ object InteractiveSession extends Logging {
       livyConf,
       owner,
       impersonatedUser,
+      masterMetadata,
       sessionStore,
       mockApp)
   }
@@ -172,6 +204,12 @@ object InteractiveSession extends Logging {
       builder.build().asInstanceOf[RSCClient]
     })
 
+    val masterMetadata = if (metadata.masterMetadata == null) {
+      MasterMetadata(livyConf.sparkMaster(), None)
+    } else {
+      metadata.masterMetadata
+    }
+
     new InteractiveSession(
       metadata.id,
       metadata.name,
@@ -184,6 +222,7 @@ object InteractiveSession extends Logging {
       livyConf,
       metadata.owner,
       metadata.proxyUser,
+      masterMetadata,
       sessionStore,
       mockApp)
   }
@@ -393,6 +432,7 @@ class InteractiveSession(
     livyConf: LivyConf,
     owner: String,
     override val proxyUser: Option[String],
+    masterMetadata: MasterMetadata,
     sessionStore: SessionStore,
     mockApp: Option[SparkApp]) // For unit test.
   extends Session(id, name, owner, livyConf)
@@ -427,7 +467,7 @@ class InteractiveSession(
         .map(new LineBufferedProcess(_, livyConf.getInt(LivyConf.SPARK_LOGS_SIZE)))
 
       if (livyConf.isRunningOnYarn() || driverProcess.isDefined) {
-        Some(SparkApp.create(appTag, appId, driverProcess, livyConf, Some(this)))
+        Some(SparkApp.create(appTag, appId, masterMetadata, driverProcess, livyConf, Some(this)))
       } else {
         None
       }
@@ -489,7 +529,7 @@ class InteractiveSession(
 
   override def recoveryMetadata: RecoveryMetadata =
     InteractiveRecoveryMetadata(id, name, appId, appTag, kind, heartbeatTimeout.toSeconds.toInt,
-      owner, proxyUser, rscDriverUri, livyConf.serverMetadata())
+      owner, proxyUser, rscDriverUri, livyConf.serverMetadata(), masterMetadata)
 
   override def state: SessionState = {
     if (serverSideState == SessionState.Running) {
