@@ -29,7 +29,9 @@ import scala.concurrent.duration.Duration
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.google.gson.{Gson, GsonBuilder}
 import org.apache.commons.cli.MissingArgumentException
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
 
 import org.apache.livy.Logging
@@ -57,20 +59,22 @@ object IpynbBootstrap{
     val ipynbFileName: String = args(0)
     val outputPath: String = args(1)
     val spark: SparkSession = SparkSession.builder.enableHiveSupport.getOrCreate()
+    val sparkContext = spark.sparkContext
 
-    val ipynbBootstrap = new IpynbBootstrap(spark)
+    val ipynbBootstrap = new IpynbBootstrap(sparkContext.getConf, sparkContext.hadoopConfiguration)
     ipynbBootstrap.executeIpynb(ipynbFileName, outputPath)
     ipynbBootstrap.close()
+    if (spark != null) spark.close()
   }
 }
 
-class IpynbBootstrap(spark: SparkSession) extends Logging {
+class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Logging {
   import IpynbBootstrap._
 
   private val jupyterUtil: JupyterUtil = new JupyterUtil()
   private val rscConf = new RSCConf(null)
   rscConf.set(RSCConf.Entry.SESSION_KIND, "python")
-  private val session: Session = new Session(rscConf, spark.sparkContext.getConf)
+  private val session: Session = new Session(rscConf, sparkConf)
 
   private lazy val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
@@ -108,16 +112,13 @@ class IpynbBootstrap(spark: SparkSession) extends Logging {
     }
   }
 
-  private def continueExecute(codeCells: Seq[CodeCell]): Unit = {
-    if (codeCells.isEmpty) return
-    val codeCell = codeCells(0)
-    val sources = codeCell.getSource.asInstanceOf[util.ArrayList[String]].asScala.toArray
-
-    // Parse the source code
-    val (codeType, code) = if (sources.isEmpty) {
-        (None, "")
+  // Visible for testing
+  private[toolkit] def parseCode(sources: Array[String]): (Option[String], String) = {
+    if (sources.isEmpty) {
+      (None, "")
     } else {
       val codeType: Option[String] = MAGIC_TO_TYPE.getOrElse(sources(0).trim, None)
+
       // Only support specific magic codes
       def isValidSource(line: String): Boolean = {
         line != null && (VALID_MAGIC.contains(line.trim) || !line.trim.startsWith("%"))
@@ -126,6 +127,25 @@ class IpynbBootstrap(spark: SparkSession) extends Logging {
       val validSources = sources.filter(isValidSource(_))
       (codeType, validSources.mkString)
     }
+  }
+
+  // Visible for testing
+  private[toolkit] def convertSqlMagicToPyspark(code: String): String = {
+    val outputLimit = sparkConf.getInt("spark.livy.output.limit.count", 20)
+    if (code.isEmpty) {
+      code
+    } else {
+      s"""spark.sql(\"\"\" $code \"\"\").show($outputLimit)"""
+    }
+  }
+
+  private def continueExecute(codeCells: Seq[CodeCell]): Unit = {
+    if (codeCells.isEmpty) return
+    val codeCell = codeCells(0)
+    val sources = codeCell.getSource.asInstanceOf[util.ArrayList[String]].asScala.toArray
+
+    // Parse the source code
+    val (codeType, code) = parseCode(sources)
 
     def executeCode(codeType: Option[String], code: String): Map[String, Any] = {
       val statementId: Int = session.execute(code, codeType.getOrElse("python"))
@@ -144,14 +164,7 @@ class IpynbBootstrap(spark: SparkSession) extends Logging {
     // Execute the code and get output
     val output: Map[String, Any] = codeType match {
       case Some("sql") =>
-        val outputLimit = spark.sparkContext.getConf
-          .getInt("spark.livy.output.limit.count", 20)
-        val pysparkCodes = if (code.isEmpty) {
-          code
-        } else {
-          s"""spark.sql("$code").show($outputLimit)"""
-        }
-        executeCode(Some("python"), pysparkCodes)
+        executeCode(Some("python"), convertSqlMagicToPyspark(code))
       case t @ (Some(_) | None) =>
         executeCode(t, code)
     }
@@ -189,8 +202,7 @@ class IpynbBootstrap(spark: SparkSession) extends Logging {
 
   @throws[IOException]
   private def writeToFile(notebook: Nbformat, filePath: String): Unit = {
-    val fs: FileSystem = FileSystem.get(
-      URI.create(filePath), spark.sparkContext.hadoopConfiguration)
+    val fs: FileSystem = FileSystem.get(URI.create(filePath), hadoopConf)
     val outputStream: OutputStream = fs.create(new Path(filePath))
     val writer: OutputStreamWriter = new OutputStreamWriter(outputStream)
     try {
@@ -204,6 +216,5 @@ class IpynbBootstrap(spark: SparkSession) extends Logging {
   @throws[IOException]
   def close(): Unit = {
     if (session != null) session.close()
-    if (spark != null) spark.close()
   }
 }
