@@ -48,7 +48,7 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
 
     val configuration = new Configuration()
-    configuration.set("fs.s3a.impl.disable.cache", "false")
+    configuration.set("fs.s3a.impl.disable.cache", "true")
 
     val appConf = applicationEnvContext.appConf
     val env = applicationEnvContext.env
@@ -123,14 +123,20 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       case regex(packagesDir, others) =>
         info(s"Ipynb packages directory $packagesDir, others=$others")
         val path = new Path(packagesDir)
-        if (!fs.exists(path)) return
+        if (!fs.exists(path)) {
+          warn(s"File is not exists. ${path.toString}")
+          return
+        }
         fs.listStatus(path).foreach(fileStatus => {
           files += fileStatus.getPath.toString
+          info(s"Add ${fileStatus.getPath.toString} to $key")
         })
-        files += appConf.getOrDefault(key, "")
-        appConf.put(key, files.filter(_.nonEmpty).mkString(","))
       case _ =>
-        warn(s"Fail to identify ipynb packages directory from $packagesPaths")
+        warn(s"Fail to identify ipynb packages directory from $packagesPaths, " +
+          s"append it to $key")
+        files += packagesPaths
     }
+    files += appConf.getOrDefault(key, "")
+    appConf.put(key, files.filter(_.nonEmpty).mkString(","))
   }
 }
