@@ -95,6 +95,19 @@ class IpynbBoostrapSpec extends FunSpec {
         assert(codeStrings === """select "a", "b"""")
       }
     }
+
+    it("should catch real language magic") {
+      withBootstrap { ipynbBootstrap =>
+        val sources = Array(
+          "%%SET a=\"dev\"\n",
+          "%%sql\n",
+          "select \"a\", \"b\""
+        )
+        val (codeType, codeStrings) = ipynbBootstrap.parseCode(sources)
+        assert(codeType === Option("sql"))
+        assert(codeStrings === """select "a", "b"""")
+      }
+    }
   }
 
   describe("IpynbBootstrap convert %%sql magic to pyspark") {

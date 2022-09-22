@@ -114,18 +114,28 @@ class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Lo
 
   // Visible for testing
   private[toolkit] def parseCode(sources: Array[String]): (Option[String], String) = {
-    if (sources.isEmpty) {
+    // Only support specific magic codes
+    def isValidSource(line: Option[String]): Boolean = {
+      line.forall( _.trim match {
+        case l: String =>
+          MAGIC_TO_TYPE.contains(l) || VALID_MAGIC.contains(l) || !l.startsWith("%")
+      })
+    }
+
+    val validSources = sources.filter(line => isValidSource(Some(line)))
+
+    if (validSources.isEmpty) {
       (None, "")
     } else {
-      val codeType: Option[String] = MAGIC_TO_TYPE.getOrElse(sources(0).trim, None)
+      val codeType: Option[String] = MAGIC_TO_TYPE.getOrElse(validSources(0).trim, None)
 
-      // Only support specific magic codes
-      def isValidSource(line: String): Boolean = {
-        line != null && (VALID_MAGIC.contains(line.trim) || !line.trim.startsWith("%"))
+      val validSourcesInLine = if (codeType.isDefined) {
+        validSources.drop(1).mkString
+      } else {
+        validSources.mkString
       }
 
-      val validSources = sources.filter(isValidSource(_))
-      (codeType, validSources.mkString)
+      (codeType, validSourcesInLine)
     }
   }
 
