@@ -47,9 +47,6 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
 
-    val configuration = new Configuration()
-    configuration.set("fs.s3a.impl.disable.cache", "true")
-
     val appConf = applicationEnvContext.appConf
     val env = applicationEnvContext.env
 
@@ -57,13 +54,18 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
     if ("false".equalsIgnoreCase(envEnabled)) {
       return
     }
+    val configuration = new Configuration()
+    configuration.set("fs.s3a.impl.disable.cache", "true")
 
     val sparkHome = env.get("SPARK_HOME").trim.stripSuffix("/")
-    val pysparkZip = s"$sparkHome/python/lib/pyspark.zip"
-    val py4jZip = s"$sparkHome/python/lib/py4j-*.zip"
 
-    appConf.put(SPARK_PY_FILES,
-      s"$pysparkZip,$py4jZip" + appConf.getOrDefault(SPARK_PY_FILES, ""))
+    appConf.put("spark.sql.auth.canFailJob", "true")
+    val pyfiles = new ArrayBuffer[String]()
+    pyfiles += s"$sparkHome/python/lib/pyspark.zip"
+    pyfiles += s"$sparkHome/python/lib/py4j-*.zip"
+    pyfiles += appConf.get(SPARK_PY_FILES)
+
+    appConf.put(SPARK_PY_FILES, pyfiles.filter(StringUtils.isNotBlank(_)).mkString(","))
 
     val ipynbJars = appConf.get(SPARK_LIVY_IPYNB_JARS)
     val ipynbFiles = appConf.get(SPARK_LIVY_IPYNB_FILES)

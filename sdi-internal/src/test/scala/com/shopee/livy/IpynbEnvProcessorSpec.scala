@@ -93,6 +93,7 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
       appConf should not contain (SPARK_PY_FILES -> pyFiles)
+      appConf should not contain ("spark.sql.auth.canFailJob" -> "true")
     }
 
     it("should work when there are no dependencies") {
@@ -101,7 +102,8 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
-      appConf(SPARK_PY_FILES) should include (pyFiles)
+      appConf(SPARK_PY_FILES) should be (pyFiles)
+      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when dependency is empty") {
@@ -111,7 +113,8 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       )
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
-      appConf(SPARK_PY_FILES) should include (pyFiles)
+      appConf(SPARK_PY_FILES) should be (pyFiles)
+      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when there is a bucket") {
@@ -127,16 +130,17 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       appConf(SPARK_JARS) should include("s3a://bucket_a/jars/main.jar")
       appConf(SPARK_FILES) should include("s3a://bucket_a/files/log4j.properties")
       appConf(SPARK_ARCHIVES) should include("s3a://bucket_a/archives/module.zip")
-      appConf(SPARK_PY_FILES) should include("s3a://bucket_a/pyFiles/module.zip")
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.access.key") should be(hadoopUser)
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.secret.key") should be(hadoopPassword)
-      appConf(SPARK_PY_FILES) should include (pyFiles)
+      appConf(SPARK_PY_FILES) should be ("s3a://bucket_a/pyFiles/module.zip," + pyFiles)
+      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when there are multiple buckets") {
       val appConf = mutable.HashMap[String, String](
         SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
         SPARK_JARS -> "spark.jar",
+        SPARK_PY_FILES -> "spark.zip",
         SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
         SPARK_LIVY_IPYNB_FILES -> "s3a://bucket_b/files/*",
         SPARK_LIVY_IPYNB_ARCHIVES -> "s3a://bucket_c/archives/*",
@@ -152,7 +156,9 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
         appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.access.key") should be(hadoopUser)
         appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.secret.key") should be(hadoopPassword)
       }
-      appConf(SPARK_PY_FILES) should include (pyFiles)
+      appConf(SPARK_PY_FILES) should be ("s3a://bucket_d/pyFiles/module.zip," +
+        pyFiles + ",spark.zip")
+      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
   }
 }
