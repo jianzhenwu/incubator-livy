@@ -17,14 +17,23 @@
 package org.apache.livy.jupyter.nbformat;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import org.apache.livy.jupyter.JupyterUtil;
 import org.apache.livy.jupyter.zformat.Note;
 import org.apache.livy.jupyter.zformat.Paragraph;
@@ -34,6 +43,7 @@ import org.junit.Test;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 /**
@@ -102,7 +112,7 @@ public class JupyterUtilTest {
   }
 
   @Test
-  public void testgetNbformat() {
+  public void testCells() {
     InputStream resource = getClass().getResourceAsStream("/spark_example_notebook.zpln");
     String text = new BufferedReader(
       new InputStreamReader(resource, StandardCharsets.UTF_8))
@@ -113,5 +123,44 @@ public class JupyterUtilTest {
     assertEquals(7 , nbformat.getCells().size());
     assertEquals(3 , nbformat.getCells().stream().filter(c -> c instanceof MarkdownCell).count());
     assertEquals(4 , nbformat.getCells().stream().filter(c -> c instanceof CodeCell).count());
+  }
+
+  @Test
+  public void testOutputs() {
+    InputStream resource = getClass().getResourceAsStream("/null_title_and_authors.ipynb");
+    Nbformat nbformat = new JupyterUtil().getNbformat(new InputStreamReader(resource));
+
+    CodeCell codeCell = (CodeCell) nbformat.getCells().get(0);
+    List<Output> outputs = codeCell.getOutputs();
+    assertEquals(outputs.size(), 1);
+    assertEquals(outputs.get(0).getOutputType(), "stream");
+  }
+
+  @Test
+  public void testNullValueOutput() throws Exception {
+    // title is null and authors is present
+    InputStream resource = getClass().getResourceAsStream("/null_title_and_authors.ipynb");
+    JupyterUtil jupyterUtil = new JupyterUtil();
+    Nbformat nbformat = jupyterUtil.getNbformat(new InputStreamReader(resource));
+
+    // JupyterUtil read will convert null string to empty and keep present authors as null
+    assertEquals(nbformat.getMetadata().getTitle(), "");
+    assertNull(nbformat.getMetadata().getAuthors());
+
+    // JupyterUtil write will convert null value to empty
+    Gson gson = jupyterUtil.getGson(
+        new GsonBuilder().setPrettyPrinting().disableHtmlEscaping()
+    );
+    Path tempPath = Files.createTempFile("out_", ".ipynb");
+    File tempFile = tempPath.toFile();
+    tempFile.deleteOnExit();
+    OutputStream outputStream = new FileOutputStream(tempFile);
+    OutputStreamWriter writer = new OutputStreamWriter(outputStream);
+    gson.toJson(nbformat, writer);
+    writer.close();
+
+    Nbformat outputNb = jupyterUtil.getNbformat(new FileReader(tempFile));
+    assertEquals(outputNb.getMetadata().getTitle(), "");
+    assertEquals(outputNb.getMetadata().getAuthors().size(), 0);
   }
 }

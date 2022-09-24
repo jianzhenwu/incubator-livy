@@ -216,7 +216,9 @@ class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Lo
     val outputStream: OutputStream = fs.create(new Path(filePath))
     val writer: OutputStreamWriter = new OutputStreamWriter(outputStream)
     try {
-      val gson: Gson = new GsonBuilder().setPrettyPrinting().disableHtmlEscaping().create()
+      val gson = jupyterUtil.getGson(
+        new GsonBuilder().setPrettyPrinting().disableHtmlEscaping()
+      )
       gson.toJson(notebook, writer)
     } finally {
       if (writer != null) writer.close()

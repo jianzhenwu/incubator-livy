@@ -14,29 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.apache.livy.jupyter.nbformat;
+package org.apache.livy.jupyter.adapters;
 
-import com.google.gson.annotations.SerializedName;
+import java.lang.reflect.ParameterizedType;
+import java.util.List;
 
-/**
- *
- */
-public abstract class Cell {
+import com.google.gson.Gson;
+import com.google.gson.TypeAdapter;
+import com.google.gson.TypeAdapterFactory;
+import com.google.gson.reflect.TypeToken;
 
-  // Mark as transient because it will be serialized by JupyterUtil.cellTypeFactory
-  protected transient String cellType;
-
-  @SerializedName("metadata")
-  private CellMetadata metadata;
-
-  @SerializedName("source")
-  private Object source;
-
-  public CellMetadata getMetadata() {
-    return metadata;
-  }
-
-  public Object getSource() {
-    return source;
+public class ListAdapterFactory implements TypeAdapterFactory {
+  @Override
+  public <T> TypeAdapter<T> create(Gson gson, TypeToken<T> type) {
+    if (type.getRawType() == List.class) {
+      Class<T> clazz = (Class<T>) ((ParameterizedType) type.getType()).getActualTypeArguments()[0];
+      return new ListAdapter(clazz, gson);
+    }
+    return null;
   }
 }

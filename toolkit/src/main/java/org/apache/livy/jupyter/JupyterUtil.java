@@ -28,6 +28,9 @@ import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
 import org.apache.commons.lang3.StringUtils;
+
+import org.apache.livy.jupyter.adapters.ListAdapterFactory;
+import org.apache.livy.jupyter.adapters.StringAdapter;
 import org.apache.livy.jupyter.nbformat.Cell;
 import org.apache.livy.jupyter.nbformat.CodeCell;
 import org.apache.livy.jupyter.nbformat.DisplayData;
@@ -66,6 +69,8 @@ public class JupyterUtil {
 
   private final RuntimeTypeAdapterFactory<Cell> cellTypeFactory;
   private final RuntimeTypeAdapterFactory<Output> outputTypeFactory;
+  private final ListAdapterFactory listAdapterFactory;
+  private final StringAdapter stringAdapter;
 
   private final MarkdownParser markdownParser;
 
@@ -77,6 +82,8 @@ public class JupyterUtil {
         .registerSubtype(ExecuteResult.class, "execute_result")
         .registerSubtype(DisplayData.class, "display_data").registerSubtype(Stream.class, "stream")
         .registerSubtype(Error.class, "error");
+    this.listAdapterFactory = new ListAdapterFactory();
+    this.stringAdapter = new StringAdapter();
     this.markdownParser = new MarkdownParser();
   }
 
@@ -163,9 +170,14 @@ public class JupyterUtil {
     return note;
   }
 
-  private Gson getGson(GsonBuilder gsonBuilder) {
-    return gsonBuilder.registerTypeAdapterFactory(cellTypeFactory)
-        .registerTypeAdapterFactory(outputTypeFactory).create();
+  public Gson getGson(GsonBuilder gsonBuilder) {
+    return gsonBuilder
+        .registerTypeAdapterFactory(cellTypeFactory)
+        .registerTypeAdapterFactory(outputTypeFactory)
+        .registerTypeAdapterFactory(listAdapterFactory)
+        .registerTypeAdapter(String.class, stringAdapter)
+        .serializeNulls()
+        .create();
   }
 
   public String getJson(String input, String id, String codeReplaced, String markdownReplaced ) {

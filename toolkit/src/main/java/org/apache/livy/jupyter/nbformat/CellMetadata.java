@@ -24,9 +24,6 @@ import java.util.List;
  */
 public class CellMetadata {
 
-  @SerializedName("name")
-  private String name;
-
   @SerializedName("tags")
   private List<String> tags;
 

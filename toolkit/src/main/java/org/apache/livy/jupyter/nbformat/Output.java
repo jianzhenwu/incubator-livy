@@ -31,8 +31,8 @@ import java.util.Map;
  */
 public abstract class Output {
 
-  @SerializedName("output_type")
-  protected String outputType;
+  // Mark as transient because it will be serialized by JupyterUtil.outputTypeFactory
+  protected transient String outputType;
 
   private static final transient String lineSeparator = System.lineSeparator();
 
@@ -49,6 +49,10 @@ public abstract class Output {
       }
     }
     return content;
+  }
+
+  public String getOutputType() {
+    return outputType;
   }
 
   protected JupyterOutputType getType(Map<String, Object> data) {
