@@ -16,34 +16,5 @@
  */
 package org.apache.livy.jupyter.nbformat;
 
-import com.google.gson.annotations.SerializedName;
-
-/**
- *
- */
-public abstract class Cell {
-
-  // Mark as transient because it will be serialized by JupyterUtil.cellTypeFactory
-  protected transient String cellType;
-
-  @SerializedName("id")
-  private String id;
-
-  @SerializedName("metadata")
-  private CellMetadata metadata;
-
-  @SerializedName("source")
-  private Object source;
-
-  public String getId() {
-    return id;
-  }
-
-  public CellMetadata getMetadata() {
-    return metadata;
-  }
-
-  public Object getSource() {
-    return source;
-  }
+public class OutputMetadata {
 }

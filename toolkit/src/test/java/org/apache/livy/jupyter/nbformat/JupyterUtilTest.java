@@ -121,6 +121,7 @@ public class JupyterUtilTest {
     JupyterUtil util = new JupyterUtil();
     Nbformat nbformat = util.getNbformat(new StringReader(util.getNbformat(text)));
     assertEquals(7 , nbformat.getCells().size());
+    assertEquals(7, nbformat.getCells().stream().filter(c -> c.getId() == null).count());
     assertEquals(3 , nbformat.getCells().stream().filter(c -> c instanceof MarkdownCell).count());
     assertEquals(4 , nbformat.getCells().stream().filter(c -> c instanceof CodeCell).count());
   }
@@ -132,8 +133,12 @@ public class JupyterUtilTest {
 
     CodeCell codeCell = (CodeCell) nbformat.getCells().get(0);
     List<Output> outputs = codeCell.getOutputs();
-    assertEquals(outputs.size(), 1);
-    assertEquals(outputs.get(0).getOutputType(), "stream");
+    assertEquals(outputs.size(), 2);
+    Output first = outputs.get(0);
+    Output second = outputs.get(1);
+    assertEquals(first.getOutputType(), "stream");
+    assertEquals(second.getOutputType(), "display_data");
+    assertNotNull(((DisplayData) second).getMetadata());
   }
 
   @Test

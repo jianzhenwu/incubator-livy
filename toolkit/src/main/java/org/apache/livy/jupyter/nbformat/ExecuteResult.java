@@ -46,12 +46,20 @@ public class ExecuteResult extends Output {
   @SerializedName("data")
   private Map<String, Object> data;
 
+  @SerializedName("metadata")
+  private OutputMetadata metadata;
+
   public Map<String, Object> getData() {
     return data;
   }
 
+  public OutputMetadata getMetadata() {
+    return metadata;
+  }
+
   public ExecuteResult() {
     outputType = "execute_result";
+    metadata = new OutputMetadata();
   }
 
   @Override

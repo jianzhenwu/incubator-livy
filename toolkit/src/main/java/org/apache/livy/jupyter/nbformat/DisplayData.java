@@ -30,8 +30,12 @@ public class DisplayData extends Output {
   @SerializedName("data")
   private Map<String, Object> data;
 
+  @SerializedName("metadata")
+  private OutputMetadata metadata;
+
   public DisplayData() {
     outputType = "display_data";
+    metadata = new OutputMetadata();
   }
 
   public DisplayData(Map<String, Object> data) {
@@ -45,6 +49,10 @@ public class DisplayData extends Output {
 
   public void setData(Map<String, Object> data) {
     this.data = data;
+  }
+
+  public OutputMetadata getMetadata() {
+    return metadata;
   }
 
   @Override
