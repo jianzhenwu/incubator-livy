@@ -43,7 +43,8 @@ object RssEnvProcessor {
   val defaultConf = Map(
     "spark.shuffle.manager" -> "org.apache.spark.shuffle.rss.RssShuffleManager",
     "spark.serializer" -> "org.apache.spark.serializer.KryoSerializer",
-    "spark.shuffle.service.enabled" -> "false"
+    "spark.shuffle.service.enabled" -> "false",
+    "spark.rss.push.data.maxReqsInFlight" -> "32"
   )
 }
 
