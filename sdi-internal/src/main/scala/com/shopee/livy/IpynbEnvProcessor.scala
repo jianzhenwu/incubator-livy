@@ -21,6 +21,7 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
+import com.google.common.net.UrlEscapers
 import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
@@ -130,8 +131,10 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
           return
         }
         fs.listStatus(path).foreach(fileStatus => {
-          files += fileStatus.getPath.toString
-          info(s"Add ${fileStatus.getPath.toString} to $key")
+          val fileUrl =
+            UrlEscapers.urlFragmentEscaper().escape(fileStatus.getPath.toString)
+          files += fileUrl
+          info(s"Add $fileUrl to $key")
         })
       case _ =>
         warn(s"Fail to identify ipynb packages directory from $packagesPaths, " +
