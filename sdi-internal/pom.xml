@@ -22,7 +22,7 @@
     <artifactId>livy-main</artifactId>
     <groupId>org.apache.livy</groupId>
     <relativePath>../pom.xml</relativePath>
-    <version>0.8.0-incubating-sdi-022</version>
+    <version>0.8.0-incubating-sdi-023</version>
   </parent>
   <modelVersion>4.0.0</modelVersion>
 
