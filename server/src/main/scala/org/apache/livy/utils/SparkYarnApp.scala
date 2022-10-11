@@ -418,7 +418,13 @@ class SparkYarnApp private[utils] (
             val driverLogUrl =
               Try(yarnClient.getContainerReport(attempt.getAMContainerId).getLogUrl)
                 .toOption
-            AppInfo(driverLogUrl, Option(appReport.getTrackingUrl))
+            val trackingUrl = livyConf.get(LivyConf.APPLICATION_TRACKING_URL)
+            val appTrack = if (StringUtils.isNotBlank(trackingUrl)) {
+              String.format(trackingUrl, appReport.getApplicationId)
+            } else {
+              appReport.getTrackingUrl
+            }
+            AppInfo(driverLogUrl, Option(appTrack))
           }
 
           if (appInfo != latestAppInfo) {
