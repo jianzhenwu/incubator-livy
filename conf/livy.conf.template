@@ -245,7 +245,8 @@
 # livy.rsc.yarn.cluster.yarn-cluster-at0.spark.rss.master.port = 9097
 # livy.rsc.yarn.cluster.yarn-cluster.spark.rss.ha.master.hosts = 10.130.24.168,10.130.26.2,10.130.24.100
 # livy.rsc.yarn.cluster.yarn-cluster.spark.rss.master.port = 9097
-# livy.rsc.yarn.spark.rss.allow.master.ids =
+# livy.rsc.spark.rss.yarn.allowed.master.ids =
+# livy.rsc.spark.rss.yarn.predefined.queues =
 
 # Whether to enable access s3 filesystem.
 # livy.server.fs.s3a.enabled = true

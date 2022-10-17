@@ -38,7 +38,8 @@ object RssEnvProcessor {
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
 
-  val SPARK_RSS_YARN_ALLOWED_MASTER_IDS = "livy.rsc.yarn.spark.rss.allow.master.ids"
+  val SPARK_RSS_YARN_ALLOWED_MASTER_IDS = "livy.rsc.spark.rss.yarn.allowed.master.ids"
+  val SPARK_RSS_YARN_PREDEFINED_QUEUES = "livy.rsc.spark.rss.yarn.predefined.queues"
 
   val defaultConf = Map(
     "spark.shuffle.manager" -> "org.apache.spark.shuffle.rss.RssShuffleManager",
@@ -56,6 +57,16 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     val appConf = applicationEnvContext.appConf
     val yarnRouterMapping = YarnRouterMapping.apply(
       appConf.get(RSC_CONF_PREFIX + YARN_CLUSTER_POLICY_LIST_URL))
+
+    val predefinedQueues = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_QUEUES))
+    // Enable RSS if the user queue is included in predefined configuration.
+    if (predefinedQueues.exists(_.split(",")
+      .map(_.trim)
+      .contains(appConf.get(SPARK_YARN_QUEUE)))) {
+      logger.info(s"Enable RSS for queue ${appConf.get(SPARK_YARN_QUEUE)}")
+      appConf.put(SPARK_LIVY_RSS_ENABLED, "true")
+    }
+
     val rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
       .getOrElse(appConf.get(SPARK_RSS_ENABLED))
 

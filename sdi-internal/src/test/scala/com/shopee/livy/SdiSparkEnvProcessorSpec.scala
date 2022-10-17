@@ -100,7 +100,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.rsc.yarn.cluster.cluster1.spark.rss.master.port" -> "9097",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.ha.master.hosts" -> "0.0.0.1",
       "livy.rsc.yarn.cluster.cluster2.spark.rss.master.port" -> "9098",
-      "livy.rsc.yarn.spark.rss.allow.master.ids" -> "default, backup",
+      "livy.rsc.spark.rss.yarn.allowed.master.ids" -> "default, backup",
       "spark.yarn.appMasterEnv.PYSPARK_PYTHON" -> "./bin/python",
       SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
       SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
