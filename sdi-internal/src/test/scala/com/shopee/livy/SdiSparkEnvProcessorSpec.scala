@@ -106,7 +106,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
       SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
       "spark.driver.extraClassPath" -> "/user",
-      "livy.application.master-yarn-id" -> "default")
+      "livy.application.master-yarn-id" -> "default",
+      "spark.livy.spark_major_version" -> "3"
+    )
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
       Some(SessionType.Batches))

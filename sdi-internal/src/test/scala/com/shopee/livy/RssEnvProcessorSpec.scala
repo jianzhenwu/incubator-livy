@@ -34,15 +34,19 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
   override def beforeAll(): Unit = {
     appConf += (
-      RssEnvProcessor.SPARK_LIVY_RSS_ENABLED -> "false",
       RssEnvProcessor.SPARK_YARN_QUEUE -> "queue1",
       RssEnvProcessor.RSC_CONF_PREFIX + RssEnvProcessor.YARN_CLUSTER_POLICY_LIST_URL ->
         "http://0.0.0.0/url",
       "livy.rsc.yarn.cluster.cluster1.spark.rss.ha.master.hosts" -> "0.0.0.0",
       "livy.rsc.yarn.cluster.cluster1.spark.rss.master.port" -> "9097",
       "livy.rsc.spark.rss.yarn.allowed.master.ids" -> "default, backup",
-      "livy.application.master-yarn-id" -> "default"
+      "livy.application.master-yarn-id" -> "default",
+      "spark.livy.spark_major_version" -> "3"
     )
+  }
+
+  override def afterAll(): Unit = {
+    appConf.clear()
   }
 
   test("should not enable RSS when without predefined configuration") {
@@ -54,7 +58,9 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     val processor = new RssEnvProcessor()
     processor.process(context)
 
-    assert(appConf("spark.livy.rss.enabled") == "false")
+    assertThrows[NoSuchElementException] {
+      appConf("spark.livy.rss.enabled")
+    }
   }
 
   test("should not enable RSS when using non-predefined queue") {
@@ -68,7 +74,9 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     val processor = new RssEnvProcessor()
     processor.process(context)
 
-    assert(appConf("spark.livy.rss.enabled") == "false")
+    assertThrows[NoSuchElementException] {
+      appConf("spark.livy.rss.enabled")
+    }
   }
 
   test("should enable RSS if the user queue is included in predefined configuration") {
@@ -89,6 +97,36 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.serializer") == "org.apache.spark.serializer.KryoSerializer")
     assert(appConf("spark.shuffle.service.enabled") == "false")
     assert(appConf("spark.rss.push.data.maxReqsInFlight") == "32")
+  }
+
+  test("should throw exception when request unsupported spark version") {
+    appConf += (
+      "spark.livy.spark_major_version" -> "2",
+      "spark.livy.rss.enabled" -> "true"
+    )
+    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
+    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
+    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
+
+    val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
+    val processor = new RssEnvProcessor()
+    assertThrows[ProcessorException] {
+      processor.process(context)
+    }
+  }
+
+  test("should not overwrite the user's RSS configurations") {
+    appConf += ("spark.livy.rss.enabled" -> "false")
+    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
+    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
+    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
+
+    appConf += "livy.rsc.spark.rss.yarn.predefined.queues" -> "queue1, queue2"
+
+    val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
+    val processor = new RssEnvProcessor()
+    processor.process(context)
+    assert(appConf("spark.livy.rss.enabled") == "false")
   }
 }
 

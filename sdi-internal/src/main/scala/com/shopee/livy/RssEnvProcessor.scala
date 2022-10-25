@@ -32,6 +32,9 @@ import org.apache.livy.client.common.ClientConf
 object RssEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc.yarn.cluster."
 
+  val SPARK_MAJOR_VERSION = "spark.livy.spark_major_version"
+  val SPARK_RSS_MIN_VERSION = 3
+
   @Deprecated
   val SPARK_RSS_ENABLED = "spark.rss.enabled"
   val SPARK_LIVY_RSS_ENABLED = "spark.livy.rss.enabled"
@@ -57,21 +60,27 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     val appConf = applicationEnvContext.appConf
     val yarnRouterMapping = YarnRouterMapping.apply(
       appConf.get(RSC_CONF_PREFIX + YARN_CLUSTER_POLICY_LIST_URL))
+    val sparkMajorVersion = appConf.get(SPARK_MAJOR_VERSION).toInt
 
-    val predefinedQueues = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_QUEUES))
-    // Enable RSS if the user queue is included in predefined configuration.
-    if (predefinedQueues.exists(_.split(",")
-      .map(_.trim)
-      .contains(appConf.get(SPARK_YARN_QUEUE)))) {
-      logger.info(s"Enable RSS for queue ${appConf.get(SPARK_YARN_QUEUE)}")
-      appConf.put(SPARK_LIVY_RSS_ENABLED, "true")
+    var rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
+      .orElse(Option(appConf.get(SPARK_RSS_ENABLED)))
+    if (rssEnabled.isEmpty && sparkMajorVersion >= SPARK_RSS_MIN_VERSION) {
+      val predefinedQueues = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_QUEUES))
+      // Enable RSS if the user queue is included in predefined configuration.
+      if (predefinedQueues.exists(_.split(",")
+        .map(_.trim)
+        .contains(appConf.get(SPARK_YARN_QUEUE)))) {
+        logger.info(s"Enable RSS for queue ${appConf.get(SPARK_YARN_QUEUE)}")
+        appConf.put(SPARK_LIVY_RSS_ENABLED, "true")
+        rssEnabled = Option("true")
+      }
     }
 
-    val rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
-      .getOrElse(appConf.get(SPARK_RSS_ENABLED))
-
-    Option(rssEnabled).filter("true".equalsIgnoreCase)
+    rssEnabled.filter("true".equalsIgnoreCase)
       .foreach(_ => {
+        if (sparkMajorVersion < SPARK_RSS_MIN_VERSION) {
+          throw new ProcessorException(s"Unsupported Spark version $sparkMajorVersion for RSS.")
+        }
         val masterYarn = appConf.get(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY)
         if (masterYarn == null) {
           throw new ProcessorException(s"The master yarn must be a valid value for RSS.")
