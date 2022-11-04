@@ -21,6 +21,8 @@ import java.util
 
 import scala.collection.mutable.ArrayBuffer
 
+import org.slf4j.MDC
+
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging}
 import org.apache.livy.client.common.ClientConf
 import org.apache.livy.utils.LineBufferedProcess
@@ -44,6 +46,11 @@ class HdfsCmdProcessBuilder(livyConf: LivyConf) extends Logging {
   }
 
   def start(cmd: String): LineBufferedProcess = {
+    // make sure we run the command with the user name mdc property
+    MDC.clear()
+    MDC.put("session",
+      s"${_conf.get(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY)}")
+
     info(s"executing ${cmd}")
 
     val pb = new ProcessBuilder("/bin/sh", "-c", cmd)
