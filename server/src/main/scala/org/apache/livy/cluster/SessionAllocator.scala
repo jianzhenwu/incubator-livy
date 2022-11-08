@@ -189,6 +189,7 @@ class StateStoreMappingSessionAllocator(
 
     val lock = lockOf(sessionId)
     try {
+      info(s"Acquire lock for $sessionType session $sessionId")
       Metrics().startStoredScope(MetricsKey.SESSION_RECOVER_LOCK_TIME)
       lock.acquire()
       Metrics().endStoredScope(MetricsKey.SESSION_RECOVER_LOCK_TIME)
@@ -210,7 +211,12 @@ class StateStoreMappingSessionAllocator(
         sessionStore.save(sessionType, recoveryMetadata)
         serverNode
       }
+    } catch {
+      case e: Exception =>
+        error(s"Error allocate server for $sessionType session $sessionId")
+        throw e
     } finally {
+      info(s"Release lock for $sessionType session $sessionId")
       lock.release()
       Metrics().endStoredScope(MetricsKey.SESSION_RECOVER_LOCK_OCCUPYING_TIME)
     }
