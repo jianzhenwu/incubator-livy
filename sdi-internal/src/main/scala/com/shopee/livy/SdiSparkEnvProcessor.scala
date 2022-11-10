@@ -20,6 +20,7 @@ package com.shopee.livy
 import com.shopee.livy.SdiSparkEnvProcessor.processorInstances
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
+import org.apache.livy.utils.LivyProcessorException
 
 object SdiSparkEnvProcessor {
 
@@ -52,9 +53,13 @@ object SdiSparkEnvProcessor {
 
 class SdiSparkEnvProcessor extends ApplicationEnvProcessor {
 
-  override def process(
-      applicationEnvContext: ApplicationEnvContext): Unit = {
-    processorInstances.foreach(processor => processor.process(applicationEnvContext))
+  override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
+    try {
+      processorInstances.foreach(_.process(applicationEnvContext))
+    } catch {
+      case e: Exception =>
+        throw new LivyProcessorException(e.getMessage, e.getCause)
+    }
   }
 
 }

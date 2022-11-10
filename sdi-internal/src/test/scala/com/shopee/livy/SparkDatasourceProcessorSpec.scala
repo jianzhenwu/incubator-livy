@@ -29,6 +29,7 @@ import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.ApplicationEnvContext
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
+import org.apache.livy.utils.LivyProcessorException
 
 object SparkDatasourceProcessorSpec {
   val SPACE = " "
@@ -217,7 +218,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
         SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "other"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
-      val e = the[ProcessorException] thrownBy processor.process(context)
+      val e = the[LivyProcessorException] thrownBy processor.process(context)
       e.getMessage should be("Unknown spark.sql.datasource.catalog.impl=other")
     }
 

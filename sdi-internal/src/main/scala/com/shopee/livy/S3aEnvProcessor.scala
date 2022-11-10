@@ -27,6 +27,7 @@ import org.apache.commons.io.filefilter.PrefixFileFilter
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.client.common.ClientConf
+import org.apache.livy.utils.LivyProcessorException
 
 object S3aEnvProcessor {
 
@@ -82,7 +83,7 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
 
             // should set spark.jars.ivy in livy spark-defaults.conf
             val ivyPath: Option[String] = Option(appConf.get("spark.jars.ivy")).fold {
-              throw new ProcessorException("The value of spark.jars.ivy cannot " +
+              throw new LivyProcessorException("The value of spark.jars.ivy cannot " +
                 "be empty when the s3a feature is enabled. " +
                 "Please make sure the parent folder doesn't start with a dot.")
             } { e => Option(Paths.get(e, hadoopVersion).toString) }
@@ -120,7 +121,8 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
               s"${jars.replace(",", ":")}")
             info(s"Set SPARK_DIST_CLASSPATH = ${env.get("SPARK_DIST_CLASSPATH")}")
           case _ =>
-            throw new ProcessorException(s"Hadoop version not recognized. sparkHome = $sparkHome")
+            throw new LivyProcessorException(
+              s"Hadoop version not recognized. sparkHome = $sparkHome")
         }
       }
     }

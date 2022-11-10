@@ -20,6 +20,7 @@ package com.shopee.livy
 import org.apache.commons.lang3.StringUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
+import org.apache.livy.utils.LivyProcessorException
 
 object DockerEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc."
@@ -51,7 +52,7 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
       if (StringUtils.isBlank(dockerImage)) {
         error(s"Please check conf $SPARK_LIVY_DOCKER_IMAGE, " +
           s"Yarn container runtime docker image must be set by user")
-        throw new ProcessorException(s"$SPARK_LIVY_DOCKER_IMAGE must be set by user")
+        throw new LivyProcessorException(s"$SPARK_LIVY_DOCKER_IMAGE must be set by user")
       }
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_TYPE", "docker")
       appConf.put("spark.executorEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE", dockerImage)

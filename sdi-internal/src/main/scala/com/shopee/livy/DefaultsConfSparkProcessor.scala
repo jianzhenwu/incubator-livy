@@ -26,6 +26,7 @@ import com.shopee.livy.utils.SparkConfUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging, SessionType, Utils}
 import org.apache.livy.client.common.ClientConf
+import org.apache.livy.utils.LivyProcessorException
 
 class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
 
@@ -36,7 +37,7 @@ class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
       .orElse(applicationEnvContext.env.asScala.get("SPARK_CONF_DIR"))
 
     if (applicationEnvContext.sessionType.isEmpty) {
-      throw new ProcessorException(
+      throw new LivyProcessorException(
         "SessionType can not be empty when using DefaultsConfSparkProcessor.")
     }
     sparkConfDir.foreach(dir => {

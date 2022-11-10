@@ -24,6 +24,7 @@ import com.shopee.livy.SparkDatasourceProcessor._
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
+import org.apache.livy.utils.LivyProcessorException
 
 /**
  * 1. Please add configurations below in livy/conf/spark-defaults.conf when using
@@ -80,7 +81,8 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
     if (datasources.nonEmpty) {
       val c = Option(catalogImpl).getOrElse("hive").toLowerCase()
       if (!catalogSet.contains(c)) {
-        throw new ProcessorException(s"Unknown $SPARK_SQL_DATASOURCE_CATALOG_IMPL=$catalogImpl")
+        throw new LivyProcessorException(
+          s"Unknown $SPARK_SQL_DATASOURCE_CATALOG_IMPL=$catalogImpl")
       }
 
       // Overwrite to lowercase
@@ -90,7 +92,7 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
       datasources.foreach { datasource =>
         val dsJars = appConf.get(s"livy.rsc.spark.sql.catalog.$datasource.jars")
         if (dsJars == null) {
-          throw new ProcessorException(
+          throw new LivyProcessorException(
             s"livy.rsc.spark.sql.catalog.$datasource.jars is empty.")
         }
         jars += dsJars

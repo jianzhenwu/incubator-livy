@@ -34,6 +34,7 @@ import org.apache.livy.server.SessionServletSpec.{MockRecoveryMetadata, MockSess
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions.{Session, SessionIdGenerator, SessionManager, SessionState}
 import org.apache.livy.sessions.Session.RecoveryMetadata
+import org.apache.livy.utils.LivyProcessorException
 
 object SessionServletSpec {
 
@@ -150,7 +151,8 @@ object SessionServletSpec {
       .thenReturn(201)
       .thenReturn(202)
       .thenReturn(203) // invalid request
-      .thenReturn(204) // too many creating session
+      .thenReturn(204)
+      .thenReturn(205) // too many creating session
 
     val accessManager = new AccessManager(conf)
     val sessionAllocator = mock[SessionAllocator]
@@ -198,6 +200,11 @@ object SessionServletSpec {
     when(sessionAllocator.deallocateServer[MockRecoveryMetadata](sessionManager.sessionType(), 204))
       .thenThrow(new IllegalStateException("DeallocateCallback"))
 
+    when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 205))
+      .thenReturn(Some(ServerNode(conf.serverMetadata())))
+    when(sessionAllocator.deallocateServer[MockRecoveryMetadata](sessionManager.sessionType(), 205))
+      .thenThrow(new IllegalStateException("DeallocateCallback"))
+
     when(sessionAllocator.findServer[MockRecoveryMetadata](sessionManager.sessionType(), 210))
       .thenReturn(None)
 
@@ -219,6 +226,10 @@ object SessionServletSpec {
       override protected def createSession(sessionId: Int, req: HttpServletRequest): MockSession = {
         if (sessionId == 203) {
           throw new IllegalArgumentException("invalid request 203")
+        }
+
+        if (sessionId == 204) {
+          throw new LivyProcessorException("processor error in request 204")
         }
 
         val params = bodyAs[Map[String, String]](req)
@@ -619,10 +630,13 @@ class ClusterEnabledSessionServletSpec
         new String(bodyBytes).contains("invalid request 203") should be(true)
       }
 
+      post("/mocks/204", toJson(Map()), headers = headers) {
+        new String(bodyBytes).contains("processor error in request 204") should be(true)
+      }
+
       // Deallocate should be called when too many creating session
       servlet.livyConf.set(LivyConf.SESSION_MAX_CREATION, 0)
       post("/mocks/", Map(), headers = headers)  {
-        val a = new String(bodyBytes)
         new String(bodyBytes).contains(
           "Rejected, too many sessions are being created!") should be(true)
       }

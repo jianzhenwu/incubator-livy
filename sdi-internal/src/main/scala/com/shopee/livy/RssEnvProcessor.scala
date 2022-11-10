@@ -28,6 +28,7 @@ import org.apache.commons.lang3.StringUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.client.common.ClientConf
+import org.apache.livy.utils.LivyProcessorException
 
 object RssEnvProcessor {
   val RSC_CONF_PREFIX = "livy.rsc.yarn.cluster."
@@ -79,20 +80,20 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     rssEnabled.filter("true".equalsIgnoreCase)
       .foreach(_ => {
         if (sparkMajorVersion < SPARK_RSS_MIN_VERSION) {
-          throw new ProcessorException(s"Unsupported Spark version $sparkMajorVersion for RSS.")
+          throw new LivyProcessorException(s"Unsupported Spark version $sparkMajorVersion for RSS.")
         }
         val masterYarn = appConf.get(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY)
         if (masterYarn == null) {
-          throw new ProcessorException(s"The master yarn must be a valid value for RSS.")
+          throw new LivyProcessorException(s"The master yarn must be a valid value for RSS.")
         }
         if (!appConf.get(SPARK_RSS_YARN_ALLOWED_MASTER_IDS).split(",")
           .map(_.toLowerCase().trim)
           .contains(masterYarn.toLowerCase())) {
-          throw new ProcessorException(s"The master yarn $masterYarn is not allowed for RSS.")
+          throw new LivyProcessorException(s"The master yarn $masterYarn is not allowed for RSS.")
         }
         val queue = appConf.get(SPARK_YARN_QUEUE)
         if (StringUtils.isBlank(queue)) {
-          throw new ProcessorException("The queue must be set by user.")
+          throw new LivyProcessorException("The queue must be set by user.")
         }
         val yarnCluster = yarnRouterMapping.getCluster(queue)
         appConf.asScala.filter { kv =>
@@ -170,7 +171,7 @@ class YarnRouterMapping(policyListUrl: String) extends Logging {
       updatePolicyListCache(policyMap)
       val cluster = policyMap.get(queue)
       if (cluster == null) {
-        throw new ProcessorException(s"Not found yarn cluster for queue $queue.")
+        throw new LivyProcessorException(s"Not found yarn cluster for queue $queue.")
       }
       cluster
     })
@@ -198,7 +199,7 @@ class YarnRouterMapping(policyListUrl: String) extends Logging {
     } catch {
       case e: Exception =>
         error(s"failed to load yarn cluster policy mapping.", e)
-        throw new ProcessorException(e.getMessage, e.getCause)
+        throw new LivyProcessorException(e.getMessage, e.getCause)
     }
   }
 

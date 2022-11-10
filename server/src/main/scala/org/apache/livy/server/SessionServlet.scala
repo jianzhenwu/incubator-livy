@@ -39,6 +39,7 @@ import org.apache.livy.rsc.RSCClientFactory
 import org.apache.livy.server.batch.BatchSession
 import org.apache.livy.sessions.{Session, SessionManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
+import org.apache.livy.utils.LivyProcessorException
 
 object SessionServlet extends Logging
 
@@ -247,6 +248,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
             case iae: IllegalArgumentException =>
               deallocateServerQuietly(sessionId)
               throw iae
+            case pe: LivyProcessorException =>
+              deallocateServerQuietly(sessionId)
+              throw pe
           }
           Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
           // Because it may take some time to establish the session, update the last activity

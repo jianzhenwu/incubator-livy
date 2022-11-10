@@ -27,6 +27,7 @@ import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSuite}
 
 import org.apache.livy.ApplicationEnvContext
+import org.apache.livy.utils.LivyProcessorException
 
 class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
@@ -110,7 +111,7 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
     val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
     val processor = new RssEnvProcessor()
-    assertThrows[ProcessorException] {
+    assertThrows[LivyProcessorException] {
       processor.process(context)
     }
   }

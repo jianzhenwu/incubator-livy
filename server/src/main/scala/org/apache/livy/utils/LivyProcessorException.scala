@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package com.shopee.livy
+package org.apache.livy.utils
 
-class ProcessorException(message: String, cause: Throwable = null)
+class LivyProcessorException(message: String, cause: Throwable = null)
   extends RuntimeException(message, cause)
