@@ -197,6 +197,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     // should merge spark-defaults.conf
     assert(appConf("spark.driver.extraClassPath") == "/default:/livy:/user")
     assert(!appConf.contains("spark.driver.extraLibraryPath"))
+
+    // should contains spark.pyspark.python in appConf
+    assert(appConf("spark.pyspark.python") == "/usr/bin/python3")
   }
 
 }

@@ -22,7 +22,6 @@ import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import com.google.common.net.UrlEscapers
-import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -38,6 +37,8 @@ object IpynbEnvProcessor {
 
   val SPARK_LIVY_IPYNB_ENV_ENABLED = "spark.livy.ipynb.env.enabled"
 
+  val SPARK_PYSPARK_PYTHON = "spark.pyspark.python"
+
   val HADOOP_USER_NAME = "HADOOP_USER_NAME"
   val HADOOP_USER_RPCPASSWORD = "HADOOP_USER_RPCPASSWORD"
 
@@ -45,6 +46,8 @@ object IpynbEnvProcessor {
 }
 
 class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
+
+  import IpynbEnvProcessor._
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
 
@@ -100,6 +103,9 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       .foreach {
         kv => configuration.set(kv._1.substring("spark.hadoop.".length), kv._2)
       }
+
+    // Set default python binary executable to use for PySpark if user not set.
+    appConf.putIfAbsent(SPARK_PYSPARK_PYTHON, "/usr/bin/python3")
 
     val nonEmptyPackages = ipynbPackages
       .filter(kv => StringUtils.isNotBlank(kv._2))
