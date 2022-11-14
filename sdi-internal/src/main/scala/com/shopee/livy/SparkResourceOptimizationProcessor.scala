@@ -78,18 +78,35 @@ class SparkResourceOptimizationProcessor extends ApplicationEnvProcessor with Lo
 
     val executorMemoryOverhead = Option(appConf.get("spark.executor.memoryOverhead"))
       .map(ByteUtils.byteStringAs(_, ByteUnit.MiB).toString + "M")
-      .getOrElse(Math.max(executorMemoryNum * 0.25, 1024).toInt.toString + "M")
+      .getOrElse(Math.max(executorMemoryNum * 0.25, 1536).toInt.toString + "M")
     appConf.putIfAbsent("spark.executor.memoryOverhead", executorMemoryOverhead)
+
+    // Executor maxDirectMemorySize, the size should be less than executorMemoryOverhead.
+    val maxDirectMemorySize =
+      ByteUtils.byteStringAs(executorMemoryOverhead, ByteUnit.MiB).toInt match {
+        case size if size <= 1024 => executorMemoryOverhead
+        case size if size > 1024 && size <= 1536 => "1024M"
+        case size if size > 1536 => (size - 512).toString + "M"
+      }
 
     val executorExtraJavaOptions = appConf.get("spark.executor.extraJavaOptions")
     if (executorExtraJavaOptions != null) {
+      var optimizedExecutorExtraJavaOptions = executorExtraJavaOptions
+
       if (!executorExtraJavaOptions.contains("-XX:MaxDirectMemorySize")) {
-        appConf.put("spark.executor.extraJavaOptions",
-          executorExtraJavaOptions ++ s" -XX:MaxDirectMemorySize=$executorMemoryOverhead")
+        optimizedExecutorExtraJavaOptions =
+          s"$optimizedExecutorExtraJavaOptions -XX:MaxDirectMemorySize=$maxDirectMemorySize"
       }
+
+      if (!executorExtraJavaOptions.contains("-XX:MaxMetaspaceSize")) {
+        optimizedExecutorExtraJavaOptions =
+          s"$optimizedExecutorExtraJavaOptions -XX:MaxMetaspaceSize=384m"
+      }
+
+      appConf.put("spark.executor.extraJavaOptions", optimizedExecutorExtraJavaOptions)
     } else {
       appConf.put("spark.executor.extraJavaOptions",
-        s"-XX:MaxDirectMemorySize=$executorMemoryOverhead")
+        s"-XX:MaxDirectMemorySize=$maxDirectMemorySize -XX:MaxMetaspaceSize=384m")
     }
 
     val driverMemoryOverhead = Option(appConf.get("spark.driver.memoryOverhead"))
