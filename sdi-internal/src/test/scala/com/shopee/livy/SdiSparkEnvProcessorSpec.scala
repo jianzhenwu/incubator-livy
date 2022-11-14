@@ -199,7 +199,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(!appConf.contains("spark.driver.extraLibraryPath"))
 
     // should contains spark.pyspark.python in appConf
-    assert(appConf("spark.pyspark.python") == "/usr/bin/python3")
+    assert(appConf("spark.pyspark.python") == "/usr/local/bin/python3")
   }
 
 }
