@@ -28,6 +28,7 @@ import com.fasterxml.jackson.annotation.{JsonIgnore, JsonIgnoreProperties}
 import org.apache.curator.framework.recipes.locks.InterProcessSemaphoreMutex
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata}
+import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.server.recovery.{SessionStore, ZooKeeperManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 
@@ -188,8 +189,11 @@ class StateStoreMappingSessionAllocator(
 
     val lock = lockOf(sessionId)
     try {
+      Metrics().startStoredScope(MetricsKey.SESSION_RECOVER_LOCK_TIME)
       lock.acquire()
+      Metrics().endStoredScope(MetricsKey.SESSION_RECOVER_LOCK_TIME)
 
+      Metrics().startStoredScope(MetricsKey.SESSION_RECOVER_LOCK_OCCUPYING_TIME)
       val recoveryMetadata: RecoveryMetadata = sessionStore.get[T](sessionType, sessionId)
         .getOrElse({
           new StateStoreMappingRecoveryMetadata(sessionId)
@@ -208,6 +212,7 @@ class StateStoreMappingSessionAllocator(
       }
     } finally {
       lock.release()
+      Metrics().endStoredScope(MetricsKey.SESSION_RECOVER_LOCK_OCCUPYING_TIME)
     }
   }
 

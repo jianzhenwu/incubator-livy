@@ -97,4 +97,9 @@ object MetricsKey {
     "Total count of synchronized Zookeeper paths")
   val ZK_MANAGER_SYNC_TIMEOUT_COUNT = MetricsKey("zk_manager_sync_timeout_count",
     "Total count of Zookeeper path sync timeout")
+
+  val SESSION_RECOVER_LOCK_TIME = MetricsKey("session_recover_lock_time",
+    "Lock time to recover session")
+  val SESSION_RECOVER_LOCK_OCCUPYING_TIME = MetricsKey("session_recover_lock_occupying_time",
+    "Lock occupy time to recover session")
 }
