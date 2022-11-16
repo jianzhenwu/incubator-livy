@@ -14,39 +14,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.livy.launcher;
 
-package org.apache.livy.client.common;
-
-public enum StatementState {
-
-  Waiting("waiting"),
-  Running("running"),
-  Available("available"),
-  Cancelling("cancelling"),
-  Cancelled("cancelled");
-
-  private final String state;
-
-  StatementState(String state) {
-    this.state = state;
-  }
-
-  public static boolean isActive(String state) {
-    return state.equals(Waiting.state)
-        || state.equals(Running.state);
-  }
-
-  public static boolean isAvailable(String state) {
-    return state.equals(Available.state);
-  }
-
-  public static boolean isCancel(String state) {
-    return state.equals(Cancelling.state)
-        || state.equals(Cancelled.state);
-  }
-
-  @Override
-  public String toString() {
-    return state;
-  }
+/**
+ *  An interface for building the task interval.
+ */
+public interface Interval {
+  long interval(int count);
 }

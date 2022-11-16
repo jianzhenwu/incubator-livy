@@ -39,6 +39,7 @@ import org.apache.livy.client.http.exception.ServiceUnavailableException;
 import org.apache.livy.client.http.exception.TimeoutException;
 import org.apache.livy.client.http.param.InteractiveOptions;
 import org.apache.livy.client.http.param.StatementOptions;
+import org.apache.livy.client.http.response.CancelStatementResponse;
 import org.apache.livy.client.http.response.SessionLogResponse;
 import org.apache.livy.client.http.response.SessionStateResponse;
 import org.apache.livy.client.http.response.StatementResponse;
@@ -320,6 +321,18 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
       StatementOptions req = new StatementOptions(code);
       return conn
           .post(req, StatementResponse.class, "/%d/statements", sessionId);
+    } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
+      throw ce;
+    } catch (Exception e) {
+      throw new RuntimeException(e.getMessage(), e.getCause());
+    }
+  }
+
+  public CancelStatementResponse cancelStatement(int statementId)
+      throws ConnectException, ServiceUnavailableException {
+    try {
+      return conn.post(null, CancelStatementResponse.class, "/%d/statements/%d/cancel",
+          sessionId, statementId);
     } catch (ConnectException | ServiceUnavailableException | AuthServerException ce) {
       throw ce;
     } catch (Exception e) {

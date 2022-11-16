@@ -33,12 +33,14 @@ import org.slf4j.Logger;
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.HttpClient;
-import org.apache.livy.client.http.exception.AuthServerException;
-import org.apache.livy.client.http.exception.ServiceUnavailableException;
-import org.apache.livy.client.http.exception.TimeoutException;
+import org.apache.livy.client.http.response.CancelStatementResponse;
 import org.apache.livy.client.http.response.StatementOutput;
 import org.apache.livy.client.http.response.StatementResponse;
+import org.apache.livy.launcher.Interval;
 import org.apache.livy.launcher.LivyOption;
+import org.apache.livy.launcher.RetryInterval;
+import org.apache.livy.launcher.RetryTask;
+import org.apache.livy.launcher.Signaling;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 import org.apache.livy.launcher.util.LauncherUtils;
@@ -176,7 +178,7 @@ public abstract class AbstractInteractiveRunner {
     Interval interval = new RetryInterval(offset, step, max);
 
     int finalStatementId =
-        new RetryTask<Integer>(startTime, timeout, interval) {
+        new RetryTask<Integer>(restClient, startTime, timeout, interval) {
           @Override
           public Integer task() throws ConnectException {
             StatementResponse submitRes = restClient.submitStatement(code);
@@ -184,13 +186,22 @@ public abstract class AbstractInteractiveRunner {
           }
         }.run();
 
-    return new RetryTask<StatementResponse>(startTime, timeout, interval) {
+    // register a signal handler to terminate the current statement in session.
+    Signaling.cancelOnInterrupt(new RetryTask<CancelStatementResponse>(
+        restClient, startTime, timeout, interval) {
+      @Override
+      public CancelStatementResponse task() throws ConnectException {
+        return restClient.cancelStatement(finalStatementId);
+      }
+    });
+
+    return new RetryTask<StatementResponse>(restClient, startTime, timeout, interval) {
       @Override
       public StatementResponse task() throws ConnectException {
         StatementResponse runRes = restClient.statementResult(finalStatementId);
-        boolean isAvailable = StatementState.Available.toString().equals(runRes.getState());
-        printProgress(runRes.getProgress(), isAvailable);
-        if (isAvailable) {
+        String state = runRes.getState();
+        printProgress(runRes.getProgress(), state);
+        if (StatementState.isCancel(state) || StatementState.isAvailable(state)) {
           return runRes;
         }
         return null;
@@ -198,16 +209,18 @@ public abstract class AbstractInteractiveRunner {
     }.run();
   }
 
-  private void printProgress(double percent, boolean isAvailable) {
+  private void printProgress(double percent, String state) {
     String progress = String.format(
         PROCESS_FORMAT,
         new Timestamp(System.currentTimeMillis()),
         getInPlaceProgressBar(percent),
         (int) (percent * 100) + "%");
     try {
-      this.consoleReader.print("\r");
-      this.consoleReader.print(progress);
-      if (isAvailable) {
+      if (StatementState.isActive(state) || StatementState.isAvailable(state)) {
+        this.consoleReader.print("\r");
+        this.consoleReader.print(progress);
+      }
+      if (StatementState.isCancel(state) || StatementState.isAvailable(state)) {
         this.consoleReader.println();
       }
       this.consoleReader.flush();
@@ -291,74 +304,4 @@ public abstract class AbstractInteractiveRunner {
    * @return Logger
    */
   protected abstract Logger logger();
-
-  static class RetryInterval implements Interval {
-
-    private final long offset;
-    private final long step;
-    private final long max;
-
-    public RetryInterval(long offset, long step, long max) {
-      this.offset = offset;
-      this.step = step;
-      this.max = max;
-    }
-
-    @Override
-    public long interval(int count) {
-      double t = Math.log(count + 1) * step + offset;
-      return Double.valueOf(Math.min(t, max)).longValue();
-    }
-  }
-
-  interface Interval {
-    long interval(int count);
-  }
-
-  abstract class RetryTask<T> {
-
-    private final long startTime;
-    private final long timeout;
-    private final Interval interval;
-
-
-    public RetryTask(long startTime, long timeout, Interval interval) {
-      this.startTime = startTime;
-      this.timeout = timeout;
-      this.interval = interval;
-    }
-
-    /**
-     * User define task.
-     */
-    public abstract T task() throws ConnectException;
-
-    public T run() {
-
-      int count = 0;
-      while (true) {
-        try {
-          T t = task();
-          if (t != null) {
-            return t;
-          }
-        } catch (ConnectException | ServiceUnavailableException | AuthServerException e) {
-          logger().warn("Please wait, the session {} is recovering.", restClient.getSessionId());
-        }
-
-        long currentTime = System.currentTimeMillis();
-        if (timeout > 0 && currentTime - startTime > timeout) {
-          throw new TimeoutException(
-              "Timeout with session " + restClient.getSessionId());
-        }
-
-        count += 1;
-        try {
-          Thread.sleep(this.interval.interval(count));
-        } catch (InterruptedException e) {
-          throw new RuntimeException(e);
-        }
-      }
-    }
-  }
 }

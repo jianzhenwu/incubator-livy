@@ -14,39 +14,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.livy.launcher
 
-package org.apache.livy.client.common;
+import org.apache.livy.Logging
+import org.apache.livy.client.http.response.CancelStatementResponse
 
-public enum StatementState {
+private[launcher] object Signaling extends Logging {
 
-  Waiting("waiting"),
-  Running("running"),
-  Available("available"),
-  Cancelling("cancelling"),
-  Cancelled("cancelled");
-
-  private final String state;
-
-  StatementState(String state) {
-    this.state = state;
-  }
-
-  public static boolean isActive(String state) {
-    return state.equals(Waiting.state)
-        || state.equals(Running.state);
-  }
-
-  public static boolean isAvailable(String state) {
-    return state.equals(Available.state);
-  }
-
-  public static boolean isCancel(String state) {
-    return state.equals(Cancelling.state)
-        || state.equals(Cancelled.state);
-  }
-
-  @Override
-  public String toString() {
-    return state;
+  /**
+   * Register a SIGINT handler, that terminates current active statement in session
+   * or terminates when no statement are currently running.
+   * This makes it possible to interrupt a running shell job by pressing Ctrl+C.
+   */
+  def cancelOnInterrupt(task: RetryTask[CancelStatementResponse]): Unit = {
+    SignalUtils.register("INT") {
+      logger.warn("Cancelling current statement, this can take a while. " +
+        "Press Ctrl+C again to exit spark session.")
+      val cancelRes = task.run
+      cancelRes != null && "canceled".equals(cancelRes.getMsg)
+    }
   }
 }

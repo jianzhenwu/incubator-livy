@@ -14,39 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.livy.launcher;
 
-package org.apache.livy.client.common;
+public class RetryInterval implements Interval {
 
-public enum StatementState {
+  private final long offset;
+  private final long step;
+  private final long max;
 
-  Waiting("waiting"),
-  Running("running"),
-  Available("available"),
-  Cancelling("cancelling"),
-  Cancelled("cancelled");
-
-  private final String state;
-
-  StatementState(String state) {
-    this.state = state;
-  }
-
-  public static boolean isActive(String state) {
-    return state.equals(Waiting.state)
-        || state.equals(Running.state);
-  }
-
-  public static boolean isAvailable(String state) {
-    return state.equals(Available.state);
-  }
-
-  public static boolean isCancel(String state) {
-    return state.equals(Cancelling.state)
-        || state.equals(Cancelled.state);
+  public RetryInterval(long offset, long step, long max) {
+    this.offset = offset;
+    this.step = step;
+    this.max = max;
   }
 
   @Override
-  public String toString() {
-    return state;
+  public long interval(int count) {
+    double t = Math.log(count + 1) * step + offset;
+    return Double.valueOf(Math.min(t, max)).longValue();
   }
 }

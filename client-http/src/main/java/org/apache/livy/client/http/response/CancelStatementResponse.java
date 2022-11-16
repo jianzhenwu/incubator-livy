@@ -14,39 +14,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.livy.client.http.response;
 
-package org.apache.livy.client.common;
+public class CancelStatementResponse {
 
-public enum StatementState {
+  private String msg;
 
-  Waiting("waiting"),
-  Running("running"),
-  Available("available"),
-  Cancelling("cancelling"),
-  Cancelled("cancelled");
-
-  private final String state;
-
-  StatementState(String state) {
-    this.state = state;
+  public String getMsg() {
+    return msg;
   }
 
-  public static boolean isActive(String state) {
-    return state.equals(Waiting.state)
-        || state.equals(Running.state);
-  }
-
-  public static boolean isAvailable(String state) {
-    return state.equals(Available.state);
-  }
-
-  public static boolean isCancel(String state) {
-    return state.equals(Cancelling.state)
-        || state.equals(Cancelled.state);
-  }
-
-  @Override
-  public String toString() {
-    return state;
+  public void setMsg(String msg) {
+    this.msg = msg;
   }
 }
