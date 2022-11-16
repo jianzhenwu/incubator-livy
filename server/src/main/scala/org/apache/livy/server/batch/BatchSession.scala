@@ -194,7 +194,11 @@ object BatchSession extends Logging {
 
       val builderConf = prepareBuilderConf(conf, livyConf, reqSparkVersion, request)
 
-      val builder = new SparkProcessBuilder(livyConf, reqSparkVersion, reqMasterYarnId)
+      val userEnabledPreview = builderConf.get(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED.key)
+
+      val builder = new SparkProcessBuilder(livyConf,
+        reqSparkVersionOrPreview(reqSparkVersion, request.queue, livyConf, userEnabledPreview),
+        reqMasterYarnId)
       builder.conf(builderConf)
       builder.username(owner)
 

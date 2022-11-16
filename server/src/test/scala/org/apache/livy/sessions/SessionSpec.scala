@@ -95,4 +95,79 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     userLists.foreach { key => assert(result.get(key) === expected) }
   }
 
+  test("should use preview spark when queue contains -dev") {
+    val reqSparkVersion: Option[String] = Some("v3")
+    val queue: Option[String] = Some("queue-dev")
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
+      .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED, true)
+
+    val sparkVersion = Session.reqSparkVersionOrPreview(reqSparkVersion, queue, livyConf)
+    assert(sparkVersion.get == "v3.preview")
+  }
+
+  test("should work when no preview spark version") {
+    val reqSparkVersion: Option[String] = Some("v3")
+    val queue: Option[String] = Some("queue-dev")
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED, true)
+
+    val sparkVersion = Session.reqSparkVersionOrPreview(reqSparkVersion, queue, livyConf)
+    assert(sparkVersion.get == "v3")
+  }
+
+  test("should not use preview spark when disabled") {
+    val reqSparkVersion: Option[String] = Some("v3")
+    val queue: Option[String] = Some("queue-dev")
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
+      .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED, false)
+
+    val sparkVersion = Session.reqSparkVersionOrPreview(reqSparkVersion, queue, livyConf)
+    assert(sparkVersion.get == "v3")
+  }
+
+  test("should not use preview spark when using prevent queue") {
+    val reqSparkVersion: Option[String] = Some("v3")
+    val queue: Option[String] = Some("queue-dev")
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
+      .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED, true)
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_PREVENT_QUEUES, "queue-dev,others-dev")
+
+    val sparkVersion = Session.reqSparkVersionOrPreview(reqSparkVersion, queue, livyConf)
+    assert(sparkVersion.get == "v3")
+  }
+
+  test("should not use preview spark when user disabled") {
+    val reqSparkVersion: Option[String] = Some("v3")
+    val queue: Option[String] = Some("queue-dev")
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
+      .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
+      .set(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED, true)
+
+    val sparkVersion = Session.reqSparkVersionOrPreview(reqSparkVersion, queue,
+      livyConf, Some("false"))
+    assert(sparkVersion.get == "v3")
+  }
+
 }

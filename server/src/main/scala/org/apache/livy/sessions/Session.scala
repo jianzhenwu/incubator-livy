@@ -145,6 +145,31 @@ object Session {
 
     resolved
   }
+
+  def reqSparkVersionOrPreview(reqSparkVersion: Option[String],
+      queue: Option[String], livyConf: LivyConf,
+      userEnabledPreview: Option[String] = None): Option[String] = {
+
+    if (!livyConf.getBoolean(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED)) {
+      return reqSparkVersion
+    }
+    // User can disable using preview spark.
+    if ("false".equalsIgnoreCase(userEnabledPreview.getOrElse("true"))) {
+        return reqSparkVersion
+    }
+    var sparkVersion: Option[String] = None
+    queue
+      .filter(_.endsWith("-dev"))
+      .filter(!livyConf.previewPreventQueues.contains(_))
+      .foreach { _ =>
+        if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
+          val previewVersion = reqSparkVersion.get + ".preview"
+          Option(livyConf.get(LivyConf.SPARK_HOME.key + "." + previewVersion))
+            .foreach(_ => sparkVersion = Some(previewVersion))
+        }
+      }
+    sparkVersion.orElse(reqSparkVersion)
+  }
 }
 
 abstract class Session(

@@ -368,6 +368,11 @@ object LivyConf {
 
   val FS_S3A_ENABLED = Entry("livy.server.fs.s3a.enabled", false)
 
+  // Whether preview spark should be used when the name of queue is end with "-dev".
+  val SPARK_LIVY_SPARK_PREVIEW_ENABLED = Entry("spark.livy.spark.preview.enabled", false)
+  val SPARK_LIVY_SPARK_PREVIEW_PREVENT_QUEUES =
+    Entry("spark.livy.spark.preview.queues.exclude", null)
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
@@ -462,6 +467,12 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
       k.splitAt(SERVER_MAPPING.key.length + 1)._2 -> v.split(",").map(_.trim).toSet
     }
     .toMap
+
+  lazy val previewPreventQueues: Set[String] = config.asScala
+    .getOrElse(SPARK_LIVY_SPARK_PREVIEW_PREVENT_QUEUES.key, "")
+    .split(",")
+    .map(_.trim)
+    .toSet
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.

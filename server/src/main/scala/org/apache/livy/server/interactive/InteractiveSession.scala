@@ -145,8 +145,12 @@ object InteractiveSession extends Logging {
 
       builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
 
-      val sparkHome = livyConf.sparkHome(reqSparkVersion)
-      val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
+      val userEnabledPreview = builderProperties.get(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED.key)
+      val sparkVersion = reqSparkVersionOrPreview(reqSparkVersion, request.queue,
+        livyConf, userEnabledPreview)
+
+      val sparkHome = livyConf.sparkHome(sparkVersion)
+      val sparkConfDir = livyConf.sparkConfDir(sparkVersion)
       info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
         s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
 
