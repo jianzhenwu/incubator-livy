@@ -31,6 +31,7 @@ object SdiSparkEnvProcessor {
    * is unavailable for all processors.
    */
   val processorNames = Seq(
+    "com.shopee.livy.SdiProjectConfProcessor",
     "com.shopee.livy.SparkConfMappingProcessor",
     "com.shopee.livy.DefaultsConfLivyProcessor",
     "com.shopee.livy.SdiHadoopEnvProcessor",

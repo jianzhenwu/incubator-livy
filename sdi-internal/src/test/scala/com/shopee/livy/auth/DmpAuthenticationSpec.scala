@@ -16,6 +16,7 @@
  */
 package com.shopee.livy.auth
 
+import com.shopee.livy.utils.HttpUtils
 import okhttp3._
 import org.mockito.Matchers.any
 import org.mockito.Mockito.{mock, when}
@@ -34,8 +35,8 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
 
   override def beforeAll(): Unit = {
     httpClient = mock(classOf[OkHttpClient])
+    HttpUtils.mockHttpClient = httpClient
     dmpAuthentication = new DmpAuthentication("token", "localhost")
-    dmpAuthentication.mock(httpClient)
     remoteCall = mock(classOf[Call])
     headers = mock(classOf[java.util.Map[String, String]])
     httpUrl = new HttpUrl.Builder()

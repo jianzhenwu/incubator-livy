@@ -18,15 +18,14 @@ package com.shopee.livy.auth
 
 import java.util.concurrent.atomic.AtomicReference
 
-import scala.collection.JavaConverters._
 import scala.reflect.ClassTag
-import scala.reflect.classTag
 import scala.util.{Failure, Success, Try}
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
+import com.google.common.base.Throwables
 import com.shopee.livy.auth.DmpAuthentication._
-import okhttp3.{Headers, HttpUrl, MediaType, OkHttpClient, Request, RequestBody}
-import org.apache.http.HttpStatus
+import com.shopee.livy.utils.HttpUtils
+import okhttp3.{HttpUrl, MediaType, RequestBody}
 
 import org.apache.livy.Logging
 
@@ -35,19 +34,12 @@ import org.apache.livy.Logging
  */
 class DmpAuthentication(serverToken: String, serverHost: String) extends Logging {
 
-  private var httpClient: OkHttpClient = new OkHttpClient()
-
   private val objectMapper: ObjectMapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   private val headers: Map[String, String] =
     Map("Content-type" -> "application/json", "X-DMP-Authorization" -> serverToken)
-
-  // Visible for testing
-  private[auth] def mock(mockClient: OkHttpClient): Unit = {
-    httpClient = mockClient
-  }
 
   def getPassword(hadoopAccount: String): String = {
     require(hadoopAccount != null, s"Hadoop account $hadoopAccount must exist")
@@ -57,17 +49,10 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
       .host(serverHost)
       .encodedPath(s"$passwordPath$hadoopAccount")
       .build()
-    val responseView: Try[HadoopAccountResponseView] =
-      doAuthGet[HadoopAccountResponseView](url, headers.asJava)
+    val response: Try[HadoopAccountResponse] =
+      HttpUtils.doGet[HadoopAccountResponse](url, headers)
 
-    if (responseView.isSuccess) {
-      responseView.get.data
-    } else {
-      error(s"Internal authentication server error, " +
-        s"Error message: ${responseView.failed.get.getMessage}.")
-      throw new AuthClientException(s"Internal authentication server error, " +
-        s"Error message: ${responseView.failed.get.getMessage}.")
-    }
+    handleResponse[String](response)(response.get.data)
   }
 
   def validate(hadoopAccount: String, password: String): Boolean = {
@@ -80,69 +65,36 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     val body = RequestBody.create(
       objectMapper.writeValueAsString(userInfo),
       MediaType.parse("application/json"))
-    val responseView: Try[ValidateResponseView] =
-      doAuthPost[ValidateResponseView](url, headers.asJava, body)
+    val response: Try[ValidateResponse] =
+      HttpUtils.doPost[ValidateResponse](url, headers, body)
 
-    if (responseView.isSuccess) {
-      responseView.get.data
-    } else {
-      error(s"Internal authentication server error, " +
-        s"Error message: ${responseView.failed.get.getMessage}.")
-      throw new AuthClientException(s"Internal authentication server error, " +
-        s"Error message: ${responseView.failed.get.getMessage}.")
+    handleResponse[Boolean](response)(response.get.data)
+  }
+
+  /**
+   * Returns whether the hadoop account belong to the project.
+   */
+  def belongProject(hadoopAccount: String, project: String): Boolean = {
+    val url = new HttpUrl.Builder()
+      .scheme("https")
+      .host(serverHost)
+      .encodedPath(s"$allProjectsPath")
+      .addQueryParameter("hadoopAccount", hadoopAccount)
+      .build()
+    val response: Try[AllProjectsResponse] =
+      HttpUtils.doGet[AllProjectsResponse](url, headers)
+
+    handleResponse[Boolean](response) {
+      response.get.data.exists(_.projectCode.equalsIgnoreCase(project))
     }
   }
 
-  private def doAuthRaw(
-      url: HttpUrl,
-      method: String,
-      headers: java.util.Map[String, String],
-      body: Option[RequestBody]): String = {
-    val requestBuilder = new Request.Builder()
-    if (headers != null && !headers.isEmpty) {
-      requestBuilder.headers(Headers.of(headers))
-    }
-    val req = requestBuilder.method(method, body.orNull).url(url).build()
-    var retryCnt = 3
-    while(retryCnt > 0) {
-      retryCnt -= 1
-      val res = httpClient.newCall(req).execute()
-      val traceId = res.header("trace-id")
-      val statusCode = res.code()
-      val resBody = res.body().string()
-
-      if (statusCode / 100 * 100 == HttpStatus.SC_OK) {
-        res.body().close()
-        return resBody
-      } else {
-        // log trace-id and retry.
-        error(s"RAM authentication failed. statusCode=$statusCode, " +
-          s"trace-id=$traceId, responseBody=$resBody")
-      }
-    }
-    throw new AuthClientException("RAM authentication failed.")
-  }
-
-  private def doAuthGet[T: ClassTag](
-      url: HttpUrl,
-      headers: java.util.Map[String, String]): Try[T] = {
-    try {
-      val resBody = this.doAuthRaw(url, "GET", headers, None)
-      Success(objectMapper.readValue(resBody, classTag[T].runtimeClass).asInstanceOf[T])
-    } catch {
-      case exception: Throwable => Failure(exception)
-    }
-  }
-
-  private def doAuthPost[T: ClassTag](
-      url: HttpUrl,
-      headers: java.util.Map[String, String],
-      body: RequestBody): Try[T] = {
-    try {
-      val resBody = this.doAuthRaw(url, "POST", headers, Option(body))
-      Success(objectMapper.readValue(resBody, classTag[T].runtimeClass).asInstanceOf[T])
-    } catch {
-      case exception: Throwable => Failure(exception)
+  private def handleResponse[T: ClassTag](response: Try[Any])(f: => T): T = {
+    response match {
+      case Success(_) => f
+      case Failure(exception) =>
+        error("Internal authentication server error", exception)
+        throw new AuthClientException(s"Internal authentication server error", exception)
     }
   }
 }
@@ -156,6 +108,9 @@ object DmpAuthentication {
   private val passwordPath = "/ram/api/v1/developer/sensitive/hadoopAccount/pwd/"
 
   private val validatePath = "/ram/api/v1/developer/sensitive/hadoopAccount/validate"
+
+  private val allProjectsPath =
+    "/ram/api/v1/developer/user/identity/hadoop/account/allProjects"
 
   private val DMP_AUTHENTICATION_CONSTRUCTOR_LOCK = new Object()
 
@@ -175,8 +130,17 @@ object DmpAuthentication {
 
 case class HadoopAccount(account: String, password: String)
 
-case class HadoopAccountResponseView(code: Int, message: String, data: String)
+case class HadoopAccountResponse(code: Int, message: String, data: String)
 
-case class ValidateResponseView(code: Int, message: String, data: Boolean)
+case class ValidateResponse(code: Int, message: String, data: Boolean)
 
-class AuthClientException(message: String) extends RuntimeException(message)
+case class AllProjectsResponse(code: Int, message: String, data: List[ProjectInfo])
+
+case class ProjectInfo(
+     identityName: String,
+     projectCode: String,
+     hadoopAccount: String,
+     email: String)
+
+class AuthClientException(message: String, cause: Throwable = null)
+  extends RuntimeException(message, cause)
