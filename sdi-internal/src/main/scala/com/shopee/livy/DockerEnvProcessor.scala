@@ -33,6 +33,13 @@ object DockerEnvProcessor {
   val SPARK_LIVY_DOCKER_IMAGE: String = "spark.livy.docker.image"
 
   val SPARK_DOCKER_MOUNTS: String = "spark.docker.mounts"
+
+  def isDockerEnabled(appConf: java.util.Map[String, String]): Boolean = {
+    Option(
+      appConf.getOrDefault(SPARK_LIVY_DOCKER_ENABLED,
+        appConf.get(SPARK_DOCKER_ENABLED))
+    ).exists("true".equalsIgnoreCase)
+  }
 }
 
 class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
@@ -42,13 +49,11 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
     import DockerEnvProcessor._
 
     val appConf = applicationEnvContext.appConf
-    val dockerEnabled = Option(appConf.get(SPARK_LIVY_DOCKER_ENABLED))
-      .getOrElse(appConf.get(SPARK_DOCKER_ENABLED))
     val dockerImage = Option(appConf.get(SPARK_LIVY_DOCKER_IMAGE))
       .getOrElse(appConf.get(SPARK_DOCKER_IMAGE))
     val dockerMounts = appConf.get(RSC_CONF_PREFIX + SPARK_DOCKER_MOUNTS)
 
-    Option(dockerEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
+    if (isDockerEnabled(appConf)) {
       if (StringUtils.isBlank(dockerImage)) {
         error(s"Please check conf $SPARK_LIVY_DOCKER_IMAGE, " +
           s"Yarn container runtime docker image must be set by user")
@@ -60,6 +65,6 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_TYPE", "docker")
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE", dockerImage)
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS", dockerMounts)
-    })
+    }
   }
 }

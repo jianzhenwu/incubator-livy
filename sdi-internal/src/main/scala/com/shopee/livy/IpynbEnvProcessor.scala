@@ -105,7 +105,9 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       }
 
     // Set default python binary executable to use for PySpark if user not set.
-    appConf.putIfAbsent(SPARK_PYSPARK_PYTHON, "/usr/local/bin/python3")
+    if (DockerEnvProcessor.isDockerEnabled(appConf)) {
+      appConf.putIfAbsent(SPARK_PYSPARK_PYTHON, "/usr/local/bin/python3")
+    }
 
     val nonEmptyPackages = ipynbPackages
       .filter(kv => StringUtils.isNotBlank(kv._2))
