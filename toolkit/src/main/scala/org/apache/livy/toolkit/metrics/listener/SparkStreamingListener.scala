@@ -36,7 +36,7 @@ private[metrics] class SparkStreamingListener extends StreamingListener
   private val runningBatch = new HashMap[Time, BatchInfo]
   private val receiverInfos = new HashMap[Int, ReceiverInfo]
 
-  initialize()
+  registerAllGauge()
 
   override def onReceiverStarted(receiverStarted: StreamingListenerReceiverStarted): Unit = {
     synchronized {

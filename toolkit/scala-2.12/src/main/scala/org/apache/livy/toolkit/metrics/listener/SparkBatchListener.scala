@@ -17,26 +17,6 @@
 
 package org.apache.livy.toolkit.metrics.listener
 
-import org.apache.spark.sql.streaming.StreamingQueryListener
-
-class StructuredStreamingListener
-  extends StreamingQueryListener with StructuredStreamingListenerBase {
-
+class SparkBatchListener extends SparkBatchListenerBase {
   registerAllGauge()
-
-  override def onQueryStarted(event: StreamingQueryListener.QueryStartedEvent): Unit = {
-    onBaseQueryStarted(event)
-  }
-
-  override def onQueryProgress(event: StreamingQueryListener.QueryProgressEvent): Unit = {
-    onBaseQueryProgress(event)
-  }
-
-  override def onQueryTerminated(event: StreamingQueryListener.QueryTerminatedEvent): Unit = {
-    onBaseQueryTerminated(event)
-  }
-
-  override def registerAllGauge(): Unit = {
-    registerAllGaugeInBase()
-  }
 }

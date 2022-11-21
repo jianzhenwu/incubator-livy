@@ -27,6 +27,8 @@ object Metrics {
   @volatile
   private var metrics: Metrics = _
 
+  def getMetrics: Metrics = metrics
+
   def init(outPut: PushGateway): Unit = {
     if (metrics == null) {
       this.synchronized {

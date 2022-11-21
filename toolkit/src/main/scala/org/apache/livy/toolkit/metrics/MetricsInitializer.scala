@@ -19,18 +19,17 @@ package org.apache.livy.toolkit.metrics
 
 import java.util.concurrent.ConcurrentHashMap
 
-import org.apache.spark.SparkEnv
-
 import org.apache.livy.toolkit.metrics.common.{Metrics, MetricsKey, MetricsVariable}
 import org.apache.livy.toolkit.metrics.prometheus.PushGateway
 
 trait MetricsInitializer {
+
   @volatile
-  private var pushGateway: PushGateway = _
+  var pushGateway: PushGateway = _
   protected val gauges: ConcurrentHashMap[MetricsKey, Double] =
     new ConcurrentHashMap[MetricsKey, Double]
 
-  private def getOrCreatePushGateway(): PushGateway = {
+  def getOrCreatePushGateway(): PushGateway = {
     if (pushGateway == null) {
       this.synchronized {
         if (pushGateway == null) {
@@ -41,33 +40,14 @@ trait MetricsInitializer {
     pushGateway
   }
 
-  /**
-   * Only used for testing
-   */
-  def getPushGateway(): PushGateway = {
-    pushGateway
-  }
-
   private def createPushGateWay(): PushGateway = {
-    val conf = SparkEnv.get.conf
-    val appId = conf.getAppId
-    val appName = conf.get("spark.app.name")
-    val queueName = conf.get("spark.yarn.queue")
-    val pushUrl = conf.get("spark.streaming.metrics.push.url")
-    val pushToken = conf.get("spark.streaming.metrics.push.token")
     new PushGateway()
-      .setAppName(appName)
-      .setAppId(appId)
-      .setQueueName(queueName)
-      .setPushUrl(pushUrl)
-      .setPushToken(pushToken)
-      .buildTargetUrl()
   }
 
-  def initialize(): Unit = {
-    Metrics.init(getOrCreatePushGateway())
-    registerAllGauge()
-  }
+//  def initialize(): Unit = {
+//    Metrics.init(getOrCreatePushGateway())
+//    registerAllGauge()
+//  }
 
   def registerAllGauge(): Unit
 

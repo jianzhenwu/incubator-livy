@@ -40,6 +40,8 @@ object StreamingMetricProcessor {
   val STEAMING_LISTENER = "org.apache.livy.toolkit.metrics.listener.SparkStreamingListener"
   val STRUCTURED_LISTENER = "org.apache.livy.toolkit.metrics.listener.StructuredStreamingListener"
   val DEFAULT_METRICS_SEND_INTERVAL = "15"
+  val SINK_CLASS = "spark.metrics.conf.*.sink.prometheus.class"
+  val PROMETHEUS_SINK_PATH = "org.apache.spark.metrics.sink.PrometheusSink"
 }
 
 class StreamingMetricProcessor extends ApplicationEnvProcessor with Logging {
@@ -57,13 +59,26 @@ class StreamingMetricProcessor extends ApplicationEnvProcessor with Logging {
     val token = appConf.get(RSC_CONF_PREFIX + PUSH_TOKEN)
     val interval = appConf.get(RSC_CONF_PREFIX + PUSH_INTERVAL)
 
+    val extraListeners = appConf.getOrDefault(EXTRA_LISTENERS, "") match {
+      case "" => STEAMING_LISTENER
+      case userDefinedExtraListeners => userDefinedExtraListeners + "," + STEAMING_LISTENER
+    }
+
+    val queryListeners = appConf.getOrDefault(QUERY_LISTENERS, "") match {
+      case "" => STRUCTURED_LISTENER
+      case userDefinedExtraListeners => userDefinedExtraListeners + "," + STRUCTURED_LISTENER
+    }
+
     Option(streamingEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       addPushGateWayConfig()
-      appConf.put(EXTRA_LISTENERS, STEAMING_LISTENER)
+      appConf.put(EXTRA_LISTENERS, extraListeners)
+      appConf.put(SINK_CLASS, PROMETHEUS_SINK_PATH)
     })
+
     Option(structuredEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       addPushGateWayConfig()
-      appConf.put(QUERY_LISTENERS, STRUCTURED_LISTENER)
+      appConf.put(QUERY_LISTENERS, queryListeners)
+      appConf.put(SINK_CLASS, PROMETHEUS_SINK_PATH)
     })
 
     def addPushGateWayConfig(): Unit = {

@@ -38,6 +38,7 @@ class PushGateway() extends Closeable with Logging {
   private var url = ""
   var targetUrl = ""
   private var token = ""
+  private var interval = ""
   private val SECONDS_PER_MILLISECOND = 1000
   @volatile private var connection: HttpURLConnection = _
   private var textWriter: PrometheusTextWriter = _
@@ -94,6 +95,8 @@ class PushGateway() extends Closeable with Logging {
     metricsWriter.writeTimer(name, timer)
   }
 
+  def getInterval: String = interval
+
   def isConnected(): Boolean = {
     connection != null
   }
@@ -127,6 +130,11 @@ class PushGateway() extends Closeable with Logging {
 
   def setPushToken(token: String): PushGateway = {
     this.token = token
+    this
+  }
+
+  def setPushInterval(interval: String): PushGateway = {
+    this.interval = interval
     this
   }
 

@@ -15,28 +15,17 @@
  * limitations under the License.
  */
 
-package org.apache.livy.toolkit.metrics.listener
+package org.apache.spark.metrics.sink
 
-import org.apache.spark.sql.streaming.StreamingQueryListener
+import java.util.Properties
 
-class StructuredStreamingListener
-  extends StreamingQueryListener with StructuredStreamingListenerBase {
+import com.codahale.metrics.MetricRegistry
+import org.apache.spark.SecurityManager
 
-  registerAllGauge()
+class PrometheusSink(
+  property: Properties,
+  registry: MetricRegistry,
+  securityMgr: SecurityManager) extends PrometheusSinkBase(
+  property, registry, securityMgr) {
 
-  override def onQueryStarted(event: StreamingQueryListener.QueryStartedEvent): Unit = {
-    onBaseQueryStarted(event)
-  }
-
-  override def onQueryProgress(event: StreamingQueryListener.QueryProgressEvent): Unit = {
-    onBaseQueryProgress(event)
-  }
-
-  override def onQueryTerminated(event: StreamingQueryListener.QueryTerminatedEvent): Unit = {
-    onBaseQueryTerminated(event)
-  }
-
-  override def registerAllGauge(): Unit = {
-    registerAllGaugeInBase()
-  }
 }

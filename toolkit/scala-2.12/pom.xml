@@ -38,6 +38,7 @@
     <spark.version>${spark.scala-2.12.version}</spark.version>
     <netty.version>${netty.spark-2.12.version}</netty.version>
     <json4s.version>${json4s.spark-2.12.version}</json4s.version>
+    <jackson.version>2.10.1</jackson.version>
   </properties>
 
   <dependencies>

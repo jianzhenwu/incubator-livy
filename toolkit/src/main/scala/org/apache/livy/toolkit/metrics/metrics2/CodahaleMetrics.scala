@@ -27,7 +27,6 @@ import scala.collection.mutable
 
 import com.codahale.metrics.{Counter, ExponentiallyDecayingReservoir, Gauge, MetricRegistry, Timer}
 import com.google.common.cache.{CacheBuilder, CacheLoader, LoadingCache}
-import org.apache.spark.SparkEnv
 
 import org.apache.livy.Logging
 import org.apache.livy.toolkit.metrics.common.{Metrics, MetricsKey, MetricsVariable}
@@ -63,8 +62,6 @@ class CodahaleMetrics(output: PushGateway) extends Metrics with Logging {
 
   val gauges: ConcurrentHashMap[String, Gauge[_]] = new ConcurrentHashMap[String, Gauge[_]]
 
-  initReporting(output)
-
   /**
    * Initializes reporters
    */
@@ -73,7 +70,7 @@ class CodahaleMetrics(output: PushGateway) extends Metrics with Logging {
       .setRegistry(CodahaleMetricRegistry.getRegistry())
       .setPushGateway(pushGateway)
       .build()
-    val interval = SparkEnv.get.conf.get("spark.streaming.metrics.send.interval").toInt
+    val interval = pushGateway.getInterval.toInt
     reporter.start(interval, TimeUnit.SECONDS)
     reporters.add(reporter)
   }

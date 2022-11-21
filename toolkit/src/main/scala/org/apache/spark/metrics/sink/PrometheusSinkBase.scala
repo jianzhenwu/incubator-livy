@@ -1,0 +1,54 @@
+/*
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package org.apache.spark.metrics.sink
+
+import java.util.Properties
+import java.util.concurrent.TimeUnit
+
+import com.codahale.metrics.MetricRegistry
+import org.apache.spark.SecurityManager
+
+import org.apache.livy.toolkit.metrics.MetricsInitializer
+import org.apache.livy.toolkit.metrics.prometheus.reporter.{PrometheusReporter, PrometheusReporterBuilder}
+
+class PrometheusSinkBase(
+    val property: Properties,
+    val registry: MetricRegistry,
+    securityMgr: SecurityManager) extends Sink with MetricsInitializer {
+
+  var reporter: PrometheusReporter = _
+
+  override def start(): Unit = {
+    pushGateway = getOrCreatePushGateway()
+    reporter = new PrometheusReporterBuilder()
+        .setRegistry(registry)
+        .setPushGateway(pushGateway)
+        .build()
+
+    reporter.start(15, TimeUnit.SECONDS)
+  }
+
+  override def stop(): Unit =
+    reporter.stop()
+
+  override def report(): Unit = {
+    reporter.report()
+  }
+
+  override def registerAllGauge(): Unit = { }
+}

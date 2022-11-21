@@ -38,6 +38,7 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.S3aEnvProcessor",
     "com.shopee.livy.SparkResourceOptimizationProcessor",
     "com.shopee.livy.StreamingMetricProcessor",
+    "com.shopee.livy.BatchMetricProcessor",
     "com.shopee.livy.DockerEnvProcessor",
     "com.shopee.livy.RssEnvProcessor",
     "com.shopee.livy.HudiConfProcessor",

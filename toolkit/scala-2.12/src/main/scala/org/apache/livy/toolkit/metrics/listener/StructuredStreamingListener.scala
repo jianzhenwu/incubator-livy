@@ -26,7 +26,7 @@ import org.apache.livy.toolkit.metrics.common.{Metrics, MetricsKey}
 class StructuredStreamingListener
   extends StreamingQueryListener with StructuredStreamingListenerBase {
 
-  initialize()
+  registerAllGauge()
 
   override def onQueryStarted(event: StreamingQueryListener.QueryStartedEvent): Unit = {
     onBaseQueryStarted(event)
