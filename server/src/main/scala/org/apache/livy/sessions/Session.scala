@@ -29,9 +29,9 @@ import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
-import org.apache.livy.utils.AppInfo
+import org.apache.livy.utils.{AppInfo, LivySparkUtils}
 
-object Session {
+object Session extends Logging {
   trait RecoveryMetadata {
     val id: Int
     val serverMetadata: ServerMetadata
@@ -169,6 +169,20 @@ object Session {
         }
       }
     sparkVersion.orElse(reqSparkVersion)
+  }
+
+  def sparkMajorFeatureVersionTuple2(reqSparkVersion: Option[String],
+      livyConf: LivyConf): (Int, Int) = {
+
+    if (livyConf.sparkVersions.isEmpty) {
+      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
+    } else {
+      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
+        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+      val sparkVersion = livyConf.get(confKey)
+      info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
+      LivySparkUtils.formatSparkVersion(sparkVersion)
+    }
   }
 }
 

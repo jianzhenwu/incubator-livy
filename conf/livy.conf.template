@@ -272,3 +272,13 @@
 
 # Whether to enable doAsOwner, this config support upload and remove file using Livy account.
 # livy.server.do-as-owner.enabled = false
+
+# Support using different kinds of catalogs according to the spark version.
+# livy.rsc.spark.sql.catalog.hbase.jars.v3.1 =
+# livy.rsc.spark.sql.catalog.jdbc.jars.v3.1 =
+# livy.rsc.spark.sql.catalog.kafka.jars.v3.1 =
+# livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1 =
+# livy.rsc.spark.sql.catalog.hbase.jars.v3.2 =
+# livy.rsc.spark.sql.catalog.jdbc.jars.v3.2 =
+# livy.rsc.spark.sql.catalog.kafka.jars.v3.2 =
+# livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2 =

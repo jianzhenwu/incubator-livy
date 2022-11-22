@@ -123,7 +123,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     appConf ++= mutable.Map[String, String](
       SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
       SPARK_SQL_CATALOG_HBASE_ENABLED -> "true",
-      SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+      SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive",
+      LivyConf.SPARK_FEATURE_VERSION -> "3.1"
     )
 
     val processor =

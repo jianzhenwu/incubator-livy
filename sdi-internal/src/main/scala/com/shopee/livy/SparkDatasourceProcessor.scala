@@ -22,7 +22,7 @@ import scala.collection.mutable.ArrayBuffer
 
 import com.shopee.livy.SparkDatasourceProcessor._
 
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 import org.apache.livy.utils.LivyProcessorException
 
@@ -49,10 +49,15 @@ import org.apache.livy.utils.LivyProcessorException
  * 2. Please add configurations below in livy/conf/livy.conf when using
  * this processor.
  *
- * livy.rsc.spark.sql.catalog.hbase.jars =
- * livy.rsc.spark.sql.catalog.jdbc.jars =
- * livy.rsc.spark.sql.catalog.kafka.jars =
- * livy.rsc.spark.sql.catalog.tfrecord.jars =
+ * livy.rsc.spark.sql.catalog.hbase.jars.v3.1 =
+ * livy.rsc.spark.sql.catalog.jdbc.jars.v3.1 =
+ * livy.rsc.spark.sql.catalog.kafka.jars.v3.1 =
+ * livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1 =
+ *
+ * livy.rsc.spark.sql.catalog.hbase.jars.v3.2 =
+ * livy.rsc.spark.sql.catalog.jdbc.jars.v3.2 =
+ * livy.rsc.spark.sql.catalog.kafka.jars.v3.2 =
+ * livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2 =
  */
 object SparkDatasourceProcessor {
 
@@ -87,10 +92,11 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
 
       // Overwrite to lowercase
       appConf.put(SPARK_SQL_DATASOURCE_CATALOG_IMPL, c)
+      val sparkVersion = appConf.get(LivyConf.SPARK_FEATURE_VERSION)
 
       val jars = new ArrayBuffer[String]()
       datasources.foreach { datasource =>
-        val dsJars = appConf.get(s"livy.rsc.spark.sql.catalog.$datasource.jars")
+        val dsJars = appConf.get(s"livy.rsc.spark.sql.catalog.$datasource.jars.v$sparkVersion")
         if (dsJars == null) {
           throw new LivyProcessorException(
             s"livy.rsc.spark.sql.catalog.$datasource.jars is empty.")

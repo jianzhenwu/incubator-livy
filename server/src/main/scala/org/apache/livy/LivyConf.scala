@@ -353,6 +353,8 @@ object LivyConf {
   val SPARK_ARCHIVES = "spark.yarn.dist.archives"
   val SPARK_PY_FILES = "spark.submit.pyFiles"
 
+  val SPARK_FEATURE_VERSION = "spark.livy.spark_feature_version"
+
   /**
    * These are Spark configurations that contain lists of files that the user can add to
    * their jobs in one way or another. Livy needs to pre-process these to make sure the

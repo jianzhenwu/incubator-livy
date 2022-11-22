@@ -27,7 +27,7 @@ import com.shopee.livy.SparkDatasourceProcessorSpec._
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
-import org.apache.livy.ApplicationEnvContext
+import org.apache.livy.{ApplicationEnvContext, LivyConf}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 import org.apache.livy.utils.LivyProcessorException
 
@@ -61,10 +61,10 @@ object SparkDatasourceProcessorSpec {
   val SPARK_SQL_CATALOG_TFRECORD_ENABLED = "spark.sql.catalog.tfrecord.enabled"
   val SPARK_LIVY_SQL_CATALOG_TFRECORD_ENABLED = "spark.livy.sql.catalog.tfrecord.enabled"
 
-  val SPARK_SQL_CATALOG_HBASE_JARS = "livy.rsc.spark.sql.catalog.hbase.jars"
-  val SPARK_SQL_CATALOG_JDBC_JARS = "livy.rsc.spark.sql.catalog.jdbc.jars"
-  val SPARK_SQL_CATALOG_KAFKA_JARS = "livy.rsc.spark.sql.catalog.kafka.jars"
-  val SPARK_SQL_CATALOG_TFRECORD_JARS = "livy.rsc.spark.sql.catalog.tfrecord.jars"
+  val SPARK_SQL_CATALOG_HBASE_JARS = "livy.rsc.spark.sql.catalog.hbase.jars.v3.1"
+  val SPARK_SQL_CATALOG_JDBC_JARS = "livy.rsc.spark.sql.catalog.jdbc.jars.v3.1"
+  val SPARK_SQL_CATALOG_KAFKA_JARS = "livy.rsc.spark.sql.catalog.kafka.jars.v3.1"
+  val SPARK_SQL_CATALOG_TFRECORD_JARS = "livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1"
 }
 
 class SparkDatasourceProcessorSpec extends ScalatraSuite
@@ -79,7 +79,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
       SPARK_SQL_CATALOG_JDBC_JARS -> JDBC_JARS,
       SPARK_SQL_CATALOG_KAFKA_JARS -> KAFKA_JARS,
-      SPARK_SQL_CATALOG_TFRECORD_JARS -> TFRECORD_JARS
+      SPARK_SQL_CATALOG_TFRECORD_JARS -> TFRECORD_JARS,
+      LivyConf.SPARK_FEATURE_VERSION -> "3.1"
     )
   }
 

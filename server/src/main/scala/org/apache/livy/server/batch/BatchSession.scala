@@ -79,16 +79,10 @@ object BatchSession extends Logging {
     val builderConf = mutable.Map[String, String]()
     builderConf ++= conf
 
-    val (sparkMajorVersion, _) = if (livyConf.sparkVersions.isEmpty) {
-      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
-    } else {
-      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
-        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
-      val sparkVersion = livyConf.get(confKey)
-      info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
-      LivySparkUtils.formatSparkVersion(sparkVersion)
-    }
-    builderConf += ("spark.livy.spark_major_version" -> sparkMajorVersion.toString)
+    val sparkMajorFeatureVersionT2 = sparkMajorFeatureVersionTuple2(reqSparkVersion, livyConf)
+    builderConf += ("spark.livy.spark_major_version" -> sparkMajorFeatureVersionT2._1.toString)
+    builderConf += (LivyConf.SPARK_FEATURE_VERSION ->
+      sparkMajorFeatureVersionT2.productIterator.mkString("."))
 
     val scalaVersion = if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
       livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION.key + "." + reqSparkVersion.get)

@@ -383,15 +383,7 @@ object InteractiveSession extends Logging {
     require(livyConf.get(LivyConf.LIVY_SPARK_VERSION) != null)
     require(livyConf.get(LivyConf.LIVY_SPARK_SCALA_VERSION) != null)
 
-    val (sparkMajorVersion, _) = if (livyConf.sparkVersions.isEmpty) {
-      LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
-    } else {
-      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
-        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
-      val sparkVersion = livyConf.get(confKey)
-      info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
-      LivySparkUtils.formatSparkVersion(sparkVersion)
-    }
+    val sparkMajorFeatureVersionT2 = sparkMajorFeatureVersionTuple2(reqSparkVersion, livyConf)
 
     val scalaVersion = if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
       livyConf.get(LIVY_SPARK_SCALA_VERSION.key + "." + reqSparkVersion.get)
@@ -402,13 +394,15 @@ object InteractiveSession extends Logging {
     mergeConfList(livyJars(livyConf, scalaVersion), LivyConf.SPARK_JARS)
     val enableHiveContext = livyConf.getBoolean(LivyConf.ENABLE_HIVE_CONTEXT)
     // pass spark.livy.spark_major_version to driver
-    builderProperties.put("spark.livy.spark_major_version", sparkMajorVersion.toString)
+    builderProperties.put("spark.livy.spark_major_version", sparkMajorFeatureVersionT2._1.toString)
+    builderProperties.put(LivyConf.SPARK_FEATURE_VERSION,
+      sparkMajorFeatureVersionT2.productIterator.mkString("."))
 
     val confVal = if (enableHiveContext) "hive" else "in-memory"
     builderProperties.put("spark.sql.catalogImplementation", confVal)
 
     if (enableHiveContext) {
-      mergeHiveSiteAndHiveDeps(sparkMajorVersion)
+      mergeHiveSiteAndHiveDeps(sparkMajorFeatureVersionT2._1)
     }
 
     // Pick all the RSC-specific configs that have not been explicitly set otherwise, and
