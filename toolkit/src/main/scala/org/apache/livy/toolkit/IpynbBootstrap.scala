@@ -49,7 +49,13 @@ object IpynbBootstrap{
     "%%r" -> Option("r")
   )
 
-  private val VALID_MAGIC: Set[String] = Set("%matplot plt")
+  private val VALID_MAGIC: Set[String] = Set(
+    "%table",
+    "%json",
+    "%matplot",
+    "%plotly",
+    "%ggplot"
+  )
 
   def main(args: Array[String]): Unit = {
     if (args.length < 2) {
@@ -118,7 +124,9 @@ class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Lo
     def isValidSource(line: Option[String]): Boolean = {
       line.forall( _.trim match {
         case l: String =>
-          MAGIC_TO_TYPE.contains(l) || VALID_MAGIC.contains(l) || !l.startsWith("%")
+          MAGIC_TO_TYPE.contains(l) ||
+            VALID_MAGIC.contains(l.split(" ")(0)) ||
+            !l.startsWith("%")
       })
     }
 
