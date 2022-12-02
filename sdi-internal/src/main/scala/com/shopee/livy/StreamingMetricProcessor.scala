@@ -32,6 +32,11 @@ object StreamingMetricProcessor {
   val STRUCTURED_METRIC_ENABLED = "spark.structured.streaming.metrics.push.enabled"
   val STRUCTURED_LIVY_METRIC_ENABLED = "spark.livy.structured.streaming.metrics.push.enabled"
 
+  val SPARK_JARS = "spark.jars"
+  val LIVY_TOOLKIT = "livy-toolkit"
+  val DRIVER_EXTRA_CLASSPATH = "spark.driver.extraClassPath"
+  val EXECUTOR_EXTRA_CLASSPATH = "spark.executor.extraClassPath"
+
   val PUSH_URL = "spark.streaming.metrics.push.url"
   val PUSH_TOKEN = "spark.streaming.metrics.push.token"
   val PUSH_INTERVAL = "spark.streaming.metrics.send.interval"
@@ -69,16 +74,34 @@ class StreamingMetricProcessor extends ApplicationEnvProcessor with Logging {
       case userDefinedExtraListeners => userDefinedExtraListeners + "," + STRUCTURED_LISTENER
     }
 
+    val jars = appConf.get(SPARK_JARS)
+
     Option(streamingEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       addPushGateWayConfig()
       appConf.put(EXTRA_LISTENERS, extraListeners)
       appConf.put(SINK_CLASS, PROMETHEUS_SINK_PATH)
+
+      jars.split(":")
+        .map(_.split("/").last)
+        .filter(_.contains(LIVY_TOOLKIT))
+        .foreach { x =>
+          appConf.put(DRIVER_EXTRA_CLASSPATH, x)
+          appConf.put(EXECUTOR_EXTRA_CLASSPATH, x)
+        }
     })
 
     Option(structuredEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       addPushGateWayConfig()
       appConf.put(QUERY_LISTENERS, queryListeners)
       appConf.put(SINK_CLASS, PROMETHEUS_SINK_PATH)
+
+      jars.split(":")
+        .map(_.split("/").last)
+        .filter(_.contains(LIVY_TOOLKIT))
+        .foreach { x =>
+          appConf.put(DRIVER_EXTRA_CLASSPATH, x)
+          appConf.put(EXECUTOR_EXTRA_CLASSPATH, x)
+        }
     })
 
     def addPushGateWayConfig(): Unit = {

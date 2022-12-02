@@ -24,6 +24,11 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object BatchMetricProcessor {
   val RSC_CONF_PREFIX = "livy.rsc."
 
+  val SPARK_JARS = "spark.jars"
+  val LIVY_TOOLKIT = "livy-toolkit"
+  val DRIVER_EXTRA_CLASSPATH = "spark.driver.extraClassPath"
+  val EXECUTOR_EXTRA_CLASSPATH = "spark.executor.extraClassPath"
+
   val BATCH_LIVY_METRIC_ENABLED = "spark.batch.metrics.push.enabled"
 
   val PUSH_URL = "spark.batch.metrics.push.url"
@@ -42,6 +47,7 @@ class BatchMetricProcessor extends ApplicationEnvProcessor with Logging {
     import BatchMetricProcessor._
 
     val appConf = applicationEnvContext.appConf
+
     val batchMetricsEnabled: String = appConf.get(BATCH_LIVY_METRIC_ENABLED)
 
     val url = appConf.get(RSC_CONF_PREFIX + PUSH_URL)
@@ -53,15 +59,26 @@ class BatchMetricProcessor extends ApplicationEnvProcessor with Logging {
       case userDefinedExtraListeners => userDefinedExtraListeners + "," + BATCH_LISTENER
     }
 
+    val jars = appConf.get(SPARK_JARS)
+
     Option(batchMetricsEnabled).filter("true".equalsIgnoreCase).foreach(_ => {
       addPushGateWayConfig()
       appConf.put(EXTRA_LISTENERS, extraListeners)
       appConf.put(SINK_CLASS, PROMETHEUS_SINK_PATH)
+
+      jars.split(":")
+        .map(_.split("/").last)
+        .filter(_.contains(LIVY_TOOLKIT))
+        .foreach { x =>
+          appConf.put(DRIVER_EXTRA_CLASSPATH, x)
+          appConf.put(EXECUTOR_EXTRA_CLASSPATH, x)
+        }
     })
 
     def addPushGateWayConfig(): Unit = {
       appConf.put(PUSH_URL, url)
       appConf.put(PUSH_TOKEN, token)
+
       Try(interval.toInt) match {
         case Success(_) => appConf.put(PUSH_INTERVAL, interval)
         case _ =>
