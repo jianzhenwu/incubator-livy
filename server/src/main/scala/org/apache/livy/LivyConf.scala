@@ -354,6 +354,11 @@ object LivyConf {
   val SPARK_PY_FILES = "spark.submit.pyFiles"
 
   val SPARK_FEATURE_VERSION = "spark.livy.spark_feature_version"
+  // Value could be preview, stable, stale, default is stable if user not set
+  val SPARK_VERSION_EDITION = "spark.livy.spark_version_edition"
+  val SPARK_VERSION_EDITION_PREVIEW = "preview"
+  val SPARK_VERSION_EDITION_STABLE = "stable"
+  val SPARK_VERSION_EDITION_STALE = "stale"
 
   /**
    * These are Spark configurations that contain lists of files that the user can add to
@@ -370,10 +375,15 @@ object LivyConf {
 
   val FS_S3A_ENABLED = Entry("livy.server.fs.s3a.enabled", false)
 
-  // Whether preview spark should be used when the name of queue is end with "-dev".
-  val SPARK_LIVY_SPARK_PREVIEW_ENABLED = Entry("spark.livy.spark.preview.enabled", false)
-  val SPARK_LIVY_SPARK_PREVIEW_PREVENT_QUEUES =
-    Entry("spark.livy.spark.preview.queues.exclude", null)
+  val SPARK_PREVIEW_QUEUES_SUFFIXES =
+    Entry("livy.server.spark.preview.queues.suffixes", null)
+
+  val SPARK_VERSION_EDITION_PREVIEW_QUEUES =
+    Entry("livy.server.spark_version_edition.preview.queues", null)
+  val SPARK_VERSION_EDITION_STABLE_QUEUES =
+    Entry("livy.server.spark_version_edition.stable.queues", null)
+  val SPARK_VERSION_EDITION_STALE_QUEUES =
+    Entry("livy.server.spark_version_edition.stale.queues", null)
 
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
@@ -470,11 +480,11 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
     }
     .toMap
 
-  lazy val previewPreventQueues: Set[String] = config.asScala
-    .getOrElse(SPARK_LIVY_SPARK_PREVIEW_PREVENT_QUEUES.key, "")
-    .split(",")
-    .map(_.trim)
-    .toSet
+  lazy val previewQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_PREVIEW_QUEUES).toSet
+  lazy val stableQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_STABLE_QUEUES).toSet
+  lazy val staleQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_STALE_QUEUES).toSet
+
+  lazy val previewQueuesSuffixes: Set[String] = configToSeq(SPARK_PREVIEW_QUEUES_SUFFIXES).toSet
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.

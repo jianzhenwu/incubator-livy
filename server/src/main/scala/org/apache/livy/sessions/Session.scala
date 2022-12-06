@@ -24,11 +24,13 @@ import java.util.UUID
 
 import scala.concurrent.{ExecutionContext, Future}
 
+import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.fs.permission.FsPermission
 import org.apache.hadoop.security.UserGroupInformation
 
 import org.apache.livy.{LivyConf, Logging, ServerMetadata, Utils}
+import org.apache.livy.LivyConf.{SPARK_VERSION_EDITION_PREVIEW => PREVIEW, SPARK_VERSION_EDITION_STABLE => STABLE, SPARK_VERSION_EDITION_STALE => STALE}
 import org.apache.livy.utils.{AppInfo, LivySparkUtils}
 
 object Session extends Logging {
@@ -146,29 +148,68 @@ object Session extends Logging {
     resolved
   }
 
-  def reqSparkVersionOrPreview(reqSparkVersion: Option[String],
-      queue: Option[String], livyConf: LivyConf,
-      userEnabledPreview: Option[String] = None): Option[String] = {
+  /**
+   * Allow users to use preview or stale spark after upgrading spark. Spark versions
+   * configuration should be as below:
+   * livy.server.spark.versions=v3
+   * livy.server.spark-home.v3=3.1
+   * livy.server.spark-home.v3.preview=3.2
+   * livy.server.spark-home.v3.stale=3.0
+   *
+   * The priority for the configuration to take effect is:
+   * 1. spark.livy.spark_version_edition
+   * 2. livy.server.spark_version_edition.preview.queues
+   *    livy.server.spark_version_edition.stable.queues
+   *    livy.server.spark_version_edition.stale.queues
+   * 3. livy.server.spark.preview.queues.suffixes
+   *
+   * @param reqSparkVersion Spark version in user request.
+   * @param queue Yarn queue.
+   * @param livyConf Livy service configuration.
+   * @param reqSparkVersionEdition The value should be one of stable, preview, stale.
+   * @return The spark version in user request or an edited version.
+   */
+  def reqSparkVersionAndEdition(reqSparkVersion: Option[String],
+      reqSparkVersionEdition: Option[String] = None,
+      queue: Option[String], livyConf: LivyConf): Option[String] = {
 
-    if (!livyConf.getBoolean(LivyConf.SPARK_LIVY_SPARK_PREVIEW_ENABLED)) {
+    if (reqSparkVersion.isEmpty) {
       return reqSparkVersion
     }
-    // User can disable using preview spark.
-    if ("false".equalsIgnoreCase(userEnabledPreview.getOrElse("true"))) {
-        return reqSparkVersion
+
+    if (reqSparkVersionEdition.nonEmpty &&
+      !Set(PREVIEW, STABLE, STALE).contains(reqSparkVersionEdition.get)) {
+      throw new IllegalArgumentException(
+        s"Unknown conf ${LivyConf.SPARK_VERSION_EDITION}=$reqSparkVersionEdition, " +
+          s"should be one of [$STALE, $PREVIEW, $STABLE]")
     }
-    var sparkVersion: Option[String] = None
-    queue
-      .filter(_.endsWith("-dev"))
-      .filter(!livyConf.previewPreventQueues.contains(_))
-      .foreach { _ =>
-        if (livyConf.sparkVersions.nonEmpty && reqSparkVersion.isDefined) {
-          val previewVersion = reqSparkVersion.get + ".preview"
-          Option(livyConf.get(LivyConf.SPARK_HOME.key + "." + previewVersion))
-            .foreach(_ => sparkVersion = Some(previewVersion))
-        }
-      }
-    sparkVersion.orElse(reqSparkVersion)
+
+    val configuredSparkVersionEdition: Option[String] = if (queue.nonEmpty){
+      if (livyConf.previewQueues.contains(queue.get)) Some(PREVIEW)
+      else if (livyConf.stableQueues.contains(queue.get)) Some(STABLE)
+      else if (livyConf.staleQueues.contains(queue.get)) Some(STALE)
+      else None
+    } else {
+      None
+    }
+
+    val sparkVersionEdition = reqSparkVersionEdition
+      .orElse(configuredSparkVersionEdition)
+      .orElse(queue
+        .filter(q =>
+          livyConf.previewQueuesSuffixes
+            .filter(StringUtils.isNotBlank(_))
+            .exists(q.endsWith)
+        )
+        .map(_ => PREVIEW)
+      )
+      .getOrElse(STABLE)
+
+    val suffix: String = sparkVersionEdition match {
+      case PREVIEW | STALE => "." + sparkVersionEdition
+      case _ => ""
+    }
+    Some(reqSparkVersion.get + suffix)
   }
 
   def sparkMajorFeatureVersionTuple2(reqSparkVersion: Option[String],

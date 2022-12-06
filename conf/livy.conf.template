@@ -213,14 +213,19 @@
 # livy.rsc.pyspark.archives.v2_4 =
 # livy.rsc.pyspark.archives.v3_1 =
 
-# Whether preview spark should be used when the name of queue is end with "-dev".
-# User can disabled it by adding in spark properties.
-# spark.livy.spark.preview.enabled = false
-# livy.server.spark-home.v3_1.preview=
-# livy.server.spark-conf-dir.v3_1.preview =
+# Define YARN queue using preview, stable, stale spark version.
+# livy.server.spark_version_edition.preview.queues =
+# livy.server.spark_version_edition.stable.queues =
+# livy.server.spark_version_edition.stale.queues =
 
-# Should not use preview spark when using excluding queue.
-# spark.livy.spark.preview.queues.exclude =
+# Should use preview spark when using queue ending with a special suffix.
+# Separate multiple suffixes with commas.
+# livy.server.spark.preview.queues.suffixes =
+
+# livy.server.spark-home.v3_1.preview =
+# livy.server.spark-conf-dir.v3_1.preview =
+# livy.server.spark-home.v3_1.stale=
+# livy.server.spark-conf-dir.v3_1.stale =
 
 # Yarn router multiple cluster configurations.
 # livy.spark.master.yarn.ids = default, backup
