@@ -484,6 +484,65 @@ class SparkYarnAppSpec extends FunSpec with LivyBaseUnitTestSuite {
       }
     }
 
+    it("should set driver log url as None in appInfo if container id is not exist") {
+      Clock.withSleepMethod(mockSleep) {
+        val mockYarnClient = mock[YarnClient]
+        val sparkUiUrl = "SPARK UI URL"
+
+        val mockApplicationAttemptId = mock[ApplicationAttemptId]
+        val mockAppReport = mock[ApplicationReport]
+        when(mockAppReport.getApplicationId).thenReturn(appId)
+        when(mockAppReport.getFinalApplicationStatus).thenReturn(FinalApplicationStatus.SUCCEEDED)
+        when(mockAppReport.getTrackingUrl).thenReturn(sparkUiUrl)
+        when(mockAppReport.getCurrentApplicationAttemptId).thenReturn(mockApplicationAttemptId)
+        var done = false
+        when(mockAppReport.getYarnApplicationState).thenAnswer(new Answer[YarnApplicationState]() {
+          override def answer(invocation: InvocationOnMock): YarnApplicationState = {
+            if (!done) {
+              RUNNING
+            } else {
+              FINISHED
+            }
+          }
+        })
+        when(mockYarnClient.getApplicationReport(appId)).thenReturn(mockAppReport)
+
+        val mockAttemptReport = mock[ApplicationAttemptReport]
+        when(mockYarnClient.getApplicationAttemptReport(mockApplicationAttemptId))
+          .thenReturn(mockAttemptReport)
+
+        // Block test until getAMContainerId is called 10 times.
+        val getLogUrlCountDown = new CountDownLatch(10)
+        when(mockAttemptReport.getAMContainerId).thenAnswer(new Answer[String] {
+          override def answer(invocation: InvocationOnMock): String = {
+            getLogUrlCountDown.countDown()
+            null
+          }
+        })
+
+        val mockListener = mock[SparkAppListener]
+
+        val app = new SparkYarnApp(
+          appTag, appIdOption, masterMetadata, None, Some(mockListener),
+          livyConf, Some(mockYarnClient))
+        cleanupThread(app.yarnAppMonitorThread) {
+          getLogUrlCountDown.await(TEST_TIMEOUT.length, TEST_TIMEOUT.unit)
+          done = true
+
+          app.yarnAppMonitorThread.join(TEST_TIMEOUT.toMillis)
+          assert(!app.yarnAppMonitorThread.isAlive,
+            "YarnAppMonitorThread should terminate after YARN app is finished.")
+
+          verify(mockYarnClient, atLeast(1)).getApplicationReport(appId)
+          verify(mockAppReport, atLeast(1)).getTrackingUrl()
+          verify(mockAttemptReport, atLeast(1)).getAMContainerId()
+          verify(mockYarnClient, never()).getContainerReport(mockAttemptReport.getAMContainerId)
+          verify(mockListener).appIdKnown(appId.toString)
+          verify(mockListener).infoChanged(AppInfo(None, Some(sparkUiUrl)))
+        }
+      }
+    }
+
     it("should not die on YARN-4411") {
       Clock.withSleepMethod(mockSleep) {
         val mockYarnClient = mock[YarnClient]

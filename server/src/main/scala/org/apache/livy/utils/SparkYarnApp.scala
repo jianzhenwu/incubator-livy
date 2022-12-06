@@ -415,9 +415,14 @@ class SparkYarnApp private[utils] (
           val latestAppInfo = {
             val attempt =
               yarnClient.getApplicationAttemptReport(appReport.getCurrentApplicationAttemptId)
-            val driverLogUrl =
+            // No need request container report if attempt application report or
+            // container id is not exist.
+            val driverLogUrl = if (attempt != null && attempt.getAMContainerId != null) {
               Try(yarnClient.getContainerReport(attempt.getAMContainerId).getLogUrl)
                 .toOption
+            } else {
+              None
+            }
             val trackingUrl = livyConf.get(LivyConf.APPLICATION_TRACKING_URL)
             val appTrack = if (StringUtils.isNotBlank(trackingUrl)) {
               String.format(trackingUrl, appReport.getApplicationId)
