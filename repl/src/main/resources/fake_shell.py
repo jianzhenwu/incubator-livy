@@ -500,6 +500,7 @@ def magic_json(name):
         'application/json': value,
     }
 
+
 def magic_matplot(name):
     try:
         value = global_dict[name]
@@ -520,6 +521,48 @@ def magic_matplot(name):
         'text/plain': "",
     }
 
+
+def magic_plotly(name):
+    try:
+        value = global_dict[name]
+        import plotly.io as pio
+        imgdata = pio.to_image(value)
+        encode = base64.b64encode(imgdata)
+        if sys.version >= '3':
+            encode = encode.decode()
+
+    except:
+        exc_type, exc_value, tb = sys.exc_info()
+        return execute_reply_error(exc_type, exc_value, None)
+
+    return {
+        'image/png': encode,
+        'text/plain': "",
+    }
+
+
+def magic_ggplot(name):
+    try:
+        value = global_dict[name]
+        from plotnine import ggsave
+        _, path = tempfile.mkstemp(dir=local_tmp_dir_path, suffix='.png')
+        ggsave(value, filename=path, format='png')
+
+        with open(path, 'rb') as f:
+            encode = base64.b64encode(f.read())
+            if sys.version >= '3':
+                encode = encode.decode()
+
+    except:
+        exc_type, exc_value, tb = sys.exc_info()
+        return execute_reply_error(exc_type, exc_value, None)
+
+    return {
+        'image/png': encode,
+        'text/plain': "",
+    }
+
+
 def shutdown_request(_content):
     sys.exit()
 
@@ -528,6 +571,8 @@ magic_router = {
     'table': magic_table,
     'json': magic_json,
     'matplot': magic_matplot,
+    'plotly': magic_plotly,
+    'ggplot': magic_ggplot,
 }
 
 msg_type_router = {
