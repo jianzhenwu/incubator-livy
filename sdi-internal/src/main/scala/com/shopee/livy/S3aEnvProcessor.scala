@@ -31,8 +31,6 @@ import org.apache.livy.utils.LivyProcessorException
 
 object S3aEnvProcessor {
 
-  @Deprecated
-  val SPARK_S3A_ENABLED: String = "spark.s3a.enabled"
   val SPARK_LIVY_S3A_ENABLED: String = "spark.livy.s3a.enabled"
 
   private val REPOSITORIES: String =
@@ -56,9 +54,7 @@ class S3aEnvProcessor extends ApplicationEnvProcessor with Logging {
     val env = applicationEnvContext.env
     val appConf = applicationEnvContext.appConf
 
-    val sparkConfDir = appConf.get(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY)
-    val s3aEnabled = Option(appConf.get(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED))
-      .getOrElse(appConf.get(S3aEnvProcessor.SPARK_S3A_ENABLED))
+    val s3aEnabled = appConf.get(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED)
 
     Option(s3aEnabled).filter("true".equalsIgnoreCase).foreach { _ =>
       appConf.put(S3A_PATH_STYLE_ACCESS, "true")

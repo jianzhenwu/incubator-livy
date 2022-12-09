@@ -29,7 +29,7 @@ object BatchMetricProcessor {
   val DRIVER_EXTRA_CLASSPATH = "spark.driver.extraClassPath"
   val EXECUTOR_EXTRA_CLASSPATH = "spark.executor.extraClassPath"
 
-  val BATCH_LIVY_METRIC_ENABLED = "spark.batch.metrics.push.enabled"
+  val BATCH_LIVY_METRIC_ENABLED = "spark.livy.batch.metrics.push.enabled"
 
   val PUSH_URL = "spark.batch.metrics.push.url"
   val PUSH_TOKEN = "spark.batch.metrics.push.token"

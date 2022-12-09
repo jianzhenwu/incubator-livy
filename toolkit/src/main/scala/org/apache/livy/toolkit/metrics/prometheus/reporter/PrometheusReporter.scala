@@ -41,14 +41,9 @@ class PrometheusReporter(
   TimeUnit.MILLISECONDS) with Closeable with Logging
 {
 
-  @Deprecated
-  val STREAMING_METRIC_ENABLED = "spark.streaming.metrics.push.enabled"
   val STREAMING_LIVY_METRIC_ENABLED = "spark.livy.streaming.metrics.push.enabled"
-  @Deprecated
-  val STRUCTURED_METRIC_ENABLED = "spark.structured.streaming.metrics.push.enabled"
   val STRUCTURED_LIVY_METRIC_ENABLED = "spark.livy.structured.streaming.metrics.push.enabled"
-
-  val BATCH_LIVY_METRIC_ENABLED = "spark.batch.metrics.push.enabled"
+  val BATCH_LIVY_METRIC_ENABLED = "spark.livy.batch.metrics.push.enabled"
 
   val STREAMING_PUSH_URL = "spark.streaming.metrics.push.url"
   val STREAMING_PUSH_TOKEN = "spark.streaming.metrics.push.token"
@@ -80,10 +75,8 @@ class PrometheusReporter(
         val appName = conf.get("spark.app.name")
         val queueName = conf.get("spark.yarn.queue")
 
-        val streamingEnabled = conf.getOption(STREAMING_LIVY_METRIC_ENABLED)
-          .getOrElse(conf.getOption(STREAMING_METRIC_ENABLED).getOrElse("false"))
-        val structuredEnabled = conf.getOption(STRUCTURED_LIVY_METRIC_ENABLED)
-          .getOrElse(conf.getOption(STRUCTURED_METRIC_ENABLED).getOrElse("false"))
+        val streamingEnabled = conf.getOption(STREAMING_LIVY_METRIC_ENABLED).getOrElse("false")
+        val structuredEnabled = conf.getOption(STRUCTURED_LIVY_METRIC_ENABLED).getOrElse("false")
         val batchEnabled = conf.getOption(BATCH_LIVY_METRIC_ENABLED).getOrElse("false")
 
         val (pushUrl, pushToken, pushInterval) =

@@ -23,22 +23,13 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 import org.apache.livy.utils.LivyProcessorException
 
 object DockerEnvProcessor {
-  val RSC_CONF_PREFIX = "livy.rsc."
 
-  @Deprecated
-  val SPARK_DOCKER_ENABLED: String = "spark.docker.enabled"
   val SPARK_LIVY_DOCKER_ENABLED: String = "spark.livy.docker.enabled"
-  @Deprecated
-  val SPARK_DOCKER_IMAGE: String = "spark.docker.image"
   val SPARK_LIVY_DOCKER_IMAGE: String = "spark.livy.docker.image"
-
-  val SPARK_DOCKER_MOUNTS: String = "spark.docker.mounts"
+  val SPARK_DOCKER_MOUNTS: String = "livy.rsc.spark.docker.mounts"
 
   def isDockerEnabled(appConf: java.util.Map[String, String]): Boolean = {
-    Option(
-      appConf.getOrDefault(SPARK_LIVY_DOCKER_ENABLED,
-        appConf.get(SPARK_DOCKER_ENABLED))
-    ).exists("true".equalsIgnoreCase)
+    Option(appConf.get(SPARK_LIVY_DOCKER_ENABLED)).exists("true".equalsIgnoreCase)
   }
 }
 
@@ -49,9 +40,8 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
     import DockerEnvProcessor._
 
     val appConf = applicationEnvContext.appConf
-    val dockerImage = Option(appConf.get(SPARK_LIVY_DOCKER_IMAGE))
-      .getOrElse(appConf.get(SPARK_DOCKER_IMAGE))
-    val dockerMounts = appConf.get(RSC_CONF_PREFIX + SPARK_DOCKER_MOUNTS)
+    val dockerImage = appConf.get(SPARK_LIVY_DOCKER_IMAGE)
+    val dockerMounts = appConf.get(SPARK_DOCKER_MOUNTS)
 
     if (isDockerEnabled(appConf)) {
       if (StringUtils.isBlank(dockerImage)) {

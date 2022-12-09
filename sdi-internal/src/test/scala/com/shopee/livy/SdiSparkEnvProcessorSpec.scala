@@ -81,7 +81,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.jars.ivy" -> Files.createTempDirectory("livy_ivy").toString,
       DockerEnvProcessor.SPARK_LIVY_DOCKER_ENABLED -> "true",
       DockerEnvProcessor.SPARK_LIVY_DOCKER_IMAGE -> "centos7-java-base:v6.0",
-      DockerEnvProcessor.RSC_CONF_PREFIX + DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
+      DockerEnvProcessor.SPARK_DOCKER_MOUNTS ->
         "/usr/share/java/hadoop:/usr/share/java/hadoop:ro",
       BatchMetricProcessor.BATCH_LIVY_METRIC_ENABLED -> "true",
       "spark.extraListeners" -> "com.shopee.di.testListener",
@@ -122,7 +122,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       Some(SessionType.Batches))
     appConf ++= mutable.Map[String, String](
       SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
-      SPARK_SQL_CATALOG_HBASE_ENABLED -> "true",
+      SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
       SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive",
       LivyConf.SPARK_FEATURE_VERSION -> "3.1"
     )

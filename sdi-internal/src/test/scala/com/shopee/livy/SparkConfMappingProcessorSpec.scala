@@ -83,6 +83,53 @@ class SparkConfMappingProcessorSpec extends ScalatraSuite
       assert(appConf("spark.driver.memoryOverhead") == "2048M")
       assert(appConf("spark.executor.memoryOverhead") == "2G")
     }
+
+    it("should substitute deprecated keys to current available keys") {
+      val appConf = mutable.HashMap[String, String]()
+      appConf.put("spark.docker.enabled", "true")
+      appConf.put("spark.docker.image", "spark:v1.0")
+      appConf.put("spark.rss.enabled", "true")
+      appConf.put("spark.s3a.enabled", "true")
+      appConf.put("spark.ipynb.env.enabled", "true")
+      appConf.put("spark.sql.catalog.hbase.enabled", "true")
+      appConf.put("spark.sql.catalog.jdbc.enabled", "true")
+      appConf.put("spark.sql.catalog.kafka.enabled", "true")
+      appConf.put("spark.sql.catalog.tfrecord.enabled", "true")
+      appConf.put("spark.batch.metrics.push.enabled", "true")
+      appConf.put("spark.streaming.metrics.push.enabled", "true")
+      appConf.put("spark.structured.streaming.metrics.push.enabled", "true")
+
+      val context = ApplicationEnvContext(new util.HashMap[String, String](),
+        appConf.asJava)
+      val processor = new SparkConfMappingProcessor()
+      processor.process(context)
+
+      appConf.keys should not contain "spark.docker.enabled"
+      appConf.keys should not contain "spark.docker.image"
+      appConf.keys should not contain "spark.rss.enabled"
+      appConf.keys should not contain "spark.s3a.enabled"
+      appConf.keys should not contain "spark.ipynb.env.enabled"
+      appConf.keys should not contain "spark.sql.catalog.hbase.enabled"
+      appConf.keys should not contain "spark.sql.catalog.jdbc.enabled"
+      appConf.keys should not contain "spark.sql.catalog.kafka.enabled"
+      appConf.keys should not contain "spark.sql.catalog.tfrecord.enabled"
+      appConf.keys should not contain "spark.batch.metrics.push.enabled"
+      appConf.keys should not contain "spark.streaming.metrics.push.enabled"
+      appConf.keys should not contain "spark.structured.streaming.metrics.push.enabled"
+
+      assert(appConf(DockerEnvProcessor.SPARK_LIVY_DOCKER_ENABLED) == "true")
+      assert(appConf(DockerEnvProcessor.SPARK_LIVY_DOCKER_IMAGE) == "spark:v1.0")
+      assert(appConf(RssEnvProcessor.SPARK_LIVY_RSS_ENABLED) == "true")
+      assert(appConf(S3aEnvProcessor.SPARK_LIVY_S3A_ENABLED) == "true")
+      assert(appConf(IpynbEnvProcessor.SPARK_LIVY_IPYNB_ENV_ENABLED) == "true")
+      assert(appConf("spark.livy.sql.catalog.hbase.enabled") == "true")
+      assert(appConf("spark.livy.sql.catalog.jdbc.enabled") == "true")
+      assert(appConf("spark.livy.sql.catalog.kafka.enabled") == "true")
+      assert(appConf("spark.livy.sql.catalog.tfrecord.enabled") == "true")
+      assert(appConf(BatchMetricProcessor.BATCH_LIVY_METRIC_ENABLED) == "true")
+      assert(appConf(StreamingMetricProcessor.STEAMING_LIVY_METRIC_ENABLED) == "true")
+      assert(appConf(StreamingMetricProcessor.STRUCTURED_LIVY_METRIC_ENABLED) == "true")
+    }
   }
 
 }

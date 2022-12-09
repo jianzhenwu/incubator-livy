@@ -25,11 +25,7 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object StreamingMetricProcessor {
   val RSC_CONF_PREFIX = "livy.rsc."
 
-  @Deprecated
-  val STEAMING_METRIC_ENABLED = "spark.streaming.metrics.push.enabled"
   val STEAMING_LIVY_METRIC_ENABLED = "spark.livy.streaming.metrics.push.enabled"
-  @Deprecated
-  val STRUCTURED_METRIC_ENABLED = "spark.structured.streaming.metrics.push.enabled"
   val STRUCTURED_LIVY_METRIC_ENABLED = "spark.livy.structured.streaming.metrics.push.enabled"
 
   val SPARK_JARS = "spark.jars"
@@ -56,10 +52,8 @@ class StreamingMetricProcessor extends ApplicationEnvProcessor with Logging {
     import StreamingMetricProcessor._
 
     val appConf = applicationEnvContext.appConf
-    val streamingEnabled = Option(appConf.get(STEAMING_LIVY_METRIC_ENABLED))
-      .getOrElse(appConf.get(STEAMING_METRIC_ENABLED))
-    val structuredEnabled = Option(appConf.get(STRUCTURED_LIVY_METRIC_ENABLED))
-      .getOrElse(appConf.get(STRUCTURED_METRIC_ENABLED))
+    val streamingEnabled = appConf.get(STEAMING_LIVY_METRIC_ENABLED)
+    val structuredEnabled = appConf.get(STRUCTURED_LIVY_METRIC_ENABLED)
     val url = appConf.get(RSC_CONF_PREFIX + PUSH_URL)
     val token = appConf.get(RSC_CONF_PREFIX + PUSH_TOKEN)
     val interval = appConf.get(RSC_CONF_PREFIX + PUSH_INTERVAL)

@@ -47,18 +47,9 @@ object SparkDatasourceProcessorSpec {
   val TFRECORD_JARS: String = "tfrecord-catalog-1.0-SNAPSHOT.jar," +
     "catalog-common-1.0-SNAPSHOT.jar"
 
-  @Deprecated
-  val SPARK_SQL_CATALOG_HBASE_ENABLED = "spark.sql.catalog.hbase.enabled"
   val SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED = "spark.livy.sql.catalog.hbase.enabled"
-
-  @Deprecated
-  val SPARK_SQL_CATALOG_JDBC_ENABLED = "spark.sql.catalog.jdbc.enabled"
   val SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED = "spark.livy.sql.catalog.jdbc.enabled"
-  @Deprecated
-  val SPARK_SQL_CATALOG_KAFKA_ENABLED = "spark.sql.catalog.kafka.enabled"
   val SPARK_LIVY_SQL_CATALOG_KAFKA_ENABLED = "spark.livy.sql.catalog.kafka.enabled"
-  @Deprecated
-  val SPARK_SQL_CATALOG_TFRECORD_ENABLED = "spark.sql.catalog.tfrecord.enabled"
   val SPARK_LIVY_SQL_CATALOG_TFRECORD_ENABLED = "spark.livy.sql.catalog.tfrecord.enabled"
 
   val SPARK_SQL_CATALOG_HBASE_JARS = "livy.rsc.spark.sql.catalog.hbase.jars.v3.1"

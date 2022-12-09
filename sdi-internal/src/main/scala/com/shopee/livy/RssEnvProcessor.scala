@@ -36,8 +36,6 @@ object RssEnvProcessor {
   val SPARK_MAJOR_VERSION = "spark.livy.spark_major_version"
   val SPARK_RSS_MIN_VERSION = 3
 
-  @Deprecated
-  val SPARK_RSS_ENABLED = "spark.rss.enabled"
   val SPARK_LIVY_RSS_ENABLED = "spark.livy.rss.enabled"
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
@@ -64,7 +62,6 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
     val sparkMajorVersion = appConf.get(SPARK_MAJOR_VERSION).toInt
 
     var rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
-      .orElse(Option(appConf.get(SPARK_RSS_ENABLED)))
     if (rssEnabled.isEmpty && sparkMajorVersion >= SPARK_RSS_MIN_VERSION) {
       val predefinedQueues = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_QUEUES))
       // Enable RSS if the user queue is included in predefined configuration.
