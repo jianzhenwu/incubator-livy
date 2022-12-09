@@ -22,8 +22,6 @@ import java.util.Collections
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.SparkDatasourceProcessor._
-import com.shopee.livy.SparkDatasourceProcessorSpec._
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
@@ -46,20 +44,32 @@ object SparkDatasourceProcessorSpec {
     "commons-pool2-2.6.2.jar"
   val TFRECORD_JARS: String = "tfrecord-catalog-1.0-SNAPSHOT.jar," +
     "catalog-common-1.0-SNAPSHOT.jar"
+  val CLICKHOUSE_JARS: String = "clickhouse-catalog-1.0-SNAPSHOT.jar," +
+    "catalog-common-1.0-SNAPSHOT.jar"
 
   val SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED = "spark.livy.sql.catalog.hbase.enabled"
   val SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED = "spark.livy.sql.catalog.jdbc.enabled"
   val SPARK_LIVY_SQL_CATALOG_KAFKA_ENABLED = "spark.livy.sql.catalog.kafka.enabled"
   val SPARK_LIVY_SQL_CATALOG_TFRECORD_ENABLED = "spark.livy.sql.catalog.tfrecord.enabled"
+  val SPARK_LIVY_SQL_CATALOG_CLICKHOUSE_ENABLED = "spark.livy.sql.catalog.clickhouse.enabled"
 
   val SPARK_SQL_CATALOG_HBASE_JARS = "livy.rsc.spark.sql.catalog.hbase.jars.v3.1"
   val SPARK_SQL_CATALOG_JDBC_JARS = "livy.rsc.spark.sql.catalog.jdbc.jars.v3.1"
   val SPARK_SQL_CATALOG_KAFKA_JARS = "livy.rsc.spark.sql.catalog.kafka.jars.v3.1"
   val SPARK_SQL_CATALOG_TFRECORD_JARS = "livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1"
+  val SPARK_SQL_CATALOG_CLICKHOUSE_JARS = "livy.rsc.spark.sql.catalog.clickhouse.jars.v3.1"
+
+  val SPARK_SQL_CATALOG_HBASE_IMPL = "spark.sql.catalog.hbase.impl"
+  val SPARK_SQL_CATALOG_JDBC_IMPL = "spark.sql.catalog.jdbc.impl"
+  val SPARK_SQL_CATALOG_KAFKA_IMPL = "spark.sql.catalog.kafka.impl"
+  val SPARK_SQL_CATALOG_TFRECORD_IMPL = "spark.sql.catalog.tfrecord.impl"
+  val SPARK_SQL_CATALOG_CLICKHOUSE_IMPL = "spark.sql.catalog.clickhouse.impl"
 }
 
 class SparkDatasourceProcessorSpec extends ScalatraSuite
   with FunSpecLike {
+
+  import SparkDatasourceProcessorSpec._
 
   private var processor: SparkDatasourceProcessor = _
   private var baseAppConf: mutable.Map[String, String] = _
@@ -71,6 +81,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       SPARK_SQL_CATALOG_JDBC_JARS -> JDBC_JARS,
       SPARK_SQL_CATALOG_KAFKA_JARS -> KAFKA_JARS,
       SPARK_SQL_CATALOG_TFRECORD_JARS -> TFRECORD_JARS,
+      SPARK_SQL_CATALOG_CLICKHOUSE_JARS -> CLICKHOUSE_JARS,
       LivyConf.SPARK_FEATURE_VERSION -> "3.1"
     )
   }
@@ -81,7 +92,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
 
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+        SPARK_SQL_CATALOG_HBASE_IMPL -> "hive"
       ) ++ baseAppConf
 
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
@@ -95,7 +106,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use jdbc datasource in hive when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+        SPARK_SQL_CATALOG_JDBC_IMPL -> "hive"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -106,7 +117,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use kafka datasource in hive when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_KAFKA_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+        SPARK_SQL_CATALOG_KAFKA_IMPL -> "hive"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -118,7 +129,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use TFRecord datasource in hive when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_TFRECORD_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+        SPARK_SQL_CATALOG_TFRECORD_IMPL -> "hive"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -127,10 +138,22 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       appConf(SPARK_JARS) should not include SPACE
     }
 
+    it("should thrown exception when use clickhouse datasource in hive") {
+      val appConf = mutable.Map[String, String](
+        SPARK_LIVY_SQL_CATALOG_CLICKHOUSE_ENABLED -> "true",
+        SPARK_SQL_CATALOG_CLICKHOUSE_IMPL -> "hive"
+      ) ++ baseAppConf
+      val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
+
+      assertThrows[LivyProcessorException] {
+        processor.process(context)
+      }
+    }
+
     it("should use hbase datasource in memory when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "in-memory"
+        SPARK_SQL_CATALOG_HBASE_IMPL -> "in-memory"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -142,7 +165,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use jdbc datasource in memory when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "in-memory"
+        SPARK_SQL_CATALOG_JDBC_IMPL -> "in-memory"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -154,7 +177,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use kafka datasource in memory when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_KAFKA_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "in-memory"
+        SPARK_SQL_CATALOG_KAFKA_IMPL -> "in-memory"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -166,7 +189,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should use TFRecord datasource in memory when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_TFRECORD_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "in-memory"
+        SPARK_SQL_CATALOG_TFRECORD_IMPL -> "in-memory"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
@@ -175,11 +198,24 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       appConf(SPARK_JARS) should not include SPACE
     }
 
+    it("should use clickhouse datasource in memory when enabled") {
+      val appConf = mutable.Map[String, String](
+        SPARK_LIVY_SQL_CATALOG_CLICKHOUSE_ENABLED -> "true",
+        SPARK_SQL_CATALOG_CLICKHOUSE_IMPL -> "in-memory"
+      ) ++ baseAppConf
+      val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
+      processor.process(context)
+
+      appConf(SPARK_JARS) should include(CLICKHOUSE_JARS)
+      appConf(SPARK_JARS) should not include SPACE
+    }
+
     it("should use multiple datasources in hive when enabled") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
         SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive"
+        SPARK_SQL_CATALOG_HBASE_IMPL -> "hive",
+        SPARK_SQL_CATALOG_JDBC_IMPL -> "hive"
       ) ++ baseAppConf
 
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
@@ -194,7 +230,8 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
         SPARK_LIVY_SQL_CATALOG_JDBC_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "in-memory"
+        SPARK_SQL_CATALOG_HBASE_IMPL -> "in-memory",
+        SPARK_SQL_CATALOG_JDBC_IMPL -> "in-memory"
       ) ++ baseAppConf
 
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
@@ -207,22 +244,27 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
     it("should throw exception when using other catalog-impl") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "other"
+        SPARK_SQL_CATALOG_HBASE_IMPL -> "other"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       val e = the[LivyProcessorException] thrownBy processor.process(context)
-      e.getMessage should be("Unknown spark.sql.datasource.catalog.impl=other")
+      e.getMessage should be (
+        "The value of spark.sql.catalog.hbase.impl should be " +
+          "one of hive, in-memory, but was other")
     }
 
     it("should use default catalog-impl when it is null") {
       val appConf = mutable.Map[String, String](
         SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
-        SPARK_SQL_DATASOURCE_CATALOG_IMPL -> null
+        SPARK_LIVY_SQL_CATALOG_CLICKHOUSE_ENABLED -> "true",
+        SPARK_SQL_CATALOG_HBASE_IMPL -> null
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
       appConf(SPARK_JARS) should include(HBASE_JARS)
-      appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) should be ("hive")
+      appConf(SPARK_JARS) should include(CLICKHOUSE_JARS)
+      appConf(SPARK_SQL_CATALOG_HBASE_IMPL) should be ("hive")
+      appConf(SPARK_SQL_CATALOG_CLICKHOUSE_IMPL) should be ("in-memory")
     }
 
     it("should pass when there is not catalog enabled") {

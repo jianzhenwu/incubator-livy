@@ -22,8 +22,7 @@ import java.nio.file.Files
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.SparkDatasourceProcessor._
-import com.shopee.livy.SparkDatasourceProcessorSpec._
+import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
 import com.shopee.livy.auth.DmpAuthentication
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
@@ -121,9 +120,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
       Some(SessionType.Batches))
     appConf ++= mutable.Map[String, String](
-      SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
       SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
-      SPARK_SQL_DATASOURCE_CATALOG_IMPL -> "hive",
+      SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
+      SPARK_SQL_CATALOG_HBASE_IMPL -> "hive",
       LivyConf.SPARK_FEATURE_VERSION -> "3.1"
     )
 
@@ -206,7 +205,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.sql.catalog.hbase.spark.sql.warehouse.dir") ==
       "/user/hive/warehouse")
     assert(appConf(SPARK_JARS).contains(HBASE_JARS))
-    assert(appConf(SPARK_SQL_DATASOURCE_CATALOG_IMPL) == "hive")
+    assert(appConf(SPARK_SQL_CATALOG_HBASE_IMPL) == "hive")
 
     // should merge ipynb jars into spark.jars
     assert(appConf(SPARK_JARS).contains("s3a://bucket_a/jars/main.jar"))

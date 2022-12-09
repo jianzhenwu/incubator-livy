@@ -45,6 +45,12 @@ import org.apache.livy.utils.LivyProcessorException
  * spark.sql.catalog.kafka.hive.metastore.warehouse.dir /user/kafka/warehouse
  * spark.sql.catalog.kafka.spark.sql.warehouse.dir /user/hive/warehouse/kafka.catalog
  *
+ * spark.sql.catalog.clickhouse org.apache.spark.sql.execution.datasources.
+ * v2.clickhouse.ClickhouseCatalog
+ * spark.sql.catalog.clickhouse.hive.metastore.uris thrift://clickhouse:9083
+ * spark.sql.catalog.clickhouse.hive.metastore.warehouse.dir /user/clickhouse/warehouse/
+ * spark.sql.catalog.clickhouse.spark.sql.warehouse.dir /user/hive/warehouse/clickhouse.catalog
+ *
  *
  * 2. Please add configurations below in livy/conf/livy.conf when using
  * this processor.
@@ -53,20 +59,23 @@ import org.apache.livy.utils.LivyProcessorException
  * livy.rsc.spark.sql.catalog.jdbc.jars.v3.1 =
  * livy.rsc.spark.sql.catalog.kafka.jars.v3.1 =
  * livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1 =
+ * livy.rsc.spark.sql.catalog.clickhouse.jars.v3.1 =
  *
  * livy.rsc.spark.sql.catalog.hbase.jars.v3.2 =
  * livy.rsc.spark.sql.catalog.jdbc.jars.v3.2 =
  * livy.rsc.spark.sql.catalog.kafka.jars.v3.2 =
  * livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2 =
+ * livy.rsc.spark.sql.catalog.clickhouse.jars.v3.2 =
  */
 object SparkDatasourceProcessor {
 
-  val SPARK_SQL_DATASOURCE_CATALOG_IMPL = "spark.sql.datasource.catalog.impl"
+  val SPARK_SQL_DATASOURCE_CATALOG_IMPL = "spark.sql.catalog.%s.impl"
+
   val catalogSet = Set("hive", "in-memory")
 
   val switches = new mutable.HashMap[String, String]()
 
-  Seq("hbase", "jdbc", "kafka", "tfrecord").foreach { source =>
+  Seq("hbase", "jdbc", "kafka", "tfrecord", "clickhouse").foreach { source =>
     switches.put(s"spark.livy.sql.catalog.$source.enabled", source)
   }
 }
@@ -75,35 +84,46 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
 
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
     val appConf = applicationEnvContext.appConf
-    val catalogImpl = appConf.get(SPARK_SQL_DATASOURCE_CATALOG_IMPL)
 
     val datasources = new mutable.HashSet[String]()
     switches
       .filter(kv => "true".equalsIgnoreCase(appConf.get(kv._1)))
       .foreach(kv => datasources += kv._2)
 
-    if (datasources.nonEmpty) {
-      val c = Option(catalogImpl).getOrElse("hive").toLowerCase()
-      if (!catalogSet.contains(c)) {
-        throw new LivyProcessorException(
-          s"Unknown $SPARK_SQL_DATASOURCE_CATALOG_IMPL=$catalogImpl")
-      }
+    val jars = new ArrayBuffer[String]()
+    datasources.foreach(datasource => {
+      val catalogImplKey = String.format(SPARK_SQL_DATASOURCE_CATALOG_IMPL, datasource)
+      val catalogImpl = appConf.get(catalogImplKey)
 
-      // Overwrite to lowercase
-      appConf.put(SPARK_SQL_DATASOURCE_CATALOG_IMPL, c)
-      val sparkVersion = appConf.get(LivyConf.SPARK_FEATURE_VERSION)
-
-      val jars = new ArrayBuffer[String]()
-      datasources.foreach { datasource =>
-        val dsJars = appConf.get(s"livy.rsc.spark.sql.catalog.$datasource.jars.v$sparkVersion")
-        if (dsJars == null) {
+      val catalogImplValue = if (datasource.equalsIgnoreCase("clickhouse")) {
+        val catalogImplLowerCase = Option(catalogImpl).getOrElse("in-memory").toLowerCase()
+        if (!"in-memory".equals(catalogImplLowerCase)) {
           throw new LivyProcessorException(
-            s"livy.rsc.spark.sql.catalog.$datasource.jars is empty.")
+            s"The value of $catalogImplKey should be in-memory, but was $catalogImplLowerCase")
         }
-        jars += dsJars
+        catalogImplLowerCase
+      } else {
+        val catalogImplLowerCase = Option(catalogImpl).getOrElse("hive").toLowerCase()
+        if (!catalogSet.contains(catalogImplLowerCase)) {
+          throw new LivyProcessorException(
+            s"The value of $catalogImplKey should be one of " +
+              s"${catalogSet.mkString(", ")}, but was $catalogImplLowerCase")
+        }
+        catalogImplLowerCase
       }
-      Option(appConf.get(SPARK_JARS)).filter(_.nonEmpty).foreach(jars += _)
-      appConf.put(SPARK_JARS, jars.map(_.trim).mkString(","))
-    }
+      // Overwrite to lowercase
+      appConf.put(catalogImplKey, catalogImplValue)
+
+      val sparkVersion = appConf.get(LivyConf.SPARK_FEATURE_VERSION)
+      val dsJars = appConf.get(s"livy.rsc.spark.sql.catalog.$datasource.jars.v$sparkVersion")
+      if (dsJars == null) {
+        throw new LivyProcessorException(
+          s"$datasource catalog jars is missing. Please ask Livy administrator to check it")
+      }
+      jars += dsJars
+    })
+
+    Option(appConf.get(SPARK_JARS)).filter(_.nonEmpty).foreach(jars += _)
+    appConf.put(SPARK_JARS, jars.map(_.trim).mkString(","))
   }
 }
