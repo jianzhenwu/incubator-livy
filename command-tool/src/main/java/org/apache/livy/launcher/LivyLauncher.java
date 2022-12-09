@@ -59,18 +59,18 @@ public class LivyLauncher {
         case "spark-sql":
           SparkSqlOption sparkSqlOption = new SparkSqlOption(sparkArgs);
           SparkSqlRunner sparkSqlRunner = new SparkSqlRunner(sparkSqlOption);
-          exitCode = sparkSqlRunner.interactive();
+          exitCode = sparkSqlRunner.run();
           break;
         case "pyspark":
           PySparkOption pySparkOption = new PySparkOption(sparkArgs);
           PysparkRunner pysparkRunner = new PysparkRunner(pySparkOption);
-          exitCode = pysparkRunner.interactive();
+          exitCode = pysparkRunner.run();
           break;
         case "spark-shell":
           SparkShellOption sparkShellOption = new SparkShellOption(sparkArgs);
           SparkShellRunner sparkShellRunner =
               new SparkShellRunner(sparkShellOption);
-          exitCode = sparkShellRunner.interactive();
+          exitCode = sparkShellRunner.run();
           break;
         default:
           logger.error("Unsupported sparkCommand {}", sparkCommand);

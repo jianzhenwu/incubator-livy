@@ -440,7 +440,7 @@ public class LivyOption extends LivyOptionParser {
   }
 
   public InteractiveOptions createInteractiveOptions() {
-    return new InteractiveOptions().setKind(this.kind)
+    return (InteractiveOptions) new InteractiveOptions().setKind(this.kind)
         .setHeartbeatTimeoutInSecond(this.heartbeatTimeoutInSecond)
         .setProxyUser(this.proxyUser).setJars(this.jars)
         .setPyFiles(this.pyFiles).setFiles(this.files)
@@ -457,17 +457,17 @@ public class LivyOption extends LivyOptionParser {
    * @return InteractiveOptions
    */
   public InteractiveOptions createInteractiveOptionsWithoutResources() {
-    return new InteractiveOptions().setKind(this.kind)
+    return (InteractiveOptions) new InteractiveOptions().setKind(this.kind)
+        .setHeartbeatTimeoutInSecond(this.heartbeatTimeoutInSecond)
         .setProxyUser(this.proxyUser).setDriverMemory(this.driverMemory)
         .setDriverCores(this.driverCores).setExecutorMemory(this.executorMemory)
         .setExecutorCores(this.executorCores).setNumExecutors(this.numExecutors)
-        .setQueue(this.queue).setName(this.name).setConf(this.sparkProperties)
-        .setHeartbeatTimeoutInSecond(this.heartbeatTimeoutInSecond);
+        .setQueue(this.queue).setName(this.name).setConf(this.sparkProperties);
   }
 
   public BatchOptions createBatchOptions() {
-    return new BatchOptions().setFile(file).setProxyUser(proxyUser)
-        .setClassName(className).setArgs(extraArgs).setJars(jars)
+    return (BatchOptions) new BatchOptions().setFile(file).setClassName(className)
+        .setArgs(extraArgs).setJars(jars).setProxyUser(proxyUser)
         .setPyFiles(pyFiles).setFiles(files).setDriverMemory(driverMemory)
         .setDriverCores(driverCores).setExecutorMemory(executorMemory)
         .setExecutorCores(executorCores).setNumExecutors(numExecutors)

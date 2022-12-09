@@ -19,7 +19,6 @@ package org.apache.livy.launcher.runner;
 
 import java.io.*;
 import java.net.ConnectException;
-import java.net.URI;
 import java.sql.Timestamp;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,12 +26,12 @@ import java.util.stream.Collectors;
 import jline.console.ConsoleReader;
 import jline.console.UserInterruptException;
 import jline.console.history.FileHistory;
-import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 
 import org.apache.livy.client.common.LauncherConf;
 import org.apache.livy.client.common.StatementState;
 import org.apache.livy.client.http.HttpClient;
+import org.apache.livy.client.http.param.InteractiveOptions;
 import org.apache.livy.client.http.response.CancelStatementResponse;
 import org.apache.livy.client.http.response.StatementOutput;
 import org.apache.livy.client.http.response.StatementResponse;
@@ -44,9 +43,9 @@ import org.apache.livy.launcher.Signaling;
 import org.apache.livy.launcher.exception.LauncherExitCode;
 import org.apache.livy.launcher.exception.LivyLauncherException;
 import org.apache.livy.launcher.util.LauncherUtils;
-import org.apache.livy.launcher.util.UriUtil;
+import org.apache.livy.sessions.SessionState;
 
-public abstract class AbstractInteractiveRunner {
+public abstract class AbstractInteractiveRunner extends BaseCommandLineRunner {
   private static final String PROCESS_FORMAT = "%-23s %-60s %s";
   private static final int PROGRESS_BAR_CHARS = 60;
 
@@ -54,37 +53,31 @@ public abstract class AbstractInteractiveRunner {
   protected ConsoleReader consoleReader;
 
   protected boolean exit;
-  protected int exitCode = 0;
   protected StringBuilder builder;
   protected String prompt;
 
-  private final LivyOption livyOption;
   private final LauncherConf launcherConf;
   private FileHistory fileHistory;
 
   public AbstractInteractiveRunner(LivyOption livyOption) {
+    super(livyOption);
     try {
-      this.livyOption = livyOption;
-      this.launcherConf = new LauncherConf(livyOption.getLauncherConf());
-      String livyUrl = livyOption.getLivyUrl();
-      if (StringUtils.isBlank(livyUrl)) {
-        logger().error("Option livy-url can not be empty.");
-        throw new LivyLauncherException(LauncherExitCode.optionError);
+      Properties properties = livyOption.getLauncherConf();
+      this.launcherConf = new LauncherConf(properties);
+
+      InteractiveOptions interactiveOptions;
+      // First upload resource to remote filesystem
+      try {
+        interactiveOptions =
+            (InteractiveOptions) uploadResources(livyOption.createInteractiveOptions());
+      } catch (IOException e) {
+        throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
+            e.getCause());
       }
-
-      URI livyUri = UriUtil
-          .appendAuthority(URI.create(livyUrl), livyOption.getUsername(),
-              livyOption.getPassword());
-
-      // It should create session first then upload resource from launcher host.
-      this.restClient = new HttpClient(livyUri, livyOption.getLauncherConf(),
-          livyOption.createInteractiveOptionsWithoutResources());
-
-      Runtime.getRuntime().addShutdownHook(new Thread(this::close));
-
+      // It should create session include required resource.
+      this.restClient = new HttpClient(livyUri, properties, interactiveOptions);
       this.restClient.waitUntilSessionStarted();
-      this.restClient
-          .addOrUploadResources(livyOption.createInteractiveOptions());
+      this.isActive = SessionState.apply(this.restClient.getSessionState().getState()).isActive();
 
       this.initConsoleReader();
 
@@ -129,7 +122,8 @@ public abstract class AbstractInteractiveRunner {
    * The runner may be interrupted by user.
    * Any exceptions need to be caught and output to the terminal.
    */
-  public int interactive() {
+  @Override
+  public int run() {
     try {
       builder = new StringBuilder();
       prompt = promptStart();
@@ -145,6 +139,7 @@ public abstract class AbstractInteractiveRunner {
         if (line == null) {
           if (builder.length() == 0) {
             exit = true;
+            this.isActive = false;
             break;
           } else {
             builder.setLength(0);
@@ -267,8 +262,11 @@ public abstract class AbstractInteractiveRunner {
    */
   public abstract String promptContinue();
 
+  @Override
   public void close() {
-    restClient.stop(true);
+    if (restClient != null) {
+      restClient.stop(true);
+    }
     try {
       if (fileHistory != null) {
         fileHistory.flush();
@@ -285,6 +283,7 @@ public abstract class AbstractInteractiveRunner {
       e.printStackTrace();
     }
     logger().info("Close session connection.");
+    super.close();
   }
 
   public void outputStatementResult(List<List<String>> res) {
