@@ -30,6 +30,10 @@
   <version>0.8.0-incubating-sdi-026</version>
   <packaging>pom</packaging>
 
+  <properties>
+    <livy.repl.jar>${project.build.directory}/jars/${project.artifactId}-${project.version}.jar</livy.repl.jar>
+  </properties>
+
   <dependencies>
 
     <dependency>
@@ -170,19 +174,16 @@
             </goals>
             <configuration>
               <shadedArtifactAttached>false</shadedArtifactAttached>
+              <outputFile>${livy.repl.jar}</outputFile>
               <artifactSet>
                 <includes>
-                  <include>org.json4s:json4s-ast_${scala.binary.version}</include>
-                  <include>org.json4s:json4s-core_${scala.binary.version}</include>
-                  <include>org.json4s:json4s-jackson_${scala.binary.version}</include>
-                  <include>org.json4s:json4s-scalap_${scala.binary.version}</include>
+                  <include>*:*</include>
                 </includes>
               </artifactSet>
               <filters>
                 <filter>
                   <artifact>*:*</artifact>
                   <excludes>
-                    <exclude>*.jar</exclude>
                     <exclude>META-INF/maven/**</exclude>
                   </excludes>
                 </filter>
@@ -196,38 +197,6 @@
             </configuration>
           </execution>
         </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>copy-dependencies</goal>
-            </goals>
-            <configuration>
-              <excludeArtifactIds>
-                json4s-ast_${scala.binary.version},
-                json4s-core_${scala.binary.version},
-                json4s-jackson_${scala.binary.version},
-                json4s-scalap_${scala.binary.version},
-                scala-xml_${scala.binary.version},
-                paranamer,
-                scalap
-              </excludeArtifactIds>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-jar-plugin</artifactId>
-        <configuration>
-          <outputDirectory>${project.build.directory}/jars</outputDirectory>
-        </configuration>
       </plugin>
 
       <plugin>

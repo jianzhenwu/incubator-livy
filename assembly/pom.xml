@@ -31,6 +31,8 @@
   <properties>
     <assembly.name>apache-livy-${project.version}-bin</assembly.name>
     <assembly.format>zip</assembly.format>
+    <assembly.jars.name>apache-livy-${project.version}-jars</assembly.jars.name>
+    <assembly.jars.format>dir</assembly.jars.format>
     <skipDeploy>true</skipDeploy>
   </properties>
 
@@ -83,6 +85,7 @@
         <artifactId>maven-assembly-plugin</artifactId>
         <executions>
           <execution>
+            <id>livy-server</id>
             <phase>package</phase>
             <goals>
               <goal>single</goal>
@@ -92,6 +95,20 @@
               <appendAssemblyId>false</appendAssemblyId>
               <descriptors>
                 <descriptor>assembly.xml</descriptor>
+              </descriptors>
+            </configuration>
+          </execution>
+          <execution>
+            <id>livy-server-jars</id>
+            <phase>package</phase>
+            <goals>
+              <goal>single</goal>
+            </goals>
+            <configuration>
+              <finalName>${assembly.jars.name}</finalName>
+              <appendAssemblyId>false</appendAssemblyId>
+              <descriptors>
+                <descriptor>assembly-jars.xml</descriptor>
               </descriptors>
             </configuration>
           </execution>

@@ -30,6 +30,7 @@
 
   <properties>
     <copyright.header>${asf.copyright.header}</copyright.header>
+    <livy.rsc.jar>${project.build.directory}/jars/${project.artifactId}-${project.version}.jar</livy.rsc.jar>
   </properties>
 
   <dependencies>
@@ -137,19 +138,16 @@
             </goals>
             <configuration>
               <shadedArtifactAttached>false</shadedArtifactAttached>
+              <outputFile>${livy.rsc.jar}</outputFile>
               <artifactSet>
                 <includes>
-                  <include>org.apache.livy:livy-client-common</include>
-                  <include>com.esotericsoftware:kryo-shaded</include>
-                  <include>com.esotericsoftware:minlog</include>
+                  <include>*:*</include>
                 </includes>
               </artifactSet>
               <filters>
-                <!-- Some artifacts (e.g. kryo) bundle jars inside them, for some reason. -->
                 <filter>
                   <artifact>*:*</artifact>
                   <excludes>
-                    <exclude>*.jar</exclude>
                     <exclude>META-INF/maven/**</exclude>
                   </excludes>
                 </filter>
@@ -163,45 +161,6 @@
                   </excludes>
                 </relocation>
               </relocations>
-            </configuration>
-          </execution>
-        </executions>
-      </plugin>
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <executions>
-          <execution>
-            <phase>package</phase>
-            <goals>
-              <goal>copy-dependencies</goal>
-            </goals>
-            <configuration>
-              <excludeArtifactIds>
-                livy-client-common,
-                kryo-shaded,
-                spark-launcher_${scala.binary.version},
-              </excludeArtifactIds>
-              <outputDirectory>${project.build.directory}/jars</outputDirectory>
-            </configuration>
-          </execution>
-          <execution>
-            <id>copy-rsc-jar</id>
-            <phase>package</phase>
-            <goals>
-              <goal>copy</goal>
-            </goals>
-            <configuration>
-              <artifactItems>
-                <artifactItem>
-                  <groupId>org.apache.livy</groupId>
-                  <artifactId>livy-rsc</artifactId>
-                  <version>${project.version}</version>
-                  <type>jar</type>
-                  <overWrite>true</overWrite>
-                  <outputDirectory>${project.build.directory}/jars</outputDirectory>
-                </artifactItem>
-              </artifactItems>
             </configuration>
           </execution>
         </executions>
