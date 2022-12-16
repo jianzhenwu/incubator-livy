@@ -133,7 +133,7 @@ class ZookeeperClusterManagerSpec extends FunSpec with LivyBaseUnitTestSuite {
       val createBuilder = mock[CreateBuilder]
       when(curatorClient.create()).thenReturn(createBuilder)
 
-      val creator = mock[ProtectACLCreateModePathAndBytesable[String]]
+      val creator = mock[ProtectACLCreateModeStatPathAndBytesable[String]]
       when(createBuilder.creatingParentsIfNeeded()).thenReturn(creator)
 
       val path = mock[ACLBackgroundPathAndBytesable[String]]
