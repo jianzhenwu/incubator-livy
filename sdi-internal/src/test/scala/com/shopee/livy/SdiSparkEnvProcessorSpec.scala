@@ -22,10 +22,11 @@ import java.nio.file.Files
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
-import com.shopee.livy.auth.DmpAuthentication
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
+import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
+import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
+import com.shopee.livy.auth.DmpAuthentication
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito.{mock, when}
@@ -114,7 +115,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
       "spark.driver.extraClassPath" -> "/user",
       "livy.application.master-yarn-id" -> "default",
-      "spark.livy.spark_major_version" -> "3"
+      "spark.livy.spark_major_version" -> "3",
+      sdiEnvPrefix + "PYSPARK_DRIVER_PYTHON" -> "/usr/share/python3",
+      sdiEnvPrefix + "TEST_ENV" -> "amVal"
     )
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
@@ -216,6 +219,11 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
     // should contains spark.pyspark.python in appConf
     assert(appConf("spark.pyspark.python") == "/usr/local/bin/python3")
+
+    // should pass all environment variables for the AM to appConf
+    assert(appConf(amEnvPrefix + "PYSPARK_DRIVER_PYTHON") == "/usr/share/python3")
+    assert(appConf(amEnvPrefix + "TEST_ENV") == "amVal")
+    assert(appConf(amEnvPrefix + "rssEnabled") == "true")
   }
 
 }

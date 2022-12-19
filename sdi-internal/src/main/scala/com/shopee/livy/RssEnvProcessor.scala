@@ -23,6 +23,7 @@ import java.util.concurrent.atomic.AtomicReference
 import scala.collection.JavaConverters._
 import scala.xml.XML
 
+import com.shopee.livy.SdiYarnAmEnvProcessor._
 import okhttp3.{Headers, OkHttpClient, Request}
 import org.apache.commons.lang3.StringUtils
 
@@ -76,6 +77,9 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
 
     rssEnabled.filter("true".equalsIgnoreCase)
       .foreach(_ => {
+        // Set spark.shopee.di.rssEnabled as true to appConf.
+        appConf.putIfAbsent(sdiEnvPrefix + "rssEnabled", "true")
+
         if (sparkMajorVersion < SPARK_RSS_MIN_VERSION) {
           throw new LivyProcessorException(s"Unsupported Spark version $sparkMajorVersion for RSS.")
         }
