@@ -197,6 +197,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.pyspark.driver.python") == "./bin/python")
 
     assert(appConf(SPARK_AUX_JAR).contains("/path/hudi.jar"))
+    assert(appConf(SPARK_AUX_JAR).contains("/default/others.jar"))
+    assert(!appConf(SPARK_AUX_JAR).contains("/default/spark-hudi-bundle.jar"))
 
     // should add hbase datasource in hive
     assert(appConf("spark.sql.catalog.hbase") ==

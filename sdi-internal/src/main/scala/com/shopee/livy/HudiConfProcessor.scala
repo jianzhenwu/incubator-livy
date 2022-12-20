@@ -23,6 +23,11 @@ import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 
+/**
+ * The HudiConfProcessor should be behind the DefaultsConfSparkProcessor.
+ * Because the hudi jar should be merged into aux jar which is included in
+ * spark-defaults.conf under spark conf.
+ */
 object HudiConfProcessor {
   val SPARK_LIVY_HUDI_JAR = "spark.livy.hudi.jar"
   val SPARK_AUX_JAR = "spark.aux.jar"
@@ -32,15 +37,23 @@ class HudiConfProcessor extends ApplicationEnvProcessor with Logging {
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
     val appConf = applicationEnvContext.appConf
 
-    val jars = new ArrayBuffer[String]()
-    Option(appConf.get(SPARK_LIVY_HUDI_JAR))
-      .filter(_.nonEmpty)
-      .foreach(jars += _.trim)
-    Option(appConf.get(SPARK_AUX_JAR))
-      .filter(_.nonEmpty)
-      .foreach(jars += _.trim)
-    if (jars.nonEmpty) {
-      appConf.put(SPARK_AUX_JAR, jars.mkString(","))
+    if (!appConf.containsKey(SPARK_LIVY_HUDI_JAR)) {
+      return
     }
+
+    val jars = new ArrayBuffer[String]()
+    Option(appConf.get(SPARK_AUX_JAR))
+      .getOrElse("")
+      .split(",")
+      .foreach(jar => {
+        if (!jar.contains("spark-hudi-bundle")) {
+          jars.append(jar)
+        }
+      })
+
+    jars.append(appConf.getOrDefault(SPARK_LIVY_HUDI_JAR, ""))
+
+    appConf.put(SPARK_AUX_JAR, jars.filter(_.nonEmpty).mkString(","))
   }
+
 }

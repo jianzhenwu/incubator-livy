@@ -34,35 +34,37 @@ class HudiConfProcessorSpec extends ScalatraSuite with FunSpecLike {
 
     it("should overwrite hudi jar") {
       val appConf = mutable.HashMap[String, String](
-        SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar")
+        SPARK_LIVY_HUDI_JAR -> "/user/spark-hudi-bundle.jar")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
 
-      assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar")
+      assert(appConf(SPARK_AUX_JAR) == "/user/spark-hudi-bundle.jar")
     }
 
-    it("should not overwrite hudi jar with empty value") {
+    it("should overwrite hudi jar with empty value") {
       val appConf = mutable.HashMap[String, String](
         SPARK_LIVY_HUDI_JAR -> "")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
-      assert(!appConf.contains(SPARK_AUX_JAR))
+      assert(appConf.contains(SPARK_AUX_JAR))
     }
 
     it("should merge hudi jar") {
       val appConf = mutable.HashMap[String, String](
-        SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
-        SPARK_AUX_JAR -> "/path/others.jar")
+        SPARK_LIVY_HUDI_JAR -> "/user/spark-hudi-bundle.jar",
+        SPARK_AUX_JAR -> "/default/spark-hudi-bundle.jar,/default/others.jar")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new HudiConfProcessor()
       processor.process(context)
 
-      assert(appConf(SPARK_AUX_JAR) == "/path/hudi.jar,/path/others.jar")
+      appConf(SPARK_AUX_JAR) should include("/user/spark-hudi-bundle.jar")
+      appConf(SPARK_AUX_JAR) should include("/default/others.jar")
+      appConf(SPARK_AUX_JAR) should not include("/default/spark-hudi-bundle.jar")
     }
   }
 }

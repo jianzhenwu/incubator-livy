@@ -22,6 +22,7 @@ import java.io.File
 import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable
 
+import com.shopee.livy.HudiConfProcessor.SPARK_AUX_JAR
 import com.shopee.livy.utils.SparkConfUtils
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging, SessionType, Utils}
@@ -49,7 +50,7 @@ class DefaultsConfSparkProcessor extends ApplicationEnvProcessor with Logging {
           // Contains configuration that needs to be merged into appConf when
           // using batches in order to reduce the length of submitting command.
           if (applicationEnvContext.sessionType.get == SessionType.Batches) {
-            if (appConf.containsKey(kv._1)) {
+            if (appConf.containsKey(kv._1) || kv._1.equals(SPARK_AUX_JAR)) {
               sparkDefaultsConf.put(kv._1, kv._2)
             }
           } else {
