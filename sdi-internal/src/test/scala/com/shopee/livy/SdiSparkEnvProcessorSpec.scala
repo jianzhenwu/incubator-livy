@@ -27,6 +27,7 @@ import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
 import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
 import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
+import com.shopee.livy.StreamingSqlConfProcessor.{SPARK_LIVY_STREAMING_SQL_ENABLED, SPARK_SQL_EXTENSIONS, STREAMING_SQL_EXTENSION}
 import com.shopee.livy.auth.DmpAuthentication
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.mockito.Matchers.{any, anyString}
@@ -119,7 +120,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "livy.application.master-yarn-id" -> "default",
       "spark.livy.spark_major_version" -> "3",
       sdiEnvPrefix + "PYSPARK_DRIVER_PYTHON" -> "/usr/share/python3",
-      sdiEnvPrefix + "TEST_ENV" -> "amVal"
+      sdiEnvPrefix + "TEST_ENV" -> "amVal",
+      SPARK_LIVY_STREAMING_SQL_ENABLED -> "true"
     )
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
@@ -229,6 +231,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf(amEnvPrefix + "PYSPARK_DRIVER_PYTHON") == "/usr/share/python3")
     assert(appConf(amEnvPrefix + "TEST_ENV") == "amVal")
     assert(appConf(amEnvPrefix + "rssEnabled") == "true")
+    assert(appConf(SPARK_SQL_EXTENSIONS).contains(STREAMING_SQL_EXTENSION))
   }
 
 }
