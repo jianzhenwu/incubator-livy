@@ -139,6 +139,12 @@
       <groupId>org.apache.commons</groupId>
       <artifactId>commons-lang3</artifactId>
     </dependency>
+
+    <dependency>
+      <groupId>com.github.scopt</groupId>
+      <artifactId>scopt_${scala.binary.version}</artifactId>
+      <version>3.7.1</version>
+    </dependency>
   </dependencies>
 
   <build>
@@ -187,6 +193,10 @@
                     <include>org.apache.commons.cli.*</include>
                     <include>org.apache.commons.lang3.*</include>
                   </includes>
+                </relocation>
+                <relocation>
+                  <pattern>scopt.</pattern>
+                  <shadedPattern>${livy.toolkit.shade.packageName}.scopt.</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
