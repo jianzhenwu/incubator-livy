@@ -27,14 +27,13 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
-import com.google.gson.{Gson, GsonBuilder}
+import com.google.gson.GsonBuilder
 import org.apache.commons.cli.MissingArgumentException
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkConf
-import org.apache.spark.sql.SparkSession
 
-import org.apache.livy.Logging
+import org.apache.livy.{EOLUtils, Logging}
 import org.apache.livy.jupyter.JupyterUtil
 import org.apache.livy.jupyter.nbformat._
 import org.apache.livy.repl.{Session, TEXT_PLAIN}
@@ -64,37 +63,41 @@ object IpynbBootstrap{
 
     val ipynbFileName: String = args(0)
     val outputPath: String = args(1)
-    val spark: SparkSession = SparkSession.builder.enableHiveSupport.getOrCreate()
-    val sparkContext = spark.sparkContext
 
-    val ipynbBootstrap = new IpynbBootstrap(sparkContext.getConf, sparkContext.hadoopConfiguration)
+    val ipynbBootstrap = newIpynbBootstrap()
     ipynbBootstrap.executeIpynb(ipynbFileName, outputPath)
     ipynbBootstrap.close()
-    if (spark != null) spark.close()
+  }
+
+  def newIpynbBootstrap(): IpynbBootstrap = {
+    val sparkConf = new SparkConf()
+    val hadoopConf = new Configuration()
+
+    new IpynbBootstrap(sparkConf, hadoopConf)
   }
 }
 
-class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Logging {
+class IpynbBootstrap private (sparkConf: SparkConf, hadoopConf: Configuration) extends Logging {
   import IpynbBootstrap._
 
   private val jupyterUtil: JupyterUtil = new JupyterUtil()
   private val rscConf = new RSCConf(null)
   rscConf.set(RSCConf.Entry.SESSION_KIND, "python")
-  private val session: Session = new Session(rscConf, sparkConf)
+  lazy private val session: Session = startSession()
 
   private lazy val mapper = new ObjectMapper()
     .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
     .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY)
     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
-  private def startSession(): Unit = {
+  private def startSession(): Session = {
+    val session = new Session(rscConf, sparkConf)
     Await.result(session.start(), Duration.Inf)
+    session
   }
 
   @throws[IOException]
   def executeIpynb(inputFileName: String, outputPath: String): Unit = {
-    startSession()
-
     val inputNb: Nbformat = readNotebookFile(inputFileName)
     try {
       val codeCells = inputNb.getCells.asScala
@@ -157,6 +160,22 @@ class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Lo
     }
   }
 
+  // Visible for testing
+  private[toolkit] def executeCode(codeType: Option[String], code: String): Map[String, Any] = {
+    val statementId: Int = session.execute(
+      EOLUtils.convertToSystemEOL(code), codeType.getOrElse("python"))
+    val output: Map[String, Any] = {
+      // Wait and get the execution result
+      val statement: Option[Statement] = session.statements.get(statementId)
+      while (!statement.get.isFinished) {
+        // Wait for the statement finished
+        Thread.sleep(100)
+      }
+      mapper.readValue(statement.get.output, classOf[Map[String, Any]])
+    }
+    output
+  }
+
   private def continueExecute(codeCells: Seq[CodeCell]): Unit = {
     if (codeCells.isEmpty) return
     val codeCell = codeCells(0)
@@ -164,20 +183,6 @@ class IpynbBootstrap(sparkConf: SparkConf, hadoopConf: Configuration) extends Lo
 
     // Parse the source code
     val (codeType, code) = parseCode(sources)
-
-    def executeCode(codeType: Option[String], code: String): Map[String, Any] = {
-      val statementId: Int = session.execute(code, codeType.getOrElse("python"))
-      val output: Map[String, Any] = {
-        // Wait and get the execution result
-        val statement: Option[Statement] = session.statements.get(statementId)
-        while (!statement.get.isFinished) {
-          // Wait for the statement finished
-          Thread.sleep(100)
-        }
-        mapper.readValue(statement.get.output, classOf[Map[String, Any]])
-      }
-      output
-    }
 
     // Execute the code and get output
     val output: Map[String, Any] = codeType match {

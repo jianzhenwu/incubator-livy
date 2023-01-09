@@ -281,9 +281,11 @@ class LivyRestClient(val httpClient: CloseableHttpClient, val livyEndpoint: Stri
       file: String,
       className: Option[String],
       args: List[String],
-      sparkConf: Map[String, String]): BatchSession = {
+      sparkConf: Map[String, String],
+      files: List[String] = List.empty): BatchSession = {
     val r = new CreateBatchRequest()
     r.file = file
+    r.files = files
     r.name = name
     r.className = className
     r.args = args

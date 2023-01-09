@@ -68,6 +68,12 @@
       <scope>provided</scope>
     </dependency>
 
+    <dependency>
+      <groupId>org.apache.spark</groupId>
+      <artifactId>spark-repl_${scala.binary.version}</artifactId>
+      <scope>test</scope>
+    </dependency>
+
     <!-- https://mvnrepository.com/artifact/org.apache.hadoop/hadoop-common -->
     <dependency>
       <groupId>org.apache.hadoop</groupId>
@@ -110,8 +116,7 @@
 
     <dependency>
       <groupId>org.apache.spark</groupId>
-      <artifactId>spark-streaming_2.11</artifactId>
-      <version>${spark.scala-2.11.version}</version>
+      <artifactId>spark-streaming_${scala.binary.version}</artifactId>
       <scope>provided</scope>
     </dependency>
 
@@ -133,6 +138,16 @@
     <dependency>
       <groupId>com.vladsch.flexmark</groupId>
       <artifactId>flexmark-all</artifactId>
+      <exclusions>
+        <exclusion>
+          <groupId>org.jsoup</groupId>
+          <artifactId>jsoup</artifactId>
+        </exclusion>
+        <exclusion>
+          <groupId>com.openhtmltopdf</groupId>
+          <artifactId>*</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <dependency>
@@ -166,6 +181,16 @@
                 <includes>
                   <include>*:*</include>
                 </includes>
+                <excludes>
+                  <exclude>*:json4s-ast_${scala.binary.version}</exclude>
+                  <exclude>*:json4s-core_${scala.binary.version}</exclude>
+                  <exclude>*:json4s-jackson_${scala.binary.version}</exclude>
+                  <exclude>*:json4s-scalap_${scala.binary.version}</exclude>
+                  <exclude>*:scala-xml_${scala.binary.version}</exclude>
+                  <exclude>*:paranamer</exclude>
+                  <exclude>*:scalap</exclude>
+                  <exclude>com.fasterxml.jackson.core:*</exclude>
+                </excludes>
               </artifactSet>
               <filters>
                 <filter>

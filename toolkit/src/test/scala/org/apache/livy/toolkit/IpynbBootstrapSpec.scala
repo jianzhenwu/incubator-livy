@@ -17,14 +17,9 @@
 
 package org.apache.livy.toolkit
 
-import org.apache.hadoop.conf.Configuration
-import org.apache.spark.SparkConf
 import org.scalatest.FunSpec
 
 class IpynbBoostrapSpec extends FunSpec {
-  val sparkConf = new SparkConf()
-  val conf = new Configuration()
-
   describe("IpynbBootstrap parse code") {
     it("should return None for codeType if the first line is not for codeType") {
       withBootstrap { ipynbBootstrap =>
@@ -154,8 +149,14 @@ class IpynbBoostrapSpec extends FunSpec {
   }
 
   private def withBootstrap(fn: IpynbBootstrap => Unit) = {
-    // create a IpynbBootstrap
-    val bootstrap = new IpynbBootstrap(sparkConf, conf)
-    fn(bootstrap)
+    System.setProperty("spark.master", "local")
+    System.setProperty("spark.app.name", "Ipynb-test")
+    val bootstrap = IpynbBootstrap.newIpynbBootstrap()
+    try {
+      fn(bootstrap)
+    } finally {
+      System.clearProperty("spark.master")
+      System.clearProperty("spark.app.name")
+    }
   }
 }

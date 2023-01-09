@@ -31,6 +31,7 @@ import org.scalatest.OptionValues._
 import org.apache.livy.sessions.SessionState
 import org.apache.livy.test.apps._
 import org.apache.livy.test.framework.{BaseIntegrationTestSuite, LivyRestClient}
+import org.apache.livy.toolkit.IpynbBootstrap
 
 class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   private var testLibPath: String = _
@@ -93,6 +94,20 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
   test("submit a SparkR application") {
     val hdfsPath = uploadResource("rtest.R")
     withScript(hdfsPath, List.empty) { s =>
+      s.verifySessionSuccess()
+    }
+  }
+
+  test("submit a notebook application") {
+    val hdfsPath = uploadResource("test_scala.ipynb")
+    val inputFile = new Path(cluster.hdfsScratchDir, hdfsPath)
+    val outputFile = new Path(newOutputPath, "out.ipynb").toString
+
+    withTestLib(
+      testClass = classOf[IpynbBootstrap],
+      args = List(inputFile.getName, outputFile),
+      sparkConf = Map("spark.livy.ipynb.env.enabled" -> "true"),
+      files = List(inputFile.toString)) { s =>
       s.verifySessionSuccess()
     }
   }
@@ -178,10 +193,19 @@ class BatchIT extends BaseIntegrationTestSuite with BeforeAndAfterAll {
     withSession(s)(f)
   }
 
-  private def withTestLib[R]
-    (testClass: Class[_], args: List[String], sparkConf: Map[String, String] = Map.empty)
-    (f: (LivyRestClient#BatchSession) => R): R = {
-    val s = livyClient.startBatch(None, testLibPath, Some(testClass.getName()), args, sparkConf)
+  private def withTestLib[R](
+      testClass: Class[_],
+      args: List[String],
+      sparkConf: Map[String, String] = Map.empty,
+      files: List[String] = List.empty)
+      (f: (LivyRestClient#BatchSession) => R): R = {
+    val s = livyClient.startBatch(
+      name = None,
+      file = testLibPath,
+      className = Some(testClass.getName()),
+      args,
+      sparkConf,
+      files)
     withSession(s)(f)
   }
 }
