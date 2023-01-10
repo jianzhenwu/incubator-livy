@@ -109,7 +109,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
     livyConf.getBoolean(LivyConf.SESSION_TIMEOUT_CHECK_SKIP_BUSY)
   private[this] final val sessionTimeout =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_TIMEOUT))
-  private[this] final val sessionStateRetainedInSec =
+  private[this] final val sessionStateRetainedInNanos =
     TimeUnit.MILLISECONDS.toNanos(livyConf.getTimeAsMs(LivyConf.SESSION_STATE_RETAIN_TIME))
 
   mockSessions.getOrElse(recover()).foreach(register)
@@ -186,7 +186,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
       session.state match {
         case s: FinishedSessionState =>
           val currentTime = System.nanoTime()
-          currentTime - s.time > sessionStateRetainedInSec
+          currentTime - s.time > sessionStateRetainedInNanos
         case _ =>
           if (!sessionTimeoutCheck) {
             false
@@ -203,7 +203,7 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
 
     Future.sequence(all().filter(expired).map { s =>
       info(s"Deleting $s because it was inactive for more than ${sessionTimeout / 1e9} sec, " +
-        s"or has finished for more than ${sessionStateRetainedInSec} sec")
+        s"or has finished for more than ${sessionStateRetainedInNanos / 1e9} sec")
       delete(s)
     })
   }
