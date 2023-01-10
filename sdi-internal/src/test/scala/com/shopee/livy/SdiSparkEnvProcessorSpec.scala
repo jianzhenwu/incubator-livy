@@ -22,6 +22,7 @@ import java.nio.file.Files
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
+import com.shopee.livy.AlluxioConfProcessor.SPARK_LIVY_ALLUXIO_ARCHIVE
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
 import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
@@ -113,6 +114,7 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       SPARK_LIVY_HUDI_JAR -> "/path/hudi.jar",
       SPARK_LIVY_IPYNB_JARS -> "s3a://bucket_a/jars/*.jar",
       SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
+      SPARK_LIVY_ALLUXIO_ARCHIVE -> "/path/alluxio-archive.zip",
       "spark.driver.extraClassPath" -> "/user",
       "livy.application.master-yarn-id" -> "default",
       "spark.livy.spark_major_version" -> "3",
@@ -198,6 +200,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf(SPARK_AUX_JAR).contains("/path/hudi.jar"))
     assert(appConf(SPARK_AUX_JAR).contains("/default/others.jar"))
     assert(!appConf(SPARK_AUX_JAR).contains("/default/spark-hudi-bundle.jar"))
+
+    assert(appConf("spark.archives").contains("/path/alluxio-archive.zip"))
 
     // should add hbase datasource in hive
     assert(appConf("spark.sql.catalog.hbase") ==

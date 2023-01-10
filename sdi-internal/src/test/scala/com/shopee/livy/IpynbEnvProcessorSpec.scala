@@ -20,7 +20,8 @@ package com.shopee.livy
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
+import com.shopee.livy.AlluxioConfProcessor.SPARK_LIVY_ALLUXIO_ENV_ENABLED
+import com.shopee.livy.IpynbEnvProcessor.{HADOOP_USER_NAME, HADOOP_USER_RPCPASSWORD, OZONE_SERVICE_IDS, SPARK_LIVY_IPYNB_ARCHIVES, SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_FILES, SPARK_LIVY_IPYNB_JARS, SPARK_LIVY_IPYNB_PY_FILES}
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.mockito.Matchers.any
 import org.mockito.Mockito.{mock, when}
@@ -49,6 +50,10 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
     IpynbEnvProcessor.mockFileSystem = Some(mock(classOf[FileSystem]))
     processor = new IpynbEnvProcessor()
     val fs = IpynbEnvProcessor.mockFileSystem.get
+    val jarsStatus0: Array[FileStatus] = Array(
+      new FileStatus(0, false, 0, 0, 0, new Path(
+        "s3a://sg-spark-auxiliary-notebook/workspaces/aaa/.notebook/tmp/xxx/jars/main.jar"))
+    )
     val jarsStatus: Array[FileStatus] = Array(
       new FileStatus(0, false, 0, 0, 0, new Path("s3a://bucket_a/jars/main.jar"))
     )
@@ -62,6 +67,9 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       new FileStatus(0, false, 0, 0, 0, new Path("s3a://bucket_a/pyFiles/module.zip"))
     )
     when(fs.listStatus(new Path("s3a://bucket_a/jars/"))).thenReturn(jarsStatus)
+    when(fs.listStatus(new Path(
+        "s3a://sg-spark-auxiliary-notebook/workspaces/aaa/.notebook/tmp/xxx/jars/")))
+            .thenReturn(jarsStatus0)
     when(fs.listStatus(new Path("s3a://bucket_a/files/"))).thenReturn(filesStatus)
     when(fs.listStatus(new Path("s3a://bucket_a/archives/"))).thenReturn(archivesStatus)
     when(fs.listStatus(new Path("s3a://bucket_a/pyFiles/"))).thenReturn(pyFilesStatus)
@@ -152,13 +160,33 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       appConf(SPARK_FILES) should include ("s3a://bucket_b/files/log4j.properties")
       appConf(SPARK_ARCHIVES) should include ("s3a://bucket_c/archives/module.zip")
       appConf(SPARK_PY_FILES) should include ("s3a://bucket_d/pyFiles/module.zip")
-      Seq("bucket_a", "bucket_b", "bucket_c", "bucket_d").foreach { bucket =>
-        appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.access.key") should be(hadoopUser)
-        appConf(s"spark.hadoop.fs.s3a.bucket.$bucket.secret.key") should be(hadoopPassword)
-      }
+      appConf(s"spark.hadoop.fs.s3a.bucket.bucket_a.access.key") should be(hadoopUser)
+      appConf(s"spark.hadoop.fs.s3a.bucket.bucket_a.secret.key") should be(hadoopPassword)
+
       appConf(SPARK_PY_FILES) should be ("s3a://bucket_d/pyFiles/module.zip," +
         pyFiles + ",spark.zip")
       appConf("spark.sql.auth.canFailJob") should be ("true")
+    }
+
+    it("should get correct workspace uri using ipynbJars") {
+      val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true",
+        SPARK_LIVY_IPYNB_JARS ->
+            "s3a://sg-spark-auxiliary-notebook/workspaces/aaa/.notebook/tmp/xxx/jars/*.jar",
+        OZONE_SERVICE_IDS -> "uat")
+      val context = ApplicationEnvContext(env.asJava, appConf.asJava)
+      processor.process(context)
+      assert(appConf("spark.yarn.appMasterEnv.NOTEBOOK_ALLUXIO_WORKSPACE_URI") ==
+          "/s3/uat/spark-auxiliary/sg-spark-auxiliary-notebook/workspaces/aaa")
+    }
+
+    it ("should enable alluxio env") {
+      val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true"
+      )
+      val context = ApplicationEnvContext(env.asJava, appConf.asJava)
+      processor.process(context)
+      assert("true".equalsIgnoreCase(appConf(SPARK_LIVY_ALLUXIO_ENV_ENABLED)))
     }
   }
 }

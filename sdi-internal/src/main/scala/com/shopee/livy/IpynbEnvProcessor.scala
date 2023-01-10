@@ -18,10 +18,10 @@
 package com.shopee.livy
 
 import scala.collection.JavaConverters.mapAsScalaMapConverter
-import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
 
 import com.google.common.net.UrlEscapers
+import com.shopee.livy.AlluxioConfProcessor.SPARK_LIVY_ALLUXIO_ENV_ENABLED
 import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -34,6 +34,8 @@ object IpynbEnvProcessor {
   val SPARK_LIVY_IPYNB_FILES = "spark.livy.ipynb.files"
   val SPARK_LIVY_IPYNB_ARCHIVES = "spark.livy.ipynb.archives"
   val SPARK_LIVY_IPYNB_PY_FILES = "spark.livy.ipynb.pyFiles"
+
+  val OZONE_SERVICE_IDS = "spark.livy.ozone.service.ids"
 
   val SPARK_LIVY_IPYNB_ENV_ENABLED = "spark.livy.ipynb.env.enabled"
 
@@ -58,6 +60,8 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
     if ("false".equalsIgnoreCase(envEnabled)) {
       return
     }
+
+    appConf.put(SPARK_LIVY_ALLUXIO_ENV_ENABLED, "true")
     val configuration = new Configuration()
     configuration.set("fs.s3a.impl.disable.cache", "true")
 
@@ -82,20 +86,22 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       (SPARK_ARCHIVES, ipynbArchives),
       (SPARK_PY_FILES, ipynbPyFiles))
 
-    val bucketNames = new mutable.HashSet[String]()
-    Seq(ipynbJars, ipynbFiles, ipynbArchives, ipynbPyFiles)
-      .filter(StringUtils.isNotBlank(_))
-      .filter(_.startsWith("s3a://"))
-      .filter(_.length > 6)
-      .foreach(f =>
-        bucketNames += f.substring(6)
-          .split("/")
-          .head
-      )
-    bucketNames.foreach { bucketName =>
-      appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.$bucketName.access.key",
+    var bucketInfo: BucketInfo = BucketInfo("", "")
+    Seq(ipynbJars, ipynbFiles, ipynbArchives, ipynbPyFiles).foreach(x => {
+      if (bucketInfo.name.isEmpty) {
+        val name = getBucketNameFromS3aPath(x)
+        if (name.isDefined && name.nonEmpty) {
+          bucketInfo = BucketInfo(x, name.get)
+        }
+      }
+    })
+
+    if (!bucketInfo.name.isEmpty) {
+      val workspaceUri = getWorkspaceUriFromBucketInfo(bucketInfo, appConf.get(OZONE_SERVICE_IDS))
+      appConf.put("spark.yarn.appMasterEnv.NOTEBOOK_ALLUXIO_WORKSPACE_URI", workspaceUri)
+      appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.${bucketInfo.name}.access.key",
         env.get(HADOOP_USER_NAME))
-      appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.$bucketName.secret.key",
+      appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.${bucketInfo.name}.secret.key",
         env.get(HADOOP_USER_RPCPASSWORD))
     }
 
@@ -152,4 +158,30 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
     files += appConf.getOrDefault(key, "")
     appConf.put(key, files.filter(_.nonEmpty).mkString(","))
   }
+
+  def getBucketNameFromS3aPath(path: String): Option[String] = {
+    if (StringUtils.isBlank(path) || !path.startsWith("s3a://") || path.length <= 6) {
+      None
+    } else {
+      Some(path.substring(6).split("/").head)
+    }
+  }
+
+  def getWorkspaceUriFromBucketInfo(bucketInfo: BucketInfo, ozoneServiceIds: String): String = {
+    val workspace = bucketInfo.path.split("/.notebook").head.split("/").last
+    val workspaceUri = new StringBuilder("/s3")
+        .append("/")
+        .append(ozoneServiceIds)
+        .append("/")
+        .append(bucketInfo.name.substring(3).split("-notebook").head)
+        .append("/")
+        .append(bucketInfo.name)
+        .append("/")
+        .append("workspaces")
+        .append("/")
+        .append(workspace)
+    workspaceUri.toString()
+  }
 }
+
+case class BucketInfo(path: String, name: String)
