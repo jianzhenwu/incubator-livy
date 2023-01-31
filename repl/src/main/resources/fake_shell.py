@@ -562,6 +562,26 @@ def magic_ggplot(name):
         'text/plain': "",
     }
 
+def magic_utils(command):
+    try:
+        commandParts = command.split(".", 1)
+        if(len(commandParts)!=2):
+            raise ValueError("'%s' is not a valid utility command" % command)
+
+        jvm = global_dict.get('spark')._jvm
+        utility = jvm.org.apache.livy.repl.utility.Utilities.get(commandParts[0])
+        if utility is None:
+            raise ValueError("'%s' is not a valid utility" % commandParts[0])
+
+        result = eval("utility.%s" % commandParts[1])
+
+    except:
+        exc_type, exc_value, tb = sys.exc_info()
+        return execute_reply_error(exc_type, exc_value, None)
+
+    return {
+        'text/plain': result,
+    }
 
 def shutdown_request(_content):
     sys.exit()
@@ -573,6 +593,7 @@ magic_router = {
     'matplot': magic_matplot,
     'plotly': magic_plotly,
     'ggplot': magic_ggplot,
+    'utils': magic_utils,
 }
 
 msg_type_router = {

@@ -21,7 +21,6 @@ import org.apache.spark.SparkConf
 import org.json4s.{DefaultFormats, JValue}
 import org.json4s.JsonDSL._
 
-import org.apache.livy.repl.tool.LivyUtils
 import org.apache.livy.rsc.RSCConf
 
 class ScalaInterpreterSpec extends BaseInterpreterSpec {
@@ -224,11 +223,4 @@ class ScalaInterpreterSpec extends BaseInterpreterSpec {
     actual should contain ("compareTo")
   }
 
-  it should "can get notebookUtil object" in withInterpreter { interpreter =>
-    val notebookUtil = new Object()
-    LivyUtils.register("notebook", notebookUtil)
-    val response = interpreter.execute("""livyUtils("notebook")""".stripMargin)
-    response should equal(Interpreter.ExecuteSuccess(
-        TEXT_PLAIN -> s"res0: Option[Object] = Some($notebookUtil)\n"))
-  }
 }

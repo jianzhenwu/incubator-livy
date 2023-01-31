@@ -15,21 +15,30 @@
  * limitations under the License.
  */
 
-package org.apache.livy.repl.tool
+package org.apache.livy.repl.utility;
 
-import org.apache.livy.repl.tool.LivyUtils.utils
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.ServiceLoader;
 
-object LivyUtils {
+public class Utilities {
+  private static Map<String, Utility> utils = new HashMap<String, Utility>();
 
-  val utils = scala.collection.mutable.Map[String, Object]()
+  static {
+    ServiceLoader<Utility> sl = ServiceLoader.load(Utility.class);
+    Iterator<Utility> utilities = sl.iterator();
+    while (utilities.hasNext()) {
+      Utility utility = utilities.next();
+      utils.put(utility.name(), utility);
+    }
+  }
 
-  def register(name: String, obj: Object): Unit = {
-    utils.put(name, obj)
+  public static Object get(String name) {
+    return utils.get(name);
   }
 }
 
-class LivyUtils {
-  def apply(name: String): Option[Object] = {
-    utils.get(name)
-  }
+interface Utility {
+  String name();
 }

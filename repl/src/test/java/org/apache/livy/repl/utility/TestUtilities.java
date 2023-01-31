@@ -15,21 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.livy.repl
+package org.apache.livy.repl.utility;
 
-import org.scalatest.FunSpec
-import org.scalatest.Matchers.{convertToAnyShouldWrapper, equal}
+import org.junit.Test;
 
-import org.apache.livy.repl.tool.LivyUtils
+import static org.junit.Assert.assertEquals;
 
-private case class Notebook() {}
-
-class LivyUtilSpec extends FunSpec {
-
-  it("should can access registered utils") {
-    LivyUtils.register("notebook", new Notebook)
-    val livyUtils = new LivyUtils()
-    livyUtils("notebook") should equal (Some(Notebook()))
+public class TestUtilities {
+  @Test
+  public void testUtility() throws Exception {
+    HelpUtility help = (HelpUtility) Utilities.get("help");
+    assertEquals("3.14", help.pi(2));
   }
 }
-

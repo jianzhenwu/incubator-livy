@@ -29,7 +29,6 @@ import org.json4s.JsonAST._
 import org.json4s.JsonDSL._
 
 import org.apache.livy.Logging
-import org.apache.livy.repl.tool.LivyUtils
 import org.apache.livy.rsc.driver.SparkEntries
 
 object AbstractSparkInterpreter {
@@ -86,9 +85,6 @@ abstract class AbstractSparkInterpreter extends Interpreter with Logging {
       execute("import sqlContext.sql")
       execute("import org.apache.spark.sql.functions._")
     }
-
-    bind(
-        "livyUtils", "org.apache.livy.repl.tool.LivyUtils", new LivyUtils(), List("""@transient"""))
   }
 
   override def close(): Unit = {
