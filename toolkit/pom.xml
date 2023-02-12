@@ -190,6 +190,7 @@
                   <exclude>*:paranamer</exclude>
                   <exclude>*:scalap</exclude>
                   <exclude>com.fasterxml.jackson.core:*</exclude>
+                  <exclude>io.netty:*</exclude>
                 </excludes>
               </artifactSet>
               <filters>
