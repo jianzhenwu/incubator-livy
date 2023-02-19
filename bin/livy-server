@@ -20,7 +20,10 @@
 
 usage="Usage: livy-server (start|stop|status)"
 
-export LIVY_HOME=$(cd $(dirname $0)/.. && pwd)
+LIVY_HOME_DIR=$(cd $(dirname $0)/.. && pwd)
+LIVY_HOME=$(readlink -e "$LIVY_HOME_DIR")
+export LIVY_HOME=${LIVY_HOME:-"$LIVY_HOME_DIR"}
+LIVY_SERVER_JAVA_OPTS="$LIVY_SERVER_JAVA_OPTS -Dlivy.home=$LIVY_HOME"
 LIVY_CONF_DIR=${LIVY_CONF_DIR:-"$LIVY_HOME/conf"}
 
 if [ -f "${LIVY_CONF_DIR}/livy-env.sh" ]; then
