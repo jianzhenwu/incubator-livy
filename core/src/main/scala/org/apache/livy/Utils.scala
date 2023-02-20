@@ -110,6 +110,14 @@ object Utils {
     }
   }
 
+  def usingResource[A <: Closeable, B](resources: Seq[A])(f: Seq[A] => B): B = {
+    try {
+      f(resources)
+    } finally {
+      resources.foreach(_.close())
+    }
+  }
+
   def createSecret(secretBitLength: Int): String = {
     val rnd = new SecureRandom()
     val secretBytes = new Array[Byte](secretBitLength / java.lang.Byte.SIZE)
