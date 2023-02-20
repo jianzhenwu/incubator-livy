@@ -20,6 +20,7 @@ package org.apache.livy.toolkit
 import java.math.BigInteger
 import java.sql.{Date, Timestamp}
 import java.text.SimpleDateFormat
+import java.util.TimeZone
 
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
@@ -79,11 +80,12 @@ class HiveResultSuite extends FunSuite with BeforeAndAfter {
     val oschema = new StructType().add("a", TimestampType)
 
     var index = 0
+    val sdf = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+    sdf.setTimeZone(TimeZone.getTimeZone("UTC"))
     timestamps.foreach(timestamp => {
       val row = new GenericRowWithSchema(List(timestamp).toArray, oschema)
       val result = HiveResult.hiveResultStringForCsv(row)
-      assert(result.head ==
-        new SimpleDateFormat("yyyy-MM-dd HH:mm:ss").format(timestamps(index)))
+      assert(result.head == sdf.format(timestamps(index)))
       index += 1
     })
   }
