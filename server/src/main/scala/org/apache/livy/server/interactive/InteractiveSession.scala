@@ -95,16 +95,15 @@ object InteractiveSession extends Logging {
     val appTag = s"livy:session-$id-${Random.alphanumeric.take(8).mkString}"
     val impersonatedUser = accessManager.checkImpersonation(proxyUser, owner)
 
-    val reqSparkVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {
+    val reqSparkAliasVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {
       request.conf.get("spark.livy.spark_version_name")
     } else {
-      Option(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+      Option(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_ALIAS_VERSION))
     }
 
-    if (reqSparkVersion.isDefined && !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
-      throw new IllegalArgumentException("spark version is not support")
-    }
+    val queue = request.queue.orElse(request.conf.get("spark.yarn.queue"))
 
+    val reqSparkVersion = mappingSparkAliasVersion(reqSparkAliasVersion, queue, livyConf)
 
     val reqMasterYarnId: Option[String] = if (livyConf.isRunningOnYarn()) {
 
@@ -136,7 +135,7 @@ object InteractiveSession extends Logging {
         SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
         "spark.executor.instances" -> request.numExecutors.map(_.toString),
         "spark.app.name" -> request.name.map(_.toString),
-        "spark.yarn.queue" -> request.queue
+        "spark.yarn.queue" -> queue
       )
 
       userOpts.foreach { case (key, opt) =>
@@ -147,7 +146,7 @@ object InteractiveSession extends Logging {
 
       val reqSparkVersionEdition = builderProperties.get(LivyConf.SPARK_VERSION_EDITION)
       val sparkVersion = reqSparkVersionAndEdition(reqSparkVersion, reqSparkVersionEdition,
-        request.queue, livyConf)
+        queue, livyConf)
 
       val sparkHome = livyConf.sparkHome(sparkVersion)
       val sparkConfDir = livyConf.sparkConfDir(sparkVersion)

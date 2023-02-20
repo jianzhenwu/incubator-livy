@@ -179,17 +179,9 @@ class SparkProcessBuilder(livyConf: LivyConf,
 
   private[utils] def createApplicationEnvContext(): ApplicationEnvContext = {
     val appEnv = new java.util.HashMap[String, String]()
-    var sparkHome: String = null
-    val sparkConfDir = if (livyConf.sparkVersions.nonEmpty) {
-      sparkHome = livyConf.sparkHome(reqSparkVersion).get
-      livyConf.sparkConfDir(reqSparkVersion)
-    } else {
-      sparkHome = Option(livyConf.get(SPARK_HOME)).orElse(
-        sys.env.get("SPARK_HOME")).get
-      Option(livyConf.get(SPARK_CONF_DIR)).orElse(
-        Some(sparkHome + File.separator + "conf"))
-    }
-    appEnv.put("SPARK_HOME", sparkHome)
+    val sparkHome = livyConf.sparkHome(reqSparkVersion)
+    val sparkConfDir = livyConf.sparkConfDir(reqSparkVersion)
+    appEnv.put("SPARK_HOME", sparkHome.get)
 
     if (sparkConfDir.nonEmpty) {
       appEnv.put("SPARK_CONF_DIR", sparkConfDir.get)

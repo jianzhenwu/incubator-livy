@@ -177,21 +177,26 @@ object BatchSession extends Logging {
           request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
       require(request.file != null, "File is required.")
 
-      val reqSparkVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {
+      val reqSparkAliasVersion = if (request.conf.get("spark.livy.spark_version_name").isDefined) {
         request.conf.get("spark.livy.spark_version_name")
       } else {
-        Option(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
-      }
-      if (reqSparkVersion.isDefined && !livyConf.sparkVersions.contains(reqSparkVersion.get)) {
-          throw new IllegalArgumentException("spark version is not support")
+        Option(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_ALIAS_VERSION))
       }
 
-      val builderConf = prepareBuilderConf(conf, livyConf, reqSparkVersion, request)
+      val queue = request.queue.orElse(request.conf.get("spark.yarn.queue"))
 
+      // 1. get mapped spark version
+      val reqSparkVersionMapped = mappingSparkAliasVersion(reqSparkAliasVersion, queue, livyConf)
+
+      // 2. get scala version by mapped version in prepareBuilderConf
+      val builderConf = prepareBuilderConf(conf, livyConf, reqSparkVersionMapped, request)
+
+      // 3. get preview or stale spark version by edition
       val reqSparkVersionEdition = builderConf.get(LivyConf.SPARK_VERSION_EDITION)
 
       val builder = new SparkProcessBuilder(livyConf,
-        reqSparkVersionAndEdition(reqSparkVersion, reqSparkVersionEdition, request.queue, livyConf),
+        reqSparkVersionAndEdition(reqSparkVersionMapped, reqSparkVersionEdition,
+          queue, livyConf),
         reqMasterYarnId)
       builder.conf(builderConf)
       builder.username(owner)
@@ -203,7 +208,7 @@ object BatchSession extends Logging {
       request.executorMemory.foreach(builder.executorMemory)
       request.executorCores.foreach(builder.executorCores)
       request.numExecutors.foreach(builder.numExecutors)
-      request.queue.foreach(builder.queue)
+      queue.foreach(builder.queue)
       request.name.foreach(builder.name)
 
       sessionStore.save(BatchSession.RECOVERY_SESSION_TYPE, s.recoveryMetadata)

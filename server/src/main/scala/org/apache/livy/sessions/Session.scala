@@ -215,14 +215,28 @@ object Session extends Logging {
   def sparkMajorFeatureVersionTuple2(reqSparkVersion: Option[String],
       livyConf: LivyConf): (Int, Int) = {
 
-    if (livyConf.sparkVersions.isEmpty) {
+    if (reqSparkVersion.isEmpty) {
       LivySparkUtils.formatSparkVersion(livyConf.get(LivyConf.LIVY_SPARK_VERSION))
     } else {
-      val confKey = LivyConf.LIVY_SPARK_VERSION.key +
-        "." + reqSparkVersion.getOrElse(livyConf.get(LivyConf.LIVY_SPARK_DEFAULT_VERSION))
+      val confKey = LivyConf.LIVY_SPARK_VERSION.key + "." + reqSparkVersion.get
       val sparkVersion = livyConf.get(confKey)
       info(s"reqSparkVersion:$reqSparkVersion, confKey:$confKey, sparkVersion:$sparkVersion")
       LivySparkUtils.formatSparkVersion(sparkVersion)
+    }
+  }
+
+  def mappingSparkAliasVersion(reqSparkAliasVersion: Option[String], queue: Option[String],
+      livyConf: LivyConf): Option[String] = {
+    if (reqSparkAliasVersion.isDefined
+        && !livyConf.sparkAliasVersions.contains(reqSparkAliasVersion.get)) {
+      throw new IllegalArgumentException("spark version is not support")
+    }
+
+    if (reqSparkAliasVersion.isDefined) {
+      val queue2Version = livyConf.sparkAliasVersionMapping(reqSparkAliasVersion.get)
+      queue2Version.get(queue.getOrElse("*")).orElse(queue2Version.get("*"))
+    } else {
+      None
     }
   }
 }

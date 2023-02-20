@@ -214,4 +214,29 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
     assert(sparkVersion.get == "v3.preview")
   }
 
+  test("should use correct spark version with alias") {
+    val livyConf: LivyConf = new LivyConf()
+      .set(LivyConf.LIVY_SPARK_VERSIONS_ALIAS, "v2, v3")
+      .set(LivyConf.LIVY_SPARK_DEFAULT_ALIAS_VERSION, "v3")
+      .set("livy.server.spark.version.alias.mapping.v2->v2", "*")
+      .set("livy.server.spark.version.alias.mapping.v3->v3_1", "*")
+      .set("livy.server.spark.version.alias.mapping.v3->v3_2", "dev,infra")
+      .set(LivyConf.LIVY_SPARK_VERSIONS, "v3")
+      .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
+      .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
+      .set(LivyConf.SPARK_VERSION_EDITION_STALE_QUEUES.key, "queue-dev")
+
+    val v1 = Session.mappingSparkAliasVersion(Some("v2"), Some("queue_a"), livyConf)
+    assert(v1.get == "v2")
+
+    val v2 = Session.mappingSparkAliasVersion(Some("v3"), Some("queue_a"), livyConf)
+    assert(v2.get == "v3_1")
+
+    val v3 = Session.mappingSparkAliasVersion(Some("v3"), Some("infra"), livyConf)
+    assert(v3.get == "v3_2")
+
+    assertThrows[IllegalArgumentException](
+      Session.mappingSparkAliasVersion(Some("v1"), Some("infra"), livyConf))
+  }
+
 }

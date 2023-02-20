@@ -24,6 +24,7 @@ import java.nio.file.{Files, Paths}
 import java.util.{Map => JMap}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.util.Try
 
 import org.apache.hadoop.conf.Configuration
@@ -54,6 +55,9 @@ object LivyConf {
   // by this configuration
   val LIVY_SPARK_VERSIONS = Entry("livy.server.spark.versions", null)
   val LIVY_SPARK_DEFAULT_VERSION = Entry("livy.server.spark.versions.default", null)
+
+  val LIVY_SPARK_VERSIONS_ALIAS = Entry("livy.server.spark.versions.alias", null)
+  val LIVY_SPARK_DEFAULT_ALIAS_VERSION = Entry("livy.server.spark.versions.alias.default", null)
 
   // Allow user use different master yarn ids, it is required to set supported master yarn
   // by this configuration
@@ -360,6 +364,8 @@ object LivyConf {
   val SPARK_VERSION_EDITION_STABLE = "stable"
   val SPARK_VERSION_EDITION_STALE = "stale"
 
+  val SPARK_VERSION_ALIAS_MAPPING = "livy.server.spark.version.alias.mapping"
+
   /**
    * These are Spark configurations that contain lists of files that the user can add to
    * their jobs in one way or another. Livy needs to pre-process these to make sure the
@@ -447,6 +453,34 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
   lazy val sparkFileLists = HARDCODED_SPARK_FILE_LISTS ++ configToSeq(SPARK_FILE_LISTS)
 
   lazy val sparkVersions = configToSeq(LIVY_SPARK_VERSIONS)
+
+  lazy val sparkAliasVersions = configToSeq(LIVY_SPARK_VERSIONS_ALIAS)
+
+  lazy val sparkAliasVersionMapping: Map[String, Map[String, String]] =
+    getSparkAliasVersionMapping()
+
+  private def getSparkAliasVersionMapping(): Map[String, Map[String, String]] = {
+    val versionMapping = mutable.Map[String, mutable.Map[String, String]]()
+    config.asScala
+      .filter(_._1.startsWith(LivyConf.SPARK_VERSION_ALIAS_MAPPING))
+      .map {
+        case (k, v) =>
+          val aliasVersion2Version = k.splitAt(LivyConf.SPARK_VERSION_ALIAS_MAPPING.length + 1)._2
+            .split("->").toSeq
+          val aliasVersion = aliasVersion2Version.head.trim
+          val version = aliasVersion2Version.last.trim
+          val queue2Version = v.split(",")
+            .map(item => Seq(item.trim, version))
+            .map(x => (x.head, x.last))
+            .toMap
+          versionMapping += (aliasVersion ->
+            (versionMapping.getOrElse(aliasVersion,
+              mutable.Map[String, String]()) ++ queue2Version))
+      }
+    versionMapping.map {
+      case (k, v) => k -> v.toMap
+    }.toMap
+  }
 
   lazy val masterYarnIds = configToSeq(LIVY_SPARK_MASTER_YARN_IDS)
 
