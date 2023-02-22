@@ -34,8 +34,9 @@ class LivyConfSpec extends FunSpec
         .set("livy.server.spark.version.alias.mapping.v3->v3_1", "*")
         .set("livy.server.spark.version.alias.mapping.v3->v3_2", "dev, infra,")
 
-      livyConf.sparkAliasVersionMapping should contain ("v2" -> Map("*" -> "v2"))
-      livyConf.sparkAliasVersionMapping should contain ("v3" -> Map("infra" -> "v3_2",
+      val mapping = livyConf.getSparkAliasVersionMapping
+      mapping should contain ("v2" -> Map("*" -> "v2"))
+      mapping should contain ("v3" -> Map("infra" -> "v3_2",
         "dev" -> "v3_2", "*" -> "v3_1"))
     }
   }

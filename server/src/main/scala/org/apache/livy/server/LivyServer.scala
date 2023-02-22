@@ -74,7 +74,7 @@ class LivyServer extends Logging {
   private var sessionStagingDirManager: SessionStagingDirManager = _
 
   def start(): Unit = {
-    livyConf = new LivyConf().loadFromFile("livy.conf")
+    livyConf = new LivyConf().load()
     accessManager = new AccessManager(livyConf)
 
     val host = livyConf.get(SERVER_HOST)

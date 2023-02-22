@@ -233,7 +233,7 @@ object Session extends Logging {
     }
 
     if (reqSparkAliasVersion.isDefined) {
-      val queue2Version = livyConf.sparkAliasVersionMapping(reqSparkAliasVersion.get)
+      val queue2Version = livyConf.getSparkAliasVersionMapping(reqSparkAliasVersion.get)
       queue2Version.get(queue.getOrElse("*")).orElse(queue2Version.get("*"))
     } else {
       None

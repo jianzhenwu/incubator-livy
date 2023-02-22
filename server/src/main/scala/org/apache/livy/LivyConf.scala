@@ -32,6 +32,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.ClientConf.{ConfEntry, DeprecatedConf}
 import org.apache.livy.rsc.RSCConf
+import org.apache.livy.server.coce.ConfigCenterProvider
 import org.apache.livy.Utils.usingResource
 
 object LivyConf {
@@ -391,6 +392,9 @@ object LivyConf {
   val SPARK_VERSION_EDITION_STALE_QUEUES =
     Entry("livy.server.spark_version_edition.stale.queues", null)
 
+  val LIVY_SERVER_CONFIG_CENTER_PROVIDER_CLASS =
+    Entry("livy.server.config-center-provider.class", null)
+
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,
     SPARK_FILES,
@@ -456,10 +460,17 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
 
   lazy val sparkAliasVersions = configToSeq(LIVY_SPARK_VERSIONS_ALIAS)
 
-  lazy val sparkAliasVersionMapping: Map[String, Map[String, String]] =
-    getSparkAliasVersionMapping()
+  private var sparkAliasVersionMapping: Map[String, Map[String, String]] = _
 
-  private def getSparkAliasVersionMapping(): Map[String, Map[String, String]] = {
+  def getSparkAliasVersionMapping: Map[String, Map[String, String]] = {
+    // for unit test
+    if (sparkAliasVersionMapping == null) {
+      this.refreshCache()
+    }
+    sparkAliasVersionMapping
+  }
+
+  def refreshCache(): Unit = {
     val versionMapping = mutable.Map[String, mutable.Map[String, String]]()
     config.asScala
       .filter(_._1.startsWith(LivyConf.SPARK_VERSION_ALIAS_MAPPING))
@@ -477,7 +488,7 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
             (versionMapping.getOrElse(aliasVersion,
               mutable.Map[String, String]()) ++ queue2Version))
       }
-    versionMapping.map {
+    sparkAliasVersionMapping = versionMapping.map {
       case (k, v) => k -> v.toMap
     }.toMap
   }
@@ -530,7 +541,17 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
     loadFromMap(sys.props)
   }
 
-  def loadFromFile(name: String): LivyConf = {
+  def load(): LivyConf = {
+    loadFromFile("livy.conf")
+    Option(get(LIVY_SERVER_CONFIG_CENTER_PROVIDER_CLASS)).foreach(clazz => {
+      val configCenterProvider = ConfigCenterProvider(clazz, this)
+      configCenterProvider.start()
+    })
+    this.refreshCache()
+    this
+  }
+
+  private def loadFromFile(name: String): LivyConf = {
     getConfigFile(name)
       .map(Utils.getPropertiesFromFile)
       .foreach(loadFromMap)

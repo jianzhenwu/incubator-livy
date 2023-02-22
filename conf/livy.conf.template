@@ -289,3 +289,6 @@
 # livy.rsc.spark.sql.catalog.kafka.jars.v3.2 =
 # livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2 =
 # livy.rsc.spark.sql.catalog.clickhouse.jars.v3.2 =
+
+# Whether to enable dynamically load configuration. 
+# livy.server.config-center-provider.class = null

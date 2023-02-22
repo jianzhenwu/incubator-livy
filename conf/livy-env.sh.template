@@ -36,3 +36,10 @@
 # - LIVY_SERVER_AUTH_ENVIRONMENT Which environment of DMP to access.
 # - LIVY_SERVER_AUTH_SERVER_TOKEN Server token used to access DMP.
 # - LIVY_SERVER_AUTH_SERVER_HOST Server host used to access DMP.
+
+# - LIVY_SERVER_JAVA_OPTS="$LIVY_SERVER_JAVA_OPTS \
+#       -Denv= \
+#       -Dapp.id= \
+#       -Dapollo.cluster= \
+#       -Dapollo.meta= \
+#       -Dapollo.cache-dir="
