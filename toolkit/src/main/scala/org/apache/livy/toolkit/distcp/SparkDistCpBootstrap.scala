@@ -19,7 +19,7 @@ package org.apache.livy.toolkit.distcp
 import java.net.URI
 
 import org.apache.hadoop.fs.Path
-import org.apache.spark.{HashPartitioner, TaskContext}
+import org.apache.spark.{HashPartitioner, SparkConf, TaskContext}
 import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{SaveMode, SparkSession}
 
@@ -55,12 +55,16 @@ object SparkDistCpBootstrap extends Logging {
    * --help prints this usage text [source_path...] <target_path>
    */
   def main(args: Array[String]): Unit = {
+    // Currently distCp does not support the speculation, so we need to explicitly
+    // set it to false.
+    val sparkConf = new SparkConf().set("spark.speculation", "false")
+    val sparkSession = SparkSession.builder.config(sparkConf).getOrCreate()
+
     val config = DistCpOptionsParser.parse(args)
-    val sparkSession = SparkSession.builder().getOrCreate()
     val options = config.options.withFiltersFromFile(
-      sparkSession.sparkContext.hadoopConfiguration
-    )
+      sparkSession.sparkContext.hadoopConfiguration)
     val (src, dest) = config.sourceAndDestPaths
+
     run(sparkSession, src, dest, options)
     sparkSession.stop()
   }
