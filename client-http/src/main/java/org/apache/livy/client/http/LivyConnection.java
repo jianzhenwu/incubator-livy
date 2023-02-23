@@ -26,6 +26,7 @@ import java.security.Principal;
 import java.util.Base64;
 import java.util.concurrent.TimeUnit;
 
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
@@ -171,6 +172,7 @@ class LivyConnection {
     this.server = uri;
     this.client = builder.build();
     this.mapper = new ObjectMapper();
+    this.mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
   }
 
   synchronized void close() throws IOException {
