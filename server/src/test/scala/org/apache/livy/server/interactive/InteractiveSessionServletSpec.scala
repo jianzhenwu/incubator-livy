@@ -21,6 +21,7 @@ import java.util.concurrent.atomic.AtomicInteger
 import javax.servlet.http.{HttpServletRequest, HttpServletResponse}
 
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.concurrent.duration._
 import scala.concurrent.Future
 import scala.language.postfixOps
@@ -35,7 +36,7 @@ import org.scalatest.concurrent.Eventually._
 import org.scalatestplus.mockito.MockitoSugar.mock
 
 import org.apache.livy.{ExecuteRequest, LivyConf, MasterMetadata}
-import org.apache.livy.client.common.HttpMessages.SessionInfo
+import org.apache.livy.client.common.HttpMessages.{SessionCreationInfo, SessionInfo}
 import org.apache.livy.rsc.driver.{Statement, StatementState}
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.recovery.SessionStore
@@ -77,6 +78,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
       when(session.stop()).thenReturn(Future.successful(()))
       when(session.proxyUser).thenReturn(None)
       when(session.heartbeatExpired).thenReturn(false)
+      when(session.optimizedConf).thenReturn(Some(mutable.Map[String, AnyRef]()))
       when(session.statements).thenAnswer(
         new Answer[IndexedSeq[Statement]]() {
           override def answer(args: InvocationOnMock): IndexedSeq[Statement] = statements
@@ -229,7 +231,7 @@ class InteractiveSessionServletSpec extends BaseInteractiveServletSpec {
 
   it("should failed create session when too many creating session ") {
     var id = 1
-    jpost[SessionInfo]("/", createRequest(inProcess = false)) { data =>
+    jpost[SessionCreationInfo]("/", createRequest(inProcess = false)) { data =>
       id = data.id
     }
 

@@ -40,6 +40,18 @@ case class BatchSessionView(
   log: Seq[String],
   server: Option[String] = None)
 
+case class BatchSessionCreationView(
+  id: Long,
+  name: Option[String],
+  owner: String,
+  proxyUser: Option[String],
+  state: String,
+  appId: Option[String],
+  appInfo: AppInfo,
+  log: Seq[String],
+  server: Option[String] = None,
+  optimizedConf: Option[Map[String, AnyRef]])
+
 class BatchSessionServlet(
     sessionManager: BatchSessionManager,
     sessionAllocator: Option[SessionAllocator],
@@ -70,6 +82,13 @@ class BatchSessionServlet(
   override protected[batch] def clientSessionView(
       session: BatchSession,
       req: HttpServletRequest): Any = {
+    val logs = sessionLogs(session, req)
+    BatchSessionView(session.id, session.name, session.owner, session.proxyUser,
+      session.state.toString, session.appId, session.appInfo, logs,
+      Option(session.recoveryMetadata.serverMetadata.toString()))
+  }
+
+  private def sessionLogs(session: BatchSession, req: HttpServletRequest): Seq[String] = {
     val logs =
       if (accessManager.hasViewAccess(session.owner,
                                       effectiveUser(req),
@@ -84,9 +103,7 @@ class BatchSessionServlet(
       } else {
         Nil
       }
-    BatchSessionView(session.id, session.name, session.owner, session.proxyUser,
-      session.state.toString, session.appId, session.appInfo, logs,
-      Option(session.recoveryMetadata.serverMetadata.toString()))
+    logs
   }
 
   override protected[batch] def clientSessionView(
@@ -108,6 +125,15 @@ class BatchSessionServlet(
       meta.proxyUser,
       "", meta.appId, new AppInfo(), Nil,
       Option(if (meta.serverMetadata != null) { meta.serverMetadata.toString() } else { "" }))
+  }
+
+  override protected[batch] def clientSessionCreationView(session: BatchSession,
+      req: HttpServletRequest): Any = {
+    val logs = sessionLogs(session, req)
+    BatchSessionCreationView(session.id, session.name, session.owner, session.proxyUser,
+      session.state.toString, session.appId, session.appInfo, logs,
+      Option(session.recoveryMetadata.serverMetadata.toString()),
+      Some(session.optimizedConf.get.toMap))
   }
 
   protected def filterBySearchKey(

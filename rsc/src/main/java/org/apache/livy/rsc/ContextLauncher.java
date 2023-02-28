@@ -53,7 +53,7 @@ import static org.apache.livy.rsc.RSCConf.Entry.*;
  * Encapsulates code needed to launch a new Spark context and collect information about how
  * to establish a client connection to it.
  */
-class ContextLauncher {
+public class ContextLauncher {
 
   private static final Logger LOG = LoggerFactory.getLogger(ContextLauncher.class);
   private static final AtomicInteger CHILD_IDS = new AtomicInteger();
@@ -83,6 +83,8 @@ class ContextLauncher {
 
   // factoryUnrefed indicates whether the factory unref this client
   private volatile boolean factoryUnrefed;
+  public static final ThreadLocal<Map<String, Object>>
+      optimizedConfThreadLocal = new ThreadLocal<>();
 
   private ContextLauncher(RSCClientFactory factory, RSCConf conf) throws IOException {
     this.promise = factory.getServer().getEventLoopGroup().next().newPromise();
@@ -252,7 +254,9 @@ class ContextLauncher {
     }
 
     ApplicationEnvContext context = new ApplicationEnvContext(env, appConf,
-        Some.apply(SessionType.Interactive));
+        Some.apply(SessionType.Interactive),
+        Some.apply(optimizedConfThreadLocal.get()),
+        Some.apply(conf.get(ClientConf.LIVY_APPLICATION_USER_YARN_TAGS)));
     applicationEnvProcessor.process(context);
     appConf.forEach(conf::set);
 

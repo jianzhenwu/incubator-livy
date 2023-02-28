@@ -26,6 +26,7 @@ import java.util.concurrent.atomic.AtomicLong
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 
+import scala.collection.mutable
 import scala.concurrent.{ExecutionContext, Future}
 
 import org.mockito.ArgumentCaptor
@@ -353,6 +354,7 @@ private class HttpClientTestBootstrap extends LifeCycle {
 
         when(session.executeStatement(anyObject())).thenReturn(mockStatement)
         when(session.getStatement(anyInt())).thenReturn(Some(mockStatement))
+        when(session.optimizedConf).thenReturn(Some(mutable.Map[String, AnyRef]()))
 
         require(HttpClientSpec.session == null, "Session already created?")
         HttpClientSpec.session = session

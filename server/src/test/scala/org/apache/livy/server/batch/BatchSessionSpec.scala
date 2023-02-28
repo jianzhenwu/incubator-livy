@@ -147,6 +147,8 @@ class BatchSessionSpec
       batch.start()
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
+
+      val logs = batch.logLines()
       (batch.state match {
         case SessionState.Success(_) => true
         case _ => false

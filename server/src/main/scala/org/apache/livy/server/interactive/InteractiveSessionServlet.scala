@@ -79,6 +79,15 @@ class InteractiveSessionServlet(
   override protected[interactive] def clientSessionView(
       session: InteractiveSession,
       req: HttpServletRequest): Any = {
+    val logs = sessionLogs(session, req)
+
+    new SessionInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
+      session.proxyUser.orNull, session.state.toString,
+      if (session.kind != null){ session.kind.toString } else { "" },
+      session.appInfo.asJavaMap, logs.asJava, session.recoveryMetadata.serverMetadata.toString())
+  }
+
+  private def sessionLogs(session: InteractiveSession, req: HttpServletRequest): Seq[String] = {
     val logs =
       if (accessManager.hasViewAccess(session.owner,
                                       effectiveUser(req),
@@ -95,11 +104,7 @@ class InteractiveSessionServlet(
       } else {
         Nil
       }
-
-    new SessionInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
-      session.proxyUser.orNull, session.state.toString,
-      if (session.kind != null){ session.kind.toString } else { "" },
-      session.appInfo.asJavaMap, logs.asJava, session.recoveryMetadata.serverMetadata.toString())
+    logs
   }
 
   override protected[interactive] def clientSessionView(
@@ -127,6 +132,17 @@ class InteractiveSessionServlet(
       new AppInfo().asJavaMap,
       new java.util.ArrayList[String](),
       if (meta.serverMetadata != null) { meta.serverMetadata.toString()} else { "" })
+  }
+
+  override protected[interactive] def clientSessionCreationView(session: InteractiveSession,
+      req: HttpServletRequest): Any = {
+
+    val logs = sessionLogs(session, req)
+    new SessionCreationInfo(session.id, session.name.orNull, session.appId.orNull, session.owner,
+      session.proxyUser.orNull, session.state.toString,
+      if (session.kind != null){ session.kind.toString } else { "" },
+      session.appInfo.asJavaMap, logs.asJava, session.recoveryMetadata.serverMetadata.toString(),
+      session.optimizedConf.get.toMap.asJava)
   }
 
   post("/:id/stop") {

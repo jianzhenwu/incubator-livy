@@ -111,6 +111,12 @@ object SessionServletSpec {
         MockSessionView(session.id, session.owner, session.proxyUser, logs)
       }
 
+      override protected def clientSessionCreationView(
+          session: Session,
+          req: HttpServletRequest): Any = {
+        clientSessionView(session, req)
+      }
+
       override protected def filterBySearchKey(recoveryMetadata: RecoveryMetadata,
                                                searchKey: Option[String]): Boolean = {
         !searchKey.exists(_.trim.nonEmpty) || filterBySearchKey(
@@ -251,6 +257,11 @@ object SessionServletSpec {
           Nil
         }
         MockSessionView(session.id, session.owner, session.proxyUser, logs)
+      }
+
+      override protected def clientSessionCreationView(session: MockSession,
+          req: HttpServletRequest): Any = {
+        clientSessionView(session, req)
       }
 
       override protected def clientSessionView(recoverMetadata: MockRecoveryMetadata,

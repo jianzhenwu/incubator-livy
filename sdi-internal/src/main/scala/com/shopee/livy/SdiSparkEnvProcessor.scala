@@ -44,6 +44,7 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.IpynbEnvProcessor",
     "com.shopee.livy.SdiYarnAmEnvProcessor",
     "com.shopee.livy.AlluxioConfProcessor",
+    "com.shopee.livy.HBOProcessor",
     "com.shopee.livy.DefaultsConfSparkProcessor",
     "com.shopee.livy.HudiConfProcessor"
   )

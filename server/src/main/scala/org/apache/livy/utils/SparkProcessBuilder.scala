@@ -49,6 +49,8 @@ class SparkProcessBuilder(livyConf: LivyConf,
   private[this] var _redirectError: Option[ProcessBuilder.Redirect] = None
   private[this] var _redirectErrorStream: Option[Boolean] = None
   private[this] var _username: String = ""
+  private[this] var _optimizedConf: mutable.Map[String, AnyRef] = _
+  private[this] var _userYarnTags: Option[String] = None
 
   private[this] val applicationEnvProcessor: ApplicationEnvProcessor =
     ApplicationEnvProcessor(livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
@@ -177,6 +179,16 @@ class SparkProcessBuilder(livyConf: LivyConf,
     this
   }
 
+  def optimizedConf(optimizedConf: mutable.Map[String, AnyRef]): SparkProcessBuilder = {
+    _optimizedConf = optimizedConf
+    this
+  }
+
+  def userYarnTags(userYarnTags: Option[String]): SparkProcessBuilder = {
+    _userYarnTags = userYarnTags
+    this
+  }
+
   private[utils] def createApplicationEnvContext(): ApplicationEnvContext = {
     val appEnv = new java.util.HashMap[String, String]()
     val sparkHome = livyConf.sparkHome(reqSparkVersion)
@@ -201,7 +213,8 @@ class SparkProcessBuilder(livyConf: LivyConf,
 
     conf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, _username)
 
-    val context = ApplicationEnvContext(appEnv, _conf.asJava, Some(SessionType.Batches))
+    val context = ApplicationEnvContext(appEnv, _conf.asJava, Some(SessionType.Batches),
+      Option(_optimizedConf.asJava), _userYarnTags)
     applicationEnvProcessor.process(context)
     context
   }

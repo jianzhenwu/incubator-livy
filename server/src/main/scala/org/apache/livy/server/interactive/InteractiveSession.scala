@@ -38,7 +38,7 @@ import org.apache.livy._
 import org.apache.livy.client.common.ClientConf
 import org.apache.livy.client.common.HttpMessages._
 import org.apache.livy.metrics.common.{Metrics, MetricsKey}
-import org.apache.livy.rsc.{PingJob, RSCClient, RSCConf}
+import org.apache.livy.rsc.{ContextLauncher, PingJob, RSCClient, RSCConf}
 import org.apache.livy.rsc.driver.Statement
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
@@ -120,63 +120,71 @@ object InteractiveSession extends Logging {
     }
 
     val masterMetadata = MasterMetadata(livyConf.sparkMaster(), reqMasterYarnId)
+    val optimizedConf = mutable.Map[String, AnyRef]()
+    ContextLauncher.optimizedConfThreadLocal.set(optimizedConf.asJava)
 
-    val client = mockClient.orElse {
-      val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
-        request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
+    val client = try {
+      mockClient.orElse {
+        val conf = SparkApp.prepareSparkConf(appTag, livyConf, prepareConf(
+          request.conf, request.jars, request.files, request.archives, request.pyFiles, livyConf))
 
-      val builderProperties = prepareBuilderProp(conf, request.kind, livyConf,
-        reqSparkVersion)
+        val builderProperties = prepareBuilderProp(conf, request.kind, livyConf,
+          reqSparkVersion)
 
-      val userOpts: Map[String, Option[String]] = Map(
-        "spark.driver.cores" -> request.driverCores.map(_.toString),
-        SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
-        SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
-        SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
-        "spark.executor.instances" -> request.numExecutors.map(_.toString),
-        "spark.app.name" -> request.name.map(_.toString),
-        "spark.yarn.queue" -> queue
-      )
+        val userOpts: Map[String, Option[String]] = Map(
+          "spark.driver.cores" -> request.driverCores.map(_.toString),
+          SparkLauncher.DRIVER_MEMORY -> request.driverMemory.map(_.toString),
+          SparkLauncher.EXECUTOR_CORES -> request.executorCores.map(_.toString),
+          SparkLauncher.EXECUTOR_MEMORY -> request.executorMemory.map(_.toString),
+          "spark.executor.instances" -> request.numExecutors.map(_.toString),
+          "spark.app.name" -> request.name.map(_.toString),
+          "spark.yarn.queue" -> queue
+        )
 
-      userOpts.foreach { case (key, opt) =>
-        opt.foreach { value => builderProperties.put(key, value) }
-      }
-
-      builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
-
-      val reqSparkVersionEdition = builderProperties.get(LivyConf.SPARK_VERSION_EDITION)
-      val sparkVersion = reqSparkVersionAndEdition(reqSparkVersion, reqSparkVersionEdition,
-        queue, livyConf)
-
-      val sparkHome = livyConf.sparkHome(sparkVersion)
-      val sparkConfDir = livyConf.sparkConfDir(sparkVersion)
-      info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
-        s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
-
-      val builder = new LivyClientBuilder()
-        .setAll(builderProperties.asJava)
-        .setConf("livy.client.session-id", id.toString)
-        .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "org.apache.livy.repl.ReplDriver")
-        .setConf(RSCConf.Entry.PROXY_USER.key(), impersonatedUser.orNull)
-        .setURI(new URI("rsc:/"))
-        .setConf("livy.rsc.spark-home", sparkHome.get)
-        .setConf(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.orNull)
-        .setConf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, owner)
-        .setConf(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
-          livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
-
-      if (reqMasterYarnId.nonEmpty) {
-        builder.setConf(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY, reqMasterYarnId.get)
-        val hadoopConfDir = livyConf.hadoopConfDir(reqMasterYarnId.get)
-        if (StringUtils.isBlank(hadoopConfDir)) {
-          throw new IllegalArgumentException(s"Hadoop config directory is empty, " +
-            s"please check the master yarn ${reqMasterYarnId.get} configured directories")
+        userOpts.foreach { case (key, opt) =>
+          opt.foreach { value => builderProperties.put(key, value) }
         }
-        builder.setConf(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY,
-          livyConf.hadoopConfDir(reqMasterYarnId.get))
-      }
 
-      Option(builder.build().asInstanceOf[RSCClient])
+        builderProperties.getOrElseUpdate("spark.app.name", s"livy-session-$id")
+
+        val reqSparkVersionEdition = builderProperties.get(LivyConf.SPARK_VERSION_EDITION)
+        val sparkVersion = reqSparkVersionAndEdition(reqSparkVersion, reqSparkVersionEdition,
+          queue, livyConf)
+
+        val sparkHome = livyConf.sparkHome(sparkVersion)
+        val sparkConfDir = livyConf.sparkConfDir(sparkVersion)
+        info(s"Creating Interactive session $id: [owner: $owner, request: $request," +
+          s"spark-home: $sparkHome, sparkConfDir: $sparkConfDir]")
+
+        val builder = new LivyClientBuilder()
+          .setAll(builderProperties.asJava)
+          .setConf("livy.client.session-id", id.toString)
+          .setConf(RSCConf.Entry.DRIVER_CLASS.key(), "org.apache.livy.repl.ReplDriver")
+          .setConf(RSCConf.Entry.PROXY_USER.key(), impersonatedUser.orNull)
+          .setURI(new URI("rsc:/"))
+          .setConf("livy.rsc.spark-home", sparkHome.get)
+          .setConf(ClientConf.LIVY_APPLICATION_SPARK_CONF_DIR_KEY, sparkConfDir.orNull)
+          .setConf(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY, owner)
+          .setConf(ClientConf.LIVY_SPARK_ENV_PROCESSOR_KEY,
+            livyConf.get(LivyConf.LIVY_SPARK_ENV_PROCESSOR))
+          .setConf(ClientConf.LIVY_APPLICATION_USER_YARN_TAGS,
+            request.conf.getOrElse("spark.yarn.tags", ""))
+
+        if (reqMasterYarnId.nonEmpty) {
+          builder.setConf(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY, reqMasterYarnId.get)
+          val hadoopConfDir = livyConf.hadoopConfDir(reqMasterYarnId.get)
+          if (StringUtils.isBlank(hadoopConfDir)) {
+            throw new IllegalArgumentException(s"Hadoop config directory is empty, " +
+              s"please check the master yarn ${reqMasterYarnId.get} configured directories")
+          }
+          builder.setConf(ClientConf.LIVY_APPLICATION_HADOOP_CONF_DIR_KEY,
+            livyConf.hadoopConfDir(reqMasterYarnId.get))
+        }
+
+        Option(builder.build().asInstanceOf[RSCClient])
+      }
+    } finally {
+      ContextLauncher.optimizedConfThreadLocal.remove()
     }
 
     new InteractiveSession(
@@ -193,7 +201,8 @@ object InteractiveSession extends Logging {
       impersonatedUser,
       masterMetadata,
       sessionStore,
-      mockApp)
+      mockApp,
+      Some(optimizedConf))
   }
 
   def recover(
@@ -431,7 +440,8 @@ class InteractiveSession(
     override val proxyUser: Option[String],
     masterMetadata: MasterMetadata,
     sessionStore: SessionStore,
-    mockApp: Option[SparkApp]) // For unit test.
+    mockApp: Option[SparkApp], // For unit test.
+    val optimizedConf: Option[mutable.Map[String, AnyRef]] = None)
   extends Session(id, name, owner, livyConf)
   with SessionHeartbeat
   with SparkAppListener {
@@ -735,4 +745,5 @@ class InteractiveSession(
       proxyUser, state)
     Events().notify(event)
   }
+
 }

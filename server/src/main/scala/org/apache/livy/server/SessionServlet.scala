@@ -82,6 +82,8 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
 
   protected def clientSessionView(recoverMetadata: R, req: HttpServletRequest): Any = session
 
+  protected def clientSessionCreationView(session: S, req: HttpServletRequest): Any = session
+
   /**
    * Return true when one of id, appId, name, owner, proxyUser, Metadata matches searchKey.
    */
@@ -256,7 +258,7 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
           // Because it may take some time to establish the session, update the last activity
           // time before returning the session info to the client.
           session.recordActivity()
-          Created(clientSessionView(session, request),
+          Created(clientSessionCreationView(session, request),
             headers = Map("Location" ->
               url(getSession, "id" -> session.id.toString)))
         }

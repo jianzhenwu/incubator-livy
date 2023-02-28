@@ -22,6 +22,8 @@ import java.util.Properties
 import javax.servlet.ServletContext
 import javax.servlet.http.HttpServletRequest
 
+import scala.collection.mutable
+
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.{BeforeAndAfterAll, FunSpecLike}
 import org.scalatra.LifeCycle
@@ -117,6 +119,7 @@ private class RestClientBatchTestBootstrap extends LifeCycle {
         when(session.recoveryMetadata).thenReturn(
           BatchRecoveryMetadata(0, None, None, "",
             "", None, ServerMetadata(req.serverName, req.serverPort), masterMetadata))
+        when(session.optimizedConf).thenReturn(Some(mutable.Map[String, AnyRef]()))
 
         require(HttpClientSpec.session == null, "Session already created?")
         session
@@ -128,6 +131,11 @@ private class RestClientBatchTestBootstrap extends LifeCycle {
           session.state.toString, session.appId, session.appInfo, Nil,
           Option(session.recoveryMetadata.serverMetadata.toString()))
       }
+      override protected[livy] def clientSessionCreationView(session: BatchSession,
+          req: HttpServletRequest): Any = {
+        clientSessionView(session, req)
+      }
+
     }
     context.mount(servlet, s"/${SessionType.Batches.getSessionType}/*")
   }

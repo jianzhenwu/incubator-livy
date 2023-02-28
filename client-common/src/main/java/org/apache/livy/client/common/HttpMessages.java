@@ -84,6 +84,22 @@ public class HttpMessages {
 
   }
 
+  public static class SessionCreationInfo extends SessionInfo {
+    public final Map<String, Object> optimizedConf;
+
+    public SessionCreationInfo(int id, String name, String appId, String owner, String proxyUser,
+        String state, String kind, Map<String, String> appInfo, List<String> log,
+        String server, Map<String, Object> optimizedConf) {
+
+      super(id, name, appId, owner, proxyUser, state, kind, appInfo, log, server);
+      this.optimizedConf = optimizedConf;
+    }
+
+    private SessionCreationInfo() {
+      this(-1, null, null, null, null, null, null, null, null, null, null);
+    }
+  }
+
   public static class SerializedJob implements ClientMessage {
 
     public final byte[] job;

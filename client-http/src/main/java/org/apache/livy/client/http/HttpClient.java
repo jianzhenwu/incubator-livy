@@ -91,7 +91,8 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
         logger.info("Created Livy session {}", sessionId);
       } else {
         if (sessionOptions != null) {
-          this.sessionId = conn.post(sessionOptions, HttpMessages.SessionInfo.class, "/").id;
+          this.sessionId = conn.post(sessionOptions,
+              HttpMessages.SessionCreationInfo.class, "/").id;
         } else {
           Map<String, String> sessionConf = new HashMap<>();
           for (Map.Entry<String, String> e : config) {
@@ -99,7 +100,7 @@ public class HttpClient extends AbstractRestClient implements LivyClient {
           }
 
           ClientMessage create = new CreateClientRequest(sessionConf);
-          this.sessionId = conn.post(create, SessionInfo.class, "/").id;
+          this.sessionId = conn.post(create, SessionCreationInfo.class, "/").id;
         }
         logger.info("Connected to Livy session {}", sessionId);
       }

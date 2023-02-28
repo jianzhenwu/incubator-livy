@@ -47,9 +47,10 @@ object HttpUtils extends Logging {
 
   def doGet[T: ClassTag](
       url: HttpUrl,
-      headers: Map[String, String]): Try[T] = {
+      headers: Map[String, String],
+      exceptStatusCodes: Option[Set[Int]] = None): Try[T] = {
     try {
-      val resBody = doRequest(url, "GET", headers, None)
+      val resBody = doRequest(url, "GET", headers, None, exceptStatusCodes)
       Success(objectMapper.readValue(resBody, classTag[T].runtimeClass).asInstanceOf[T])
     } catch {
       case exception: Throwable => Failure(exception)
@@ -59,9 +60,10 @@ object HttpUtils extends Logging {
   def doPost[T: ClassTag](
       url: HttpUrl,
       headers: Map[String, String],
-      body: RequestBody): Try[T] = {
+      body: RequestBody,
+      exceptStatusCodes: Option[Set[Int]] = None): Try[T] = {
     try {
-      val resBody = doRequest(url, "POST", headers, Option(body))
+      val resBody = doRequest(url, "POST", headers, Option(body), exceptStatusCodes)
       Success(objectMapper.readValue(resBody, classTag[T].runtimeClass).asInstanceOf[T])
     } catch {
       case exception: Throwable => Failure(exception)
@@ -72,7 +74,8 @@ object HttpUtils extends Logging {
       url: HttpUrl,
       method: String,
       headers: Map[String, String],
-      body: Option[RequestBody]): String = {
+      body: Option[RequestBody],
+      exceptStatusCodes: Option[Set[Int]] = None): String = {
     val requestBuilder = new Request.Builder()
     if (headers != null && headers.nonEmpty) {
       requestBuilder.headers(Headers.of(headers.asJava))
@@ -85,9 +88,9 @@ object HttpUtils extends Logging {
       val traceId = res.header("trace-id")
       val statusCode = res.code()
       val resBody = res.body().string()
-
-      if (statusCode / 100 * 100 == HttpStatus.SC_OK) {
-        res.body().close()
+      res.body().close()
+      if (statusCode / 100 * 100 == HttpStatus.SC_OK ||
+          exceptStatusCodes.getOrElse(Set[Int]()).contains(statusCode)) {
         return resBody
       } else {
         // log trace-id and retry.

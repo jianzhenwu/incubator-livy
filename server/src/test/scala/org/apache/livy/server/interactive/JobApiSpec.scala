@@ -68,7 +68,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
   describe("Interactive Servlet") {
 
     it("should create sessions") {
-      jpost[SessionInfo]("/", createRequest()) { data =>
+      jpost[SessionCreationInfo]("/", createRequest()) { data =>
         waitForIdle(data.id)
         header("Location") should equal("/0")
         data.id should equal (0)
@@ -131,7 +131,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
     it("should support user impersonation") {
       assume(createConf().getBoolean(LivyConf.IMPERSONATION_ENABLED))
       val headers = makeUserHeaders(PROXY)
-      jpost[SessionInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
+      jpost[SessionCreationInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
         try {
           waitForIdle(data.id)
           data.owner should be (PROXY)
@@ -148,7 +148,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
       assume(createConf().getBoolean(LivyConf.IMPERSONATION_ENABLED))
       val request = createRequest(inProcess = false)
       request.proxyUser = Some(PROXY)
-      jpost[SessionInfo]("/", request, headers = adminHeaders) { data =>
+      jpost[SessionCreationInfo]("/", request, headers = adminHeaders) { data =>
         try {
           waitForIdle(data.id)
           data.owner should be (ADMIN)
@@ -167,7 +167,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
     }
 
     it("should respect config black list") {
-      jpost[SessionInfo]("/", createRequest(extraConf = BLACKLISTED_CONFIG),
+      jpost[SessionCreationInfo]("/", createRequest(extraConf = BLACKLISTED_CONFIG),
         expectedStatus = SC_BAD_REQUEST) { _ => }
     }
 
@@ -175,7 +175,7 @@ class JobApiSpec extends BaseInteractiveServletSpec {
 
   protected def waitForIdle(id: Int): Unit = {
     eventually(timeout(1 minute), interval(100 millis)) {
-      jget[SessionInfo](s"/$id") { status =>
+      jget[SessionCreationInfo](s"/$id") { status =>
         status.state should be (SessionState.Idle.toString())
       }
     }
@@ -242,7 +242,7 @@ class JobApiSpecNoImpersonation extends JobApiSpec {
 
   it("should not support user impersonation") {
     assume(!createConf().getBoolean(LivyConf.IMPERSONATION_ENABLED))
-    jpost[SessionInfo]("/", createRequest(inProcess = false)) { data =>
+    jpost[SessionCreationInfo]("/", createRequest(inProcess = false)) { data =>
       try {
         waitForIdle(data.id)
         data.owner should be (null)
@@ -255,7 +255,7 @@ class JobApiSpecNoImpersonation extends JobApiSpec {
     }
 
     val headers = makeUserHeaders(PROXY)
-    jpost[SessionInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
+    jpost[SessionCreationInfo]("/", createRequest(inProcess = false), headers = headers) { data =>
       try {
         waitForIdle(data.id)
         data.owner should be (PROXY)
@@ -272,7 +272,7 @@ class JobApiSpecNoImpersonation extends JobApiSpec {
     assume(!createConf().getBoolean(LivyConf.IMPERSONATION_ENABLED))
     val request = createRequest(inProcess = false)
     request.proxyUser = Some(PROXY)
-    jpost[SessionInfo]("/", request, headers = adminHeaders) { data =>
+    jpost[SessionCreationInfo]("/", request, headers = adminHeaders) { data =>
       try {
         waitForIdle(data.id)
         data.owner should be (ADMIN)

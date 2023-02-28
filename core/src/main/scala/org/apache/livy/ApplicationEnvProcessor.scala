@@ -24,7 +24,10 @@ import scala.collection.JavaConverters.{mapAsScalaMapConverter, propertiesAsScal
 import org.apache.livy.client.common.ClientConf
 
 case class ApplicationEnvContext(env: java.util.Map[String, String],
-    appConf: java.util.Map[String, String], sessionType: Option[SessionType] = None)
+    appConf: java.util.Map[String, String],
+    sessionType: Option[SessionType] = None,
+    optimizedConf: Option[java.util.Map[String, Object]] = None,
+    userYarnTags: Option[String] = None)
 
 trait ApplicationEnvProcessor {
 

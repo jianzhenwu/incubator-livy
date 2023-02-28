@@ -70,6 +70,8 @@ public abstract class ClientConf<T extends ClientConf>
       "livy.application.master-yarn-id";
   public static final String LIVY_APPLICATION_HADOOP_CONF_DIR_KEY =
       "livy.application.hadoop-conf-dir";
+  public static final String LIVY_APPLICATION_USER_YARN_TAGS =
+      "livy.application.user-yarn-tags";
 
   static {
     TIME_SUFFIXES = new HashMap<>();

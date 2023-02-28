@@ -169,6 +169,8 @@ object BatchSession extends Logging {
 
     val masterMetadata = MasterMetadata(livyConf.sparkMaster(), reqMasterYarnId)
 
+    val optimizedConf = mutable.Map[String, AnyRef]()
+
     def createSparkAppInternal(s: BatchSession): SparkApp = {
       val conf = SparkApp.prepareSparkConf(
         appTag,
@@ -200,6 +202,8 @@ object BatchSession extends Logging {
         reqMasterYarnId)
       builder.conf(builderConf)
       builder.username(owner)
+      builder.optimizedConf(optimizedConf)
+      builder.userYarnTags(request.conf.get("spark.yarn.tags"))
 
       impersonatedUser.foreach(builder.proxyUser)
       request.className.foreach(builder.className)
@@ -256,7 +260,8 @@ object BatchSession extends Logging {
       impersonatedUser,
       masterMetadata,
       sessionStore,
-      mockApp.map { m => (_: BatchSession) => m }.getOrElse(createSparkApp))
+      mockApp.map { m => (_: BatchSession) => m }.getOrElse(createSparkApp),
+      Some(optimizedConf))
   }
 
   def recover(
@@ -295,7 +300,8 @@ class BatchSession(
     override val proxyUser: Option[String],
     masterMetadata: MasterMetadata,
     sessionStore: SessionStore,
-    sparkApp: BatchSession => SparkApp)
+    sparkApp: BatchSession => SparkApp,
+    val optimizedConf: Option[mutable.Map[String, AnyRef]] = None)
   extends Session(id, name, owner, livyConf) with SparkAppListener {
   import BatchSession._
 
@@ -368,4 +374,5 @@ class BatchSession(
       proxyUser, state)
     Events().notify(event)
   }
+
 }
