@@ -135,8 +135,8 @@ class SessionManager[S <: Session, R <: RecoveryMetadata : ClassTag](
         }
       }
       sessions.put(session.id, session)
-      session.start()
     }
+    session.start()
     info(s"Registered new session ${session.id}")
     session
   }
