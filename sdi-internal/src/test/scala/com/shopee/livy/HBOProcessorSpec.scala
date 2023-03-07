@@ -19,7 +19,7 @@ package com.shopee.livy
 
 import java.util
 
-import scala.collection.JavaConverters.{mapAsJavaMapConverter, mapAsScalaMapConverter}
+import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.util.Success
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
@@ -41,15 +41,26 @@ class HBOProcessorSpec extends ScalatraSuite with FunSpecLike {
     """
       |{
       |  "status": "true",
-      |  "cpu": {
-      |    "spark.executor.cores": "2"
-      |  },
-      |  "rss": {
-      |    "spark.rss.enabled": "true"
-      |  },
-      |  "memory": {
-      |    "spark.executor.memory": "4g"
-      |  }
+      |  "data": [
+      |    {
+      |      "rule": "cpu",
+      |      "conf": {
+      |        "spark.executor.cores": "2"
+      |      }
+      |    },
+      |    {
+      |      "rule": "rss",
+      |      "conf": {
+      |        "spark.rss.enabled": "true"
+      |      }
+      |    },
+      |    {
+      |      "rule": "memory",
+      |      "conf": {
+      |        "spark.executor.memory": "4g"
+      |      }
+      |    }
+      |  ]
       |}
       |""".stripMargin
 
@@ -75,12 +86,17 @@ class HBOProcessorSpec extends ScalatraSuite with FunSpecLike {
         optimizedConf.asScala("hbo").asInstanceOf[Map[String, AnyRef]]
 
       hboConfig should contain ("status" -> "true")
-      hboConfig("cpu").asInstanceOf[Map[String, String]] should
-        contain ("spark.executor.cores" -> "2")
-      hboConfig("rss").asInstanceOf[Map[String, String]] should
-        contain ("spark.rss.enabled" -> "true")
-      hboConfig("memory").asInstanceOf[Map[String, String]] should
-        contain ("spark.executor.memory" -> "4g")
+      val data = hboConfig("data").asInstanceOf[List[AnyRef]]
+      data.foreach(x => {
+        val ruleEntry = x.asInstanceOf[Map[String, AnyRef]]
+        val rule = ruleEntry("rule").asInstanceOf[String]
+        val conf = ruleEntry("conf").asInstanceOf[Map[String, String]]
+        rule match {
+          case "cpu" => conf should contain ("spark.executor.cores" -> "2")
+          case "rss" => conf should contain ("spark.rss.enabled" -> "true")
+          case "memory" => conf should contain ("spark.executor.memory" -> "4g")
+        }
+      })
     }
   }
 }

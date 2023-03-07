@@ -49,11 +49,15 @@ class HBOProcessor extends ApplicationEnvProcessor with Logging {
           applicationEnvContext.optimizedConf.foreach(c => c.asScala.put("hbo", hbo))
           hbo.foreach(kv => {
             kv._2 match {
-              case hboRule: Map[String, AnyRef] => hboRule.foreach(x => {
-                val key = x._1
-                val value = x._2.asInstanceOf[String]
-                applicationEnvContext.appConf.asScala.put(key, value)
-                info(s"Setting up the HBO config in Spark $key=$value")
+              case hboData: List[AnyRef] => hboData.foreach(x => {
+                val ruleEntry = x.asInstanceOf[Map[String, AnyRef]]
+                val conf = ruleEntry("conf").asInstanceOf[Map[String, String]]
+                conf.foreach(c => {
+                  val key = c._1
+                  val value = c._2
+                  applicationEnvContext.appConf.asScala.put(key, value)
+                  info(s"Setting up the HBO config in Spark $key=$value")
+                })
               })
               case _ =>
             }
