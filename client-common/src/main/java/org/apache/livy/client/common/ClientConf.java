@@ -117,6 +117,13 @@ public abstract class ClientConf<T extends ClientConf>
   }
 
   @SuppressWarnings("unchecked")
+  public T remove(String key) {
+    logDeprecationWarning(key);
+    config.remove(key);
+    return (T) this;
+  }
+
+  @SuppressWarnings("unchecked")
   public T setIfMissing(String key, String value) {
     if (config.putIfAbsent(key, value) == null) {
       logDeprecationWarning(key);

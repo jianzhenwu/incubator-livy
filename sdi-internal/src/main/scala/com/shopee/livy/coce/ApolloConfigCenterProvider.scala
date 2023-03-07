@@ -75,10 +75,14 @@ class ApolloConfigCenterProvider(livyConf: LivyConf) extends ConfigCenterProvide
         changeEvent.changedKeys().asScala.foreach { key =>
           val change = changeEvent.getChange(key)
           if (isEffective(key, change.getNewValue)) {
-            livyConf.set(key, change.getNewValue)
             logger.info(s"Config center: Found change - key: ${change.getPropertyName}, " +
               s"oldValue: ${change.getOldValue}, newValue: ${change.getNewValue}, " +
               s"changeType: ${change.getChangeType}")
+            if (change.getNewValue == null) {
+              livyConf.remove(key)
+            } else {
+              livyConf.set(key, change.getNewValue)
+            }
           }
         }
         livyConf.refreshCache()
