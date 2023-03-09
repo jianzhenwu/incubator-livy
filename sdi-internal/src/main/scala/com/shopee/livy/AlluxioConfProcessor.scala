@@ -19,16 +19,15 @@ package com.shopee.livy
 
 import scala.collection.mutable.ArrayBuffer
 
-import com.shopee.livy.AlluxioConfProcessor.{ALLUXIO_FUSE_JAVA_OPTS, ALLUXIO_JAVA_OPTS, SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED, SPARK_LIVY_ALLUXIO_HOME}
+import com.shopee.livy.AlluxioConfProcessor.{ALLUXIO_FUSE_JAVA_OPTS, ALLUXIO_JAVA_OPTS, SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED}
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 
 object AlluxioConfProcessor {
   val SPARK_LIVY_ALLUXIO_ENV_ENABLED = "spark.livy.alluxio.enabled"
-  val SPARK_LIVY_ALLUXIO_ARCHIVE = "spark.livy.alluxio.archive"
-  val SPARK_LIVY_ALLUXIO_HOME = "spark.livy.alluxio.home"
-  val ALLUXIO_FUSE_JAVA_OPTS = "spark.livy.alluxio.fuse.java.opts"
-  val ALLUXIO_JAVA_OPTS = "spark.livy.alluxio.java.opts"
+  val SPARK_LIVY_ALLUXIO_ARCHIVE = "livy.rsc.spark.alluxio.archive"
+  val ALLUXIO_FUSE_JAVA_OPTS = "livy.rsc.spark.alluxio.fuse.java.opts"
+  val ALLUXIO_JAVA_OPTS = "livy.rsc.spark.alluxio.java.opts"
 }
 
 class AlluxioConfProcessor extends ApplicationEnvProcessor with Logging {
@@ -49,7 +48,6 @@ class AlluxioConfProcessor extends ApplicationEnvProcessor with Logging {
     val alluxioArchive = appConf.get(SPARK_LIVY_ALLUXIO_ARCHIVE)
     if (alluxioArchive != null && alluxioArchive.nonEmpty) {
       archives.append(alluxioArchive)
-      appConf.put("spark.yarn.appMasterEnv.ALLUXIO_FUSE_HOME", appConf.get(SPARK_LIVY_ALLUXIO_HOME))
       appConf.put("spark.yarn.appMasterEnv.ALLUXIO_FUSE_JAVA_OPTS",
           appConf.getOrDefault(ALLUXIO_FUSE_JAVA_OPTS, ""))
       appConf.put("spark.yarn.appMasterEnv.ALLUXIO_JAVA_OPTS",

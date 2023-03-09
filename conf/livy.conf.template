@@ -290,5 +290,18 @@
 # livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2 =
 # livy.rsc.spark.sql.catalog.clickhouse.jars.v3.2 =
 
-# Whether to enable dynamically load configuration. 
+# Whether to enable dynamically load configuration.
 # livy.server.config-center-provider.class = null
+
+# Add alluxio archive to spark archive
+# livy.rsc.spark.alluxio.archive =
+
+# Alluxio fuse env
+# livy.rsc.spark.alluxio.java.opts = -Dalluxio.master.embedded.journal.addresses=ip-10-128-136-133.idata-server.shopee.io:19200
+# livy.rsc.spark.alluxio.fuse.java.opts = \
+#  -Dalluxio.fuse.user.group.translation.enabled=false \
+#  -Dalluxio.security.login.username=$SPARK_USER \
+#  -Dalluxio.security.login.rpc-password=$HADOOP_USER_RPCPASSWORD \
+#  -Dalluxio.user.file.metadata.sync.interval=0 \
+#  -Dalluxio.user.file.writetype.default=CACHE_THROUGH \
+#  -Dalluxio.user.file.delete.unchecked=true

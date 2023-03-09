@@ -1,2 +1,3 @@
 org.apache.livy.repl.utility.HelpUtility
 org.apache.livy.repl.utility.FsUtility
+org.apache.livy.repl.utility.NotebookUtility

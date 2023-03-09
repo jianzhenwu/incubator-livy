@@ -22,7 +22,7 @@ import java.util
 import scala.collection.JavaConverters.mutableMapAsJavaMapConverter
 import scala.collection.mutable
 
-import com.shopee.livy.AlluxioConfProcessor.{ALLUXIO_FUSE_JAVA_OPTS, ALLUXIO_JAVA_OPTS, SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED, SPARK_LIVY_ALLUXIO_HOME}
+import com.shopee.livy.AlluxioConfProcessor.{SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED}
 import org.scalatest.FunSpecLike
 import org.scalatra.test.scalatest.ScalatraSuite
 
@@ -34,46 +34,13 @@ class AlluxioConfProcessorSpec extends ScalatraSuite with FunSpecLike {
     it("should contain alluxio package in spark archive") {
       val appConf = mutable.HashMap[String, String](
         SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true",
-        SPARK_LIVY_ALLUXIO_ARCHIVE -> "/user/alluxio-archive.zip",
-        SPARK_LIVY_ALLUXIO_HOME -> "./alluxio-archive")
+        SPARK_LIVY_ALLUXIO_ARCHIVE -> "/user/alluxio-archive.zip")
       val context = ApplicationEnvContext(new util.HashMap[String, String](),
         appConf.asJava)
       val processor = new AlluxioConfProcessor()
       processor.process(context)
 
       assert(appConf("spark.archives") == "/user/alluxio-archive.zip")
-      assert(appConf("spark.yarn.appMasterEnv.ALLUXIO_FUSE_HOME") == "./alluxio-archive")
-    }
-
-    it ("should overwrite alluxio fuse java opts in app env") {
-      val appConf = mutable.HashMap[String, String](
-        SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true",
-        SPARK_LIVY_ALLUXIO_ARCHIVE -> "/user/alluxio-archive.zip",
-        ALLUXIO_FUSE_JAVA_OPTS ->
-            """
-              |  -Dalluxio.fuse.user.group.translation.enabled=false
-              |  -Dalluxio.security.login.username=testUser
-              |  -Dalluxio.security.login.rpc-password=testPwd
-              |  -Dalluxio.user.file.metadata.sync.interval=0
-              |  -Dalluxio.user.file.writetype.default=CACHE_THROUGH
-              |  -Dalluxio.user.file.delete.unchecked=true
-              |""".stripMargin,
-        ALLUXIO_JAVA_OPTS ->
-            """
-              |  -Dalluxio.master.embedded.journal.addresses=
-              |  ip-10-128-136-133.idata-server.shopee.io:19200,
-              |  ip-10-128-157-227.idata-server.shopee.io:19200,
-              |  ip-10-128-136-134.idata-server.shopee.io:19200
-              |""".stripMargin)
-
-      val context = ApplicationEnvContext(new util.HashMap[String, String](),
-        appConf.asJava)
-      val processor = new AlluxioConfProcessor()
-      processor.process(context)
-
-      assert(appConf("spark.yarn.appMasterEnv.ALLUXIO_FUSE_JAVA_OPTS") ==
-          appConf(ALLUXIO_FUSE_JAVA_OPTS))
-      assert(appConf("spark.yarn.appMasterEnv.ALLUXIO_JAVA_OPTS") == appConf(ALLUXIO_JAVA_OPTS))
     }
   }
 }
