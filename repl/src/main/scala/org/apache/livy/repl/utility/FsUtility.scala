@@ -30,6 +30,7 @@ import org.apache.hadoop.fs.shell.{Command, CommandFactory, FsCommand}
 import org.apache.hadoop.security.UserGroupInformation
 import org.apache.hadoop.tools.TableListing
 
+import org.apache.livy.Logging
 import org.apache.livy.Utils.usingResource
 
 object FsUtility {
@@ -42,7 +43,7 @@ object FsUtility {
   }
 }
 
-class FsUtility extends Utility {
+class FsUtility extends Utility with Logging {
 
   import FsUtility._
 
@@ -155,6 +156,7 @@ class FsUtility extends Utility {
       exitCode = instance.run(argv: _*)
     } catch {
       case ie: IllegalArgumentException =>
+        error(s"Failed to execute $cmdName $options", ie)
         if (ie.getMessage == null) {
           displayError(err, "Null exception message")
         } else {
@@ -164,9 +166,12 @@ class FsUtility extends Utility {
           printInstanceUsage(instance);
         }
 
-      case _: Exception =>
+      case e: Exception =>
         // instance.run catches IOE, so something is REALLY wrong if here.
-        displayError(err, "Fatal internal error");
+        error(s"Failed to execute $cmdName $options", e)
+        displayError(err,
+          s"""$cmdName: Fatal internal error
+             |$e""".stripMargin);
     }
     exitCode
   }
@@ -182,7 +187,7 @@ class FsUtility extends Utility {
   private def getUsagePrefix = s"Usage: $USAGE_PREFIX"
 
   private def displayError(err: OutputStream, message: String): Unit = {
-    message.split("\n").foreach(line => err.write(s"$line".getBytes))
+    err.write(s"$message".getBytes)
   }
 
   private def printUsage(out: OutputStream, cmd: Option[String]): Unit = {
