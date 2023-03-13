@@ -22,7 +22,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.shopee.livy.SdiProjectConfProcessor._
-import com.shopee.livy.auth.DmpAuthentication
+import com.shopee.livy.auth.{AdditionalProperties, DmpAuthentication}
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
 import org.scalatest.FunSpecLike
@@ -44,8 +44,14 @@ class SdiProjectConfProcessorSpec extends ScalatraSuite
   describe("SdiProjectConfProcessorSpec") {
 
     it("should put password when request user is project") {
-      when(mockDmpAuthentication.getPassword(anyString())).thenReturn("password")
-      when(mockDmpAuthentication.belongProject(anyString(), anyString())).thenReturn(true)
+      val additionalProperties = Map(
+        "livy" -> AdditionalProperties("livy", "livy", "111111", "stag_livy", "000000")
+      )
+
+      when(mockDmpAuthentication.belongProject(anyString(), anyString()))
+        .thenReturn(true)
+      when(mockDmpAuthentication.getAdditionalProperties(Seq(anyString())))
+        .thenReturn(additionalProperties)
 
       val appConf = mutable.Map[String, String](
         SPARK_SHOPEE_DATA_INFRA_PROJECT -> "livy",
@@ -55,12 +61,21 @@ class SdiProjectConfProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD) should be ("password")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT) should be ("livy")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_ACCOUNT) should be ("livy")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD) should be ("111111")
     }
 
     it("should put project password when request user is not project") {
-      when(mockDmpAuthentication.getPassword(anyString())).thenReturn("password")
-      when(mockDmpAuthentication.belongProject(anyString(), anyString())).thenReturn(true)
+      val additionalProperties = Map(
+        "livy" -> AdditionalProperties("livy", "livy", "111111", "stag_livy", "000000")
+      )
+
+      when(mockDmpAuthentication.belongProject(anyString(), anyString()))
+        .thenReturn(true)
+      when(mockDmpAuthentication.getAdditionalProperties(Seq(anyString())))
+        .thenReturn(additionalProperties)
+
 
       val appConf = mutable.Map[String, String](
         SPARK_SHOPEE_DATA_INFRA_PROJECT -> "livy",
@@ -70,7 +85,9 @@ class SdiProjectConfProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
       processor.process(context)
 
-      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD) should be ("password")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT) should be ("livy")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_ACCOUNT) should be ("livy")
+      appConf(SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD) should be ("111111")
     }
 
     it("should not put project password when request user does not belong to project") {

@@ -22,7 +22,6 @@ import scala.reflect.ClassTag
 import scala.util.{Failure, Success, Try}
 
 import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
-import com.google.common.base.Throwables
 import com.shopee.livy.auth.DmpAuthentication._
 import com.shopee.livy.utils.HttpUtils
 import okhttp3.{HttpUrl, MediaType, RequestBody}
@@ -47,10 +46,10 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     val url = new HttpUrl.Builder()
       .scheme("https")
       .host(serverHost)
-      .encodedPath(s"$passwordPath$hadoopAccount")
+      .encodedPath(s"$HADOOP_ACCOUNT_PASSWORD_PATH$hadoopAccount")
       .build()
-    val response: Try[HadoopAccountResponse] =
-      HttpUtils.doGet[HadoopAccountResponse](url, headers)
+    val response: Try[HadoopPasswordResponse] =
+      HttpUtils.doGet[HadoopPasswordResponse](url, headers)
 
     handleResponse[String](response)(response.get.data)
   }
@@ -60,7 +59,7 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
     val url = new HttpUrl.Builder()
       .scheme("https")
       .host(serverHost)
-      .encodedPath(s"$validatePath")
+      .encodedPath(s"$HADOOP_ACCOUNT_VALIDATE_PATH")
       .build()
     val body = RequestBody.create(
       objectMapper.writeValueAsString(userInfo),
@@ -74,18 +73,39 @@ class DmpAuthentication(serverToken: String, serverHost: String) extends Logging
   /**
    * Returns whether the hadoop account belong to the project.
    */
-  def belongProject(hadoopAccount: String, project: String): Boolean = {
+  def belongProject(hadoopAccount: String, projectCode: String): Boolean = {
     val url = new HttpUrl.Builder()
       .scheme("https")
       .host(serverHost)
-      .encodedPath(s"$allProjectsPath")
+      .encodedPath(s"$HADOOP_ACCOUNT_ALL_PROJECTS_PATH")
       .addQueryParameter("hadoopAccount", hadoopAccount)
       .build()
     val response: Try[AllProjectsResponse] =
       HttpUtils.doGet[AllProjectsResponse](url, headers)
 
     handleResponse[Boolean](response) {
-      response.get.data.exists(_.projectCode.equalsIgnoreCase(project))
+      response.get.data.exists(_.projectCode.equalsIgnoreCase(projectCode))
+    }
+  }
+
+  /**
+   * Returns a map of project code to [[AdditionalProperties]].
+   */
+  def getAdditionalProperties(projectCodes: Seq[String]): Map[String, AdditionalProperties] = {
+    val body = RequestBody.create(
+      objectMapper.writeValueAsString(projectCodes),
+      MediaType.parse("application/json"))
+    val url = new HttpUrl.Builder()
+      .scheme("https")
+      .host(serverHost)
+      .encodedPath(s"$PROJECT_ACCOUNT_PASSWORD_PATH")
+      .build()
+
+    val response: Try[ProjectPasswordResponse] =
+      HttpUtils.doPost[ProjectPasswordResponse](url, headers, body)
+
+    handleResponse[Map[String, AdditionalProperties]](response) {
+      response.get.data
     }
   }
 
@@ -105,11 +125,16 @@ object DmpAuthentication {
 
   private val SERVER_HOST = "LIVY_SERVER_AUTH_SERVER_HOST"
 
-  private val passwordPath = "/ram/api/v1/developer/sensitive/hadoopAccount/pwd/"
+  private val HADOOP_ACCOUNT_PASSWORD_PATH =
+    "/ram/api/v1/developer/sensitive/hadoopAccount/pwd/"
 
-  private val validatePath = "/ram/api/v1/developer/sensitive/hadoopAccount/validate"
+  private val HADOOP_ACCOUNT_VALIDATE_PATH =
+    "/ram/api/v1/developer/sensitive/hadoopAccount/validate"
 
-  private val allProjectsPath =
+  private val PROJECT_ACCOUNT_PASSWORD_PATH =
+    "/ram/api/v1/developer/sensitive/projectAccount/pwd"
+
+  private val HADOOP_ACCOUNT_ALL_PROJECTS_PATH =
     "/ram/api/v1/developer/user/identity/hadoop/account/allProjects"
 
   private val DMP_AUTHENTICATION_CONSTRUCTOR_LOCK = new Object()
@@ -130,17 +155,29 @@ object DmpAuthentication {
 
 case class HadoopAccount(account: String, password: String)
 
-case class HadoopAccountResponse(code: Int, message: String, data: String)
+case class HadoopPasswordResponse(code: Int, message: String, data: String)
 
 case class ValidateResponse(code: Int, message: String, data: Boolean)
 
 case class AllProjectsResponse(code: Int, message: String, data: List[ProjectInfo])
 
+case class ProjectPasswordResponse(
+    code: Int,
+    message: String,
+    data: Map[String, AdditionalProperties])
+
 case class ProjectInfo(
-     identityName: String,
-     projectCode: String,
-     hadoopAccount: String,
-     email: String)
+    identityName: String,
+    projectCode: String,
+    hadoopAccount: String,
+    email: String)
+
+case class AdditionalProperties(
+    projectCode: String,
+    prodServiceAccount: String,
+    prodServicePassword: String,
+    stagServiceAccount: String,
+    stagServicePassword: String)
 
 class AuthClientException(message: String, cause: Throwable = null)
   extends RuntimeException(message, cause)
