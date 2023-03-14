@@ -42,5 +42,17 @@ class AlluxioConfProcessorSpec extends ScalatraSuite with FunSpecLike {
 
       assert(appConf("spark.archives") == "/user/alluxio-archive.zip")
     }
+
+    it("should add alluxio memory into spark driver memoryOverhead") {
+      val appConf = mutable.HashMap[String, String](
+        SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true",
+        SPARK_LIVY_ALLUXIO_ARCHIVE -> "/user/alluxio-archive.zip",
+        "spark.driver.memoryOverhead" -> "1g")
+      val context = ApplicationEnvContext(new util.HashMap[String, String](),
+        appConf.asJava)
+      val processor = new AlluxioConfProcessor()
+      processor.process(context)
+      assert(appConf("spark.driver.memoryOverhead") == "2048M")
+    }
   }
 }
