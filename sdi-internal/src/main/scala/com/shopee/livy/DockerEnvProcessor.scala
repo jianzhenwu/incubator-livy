@@ -55,7 +55,6 @@ class DockerEnvProcessor extends ApplicationEnvProcessor with Logging {
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_TYPE", "docker")
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_IMAGE", dockerImage)
       appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_MOUNTS", dockerMounts)
-      appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_DEVICES", "/dev/fuse")
     }
   }
 }

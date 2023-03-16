@@ -61,7 +61,6 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
       return
     }
 
-    appConf.put(SPARK_LIVY_ALLUXIO_ENV_ENABLED, "true")
     val configuration = new Configuration()
     configuration.set("fs.s3a.impl.disable.cache", "true")
 

@@ -179,14 +179,5 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       assert(appConf("spark.yarn.appMasterEnv.NOTEBOOK_ALLUXIO_WORKSPACE_URI") ==
           "/s3/uat/spark-auxiliary/sg-spark-auxiliary-notebook/workspaces/aaa")
     }
-
-    it ("should enable alluxio env") {
-      val appConf = mutable.HashMap[String, String](
-        SPARK_LIVY_IPYNB_ENV_ENABLED -> "true"
-      )
-      val context = ApplicationEnvContext(env.asJava, appConf.asJava)
-      processor.process(context)
-      assert("true".equalsIgnoreCase(appConf(SPARK_LIVY_ALLUXIO_ENV_ENABLED)))
-    }
   }
 }

@@ -53,6 +53,7 @@ class AlluxioConfProcessor extends ApplicationEnvProcessor with Logging {
         appConf.getOrDefault(ALLUXIO_FUSE_JAVA_OPTS, ""))
       appConf.put("spark.yarn.appMasterEnv.ALLUXIO_JAVA_OPTS",
         appConf.getOrDefault(ALLUXIO_JAVA_OPTS, ""))
+      appConf.put("spark.yarn.appMasterEnv.YARN_CONTAINER_RUNTIME_DOCKER_DEVICES", "/dev/fuse")
       allocateAlluxioMemInDriver(appConf)
     }
 

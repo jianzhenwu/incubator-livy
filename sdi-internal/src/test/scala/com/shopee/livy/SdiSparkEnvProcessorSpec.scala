@@ -22,7 +22,7 @@ import java.nio.file.Files
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 
-import com.shopee.livy.AlluxioConfProcessor.SPARK_LIVY_ALLUXIO_ARCHIVE
+import com.shopee.livy.AlluxioConfProcessor.{SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED}
 import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
 import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
@@ -121,7 +121,8 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       "spark.livy.spark_major_version" -> "3",
       sdiEnvPrefix + "PYSPARK_DRIVER_PYTHON" -> "/usr/share/python3",
       sdiEnvPrefix + "TEST_ENV" -> "amVal",
-      SPARK_LIVY_STREAMING_SQL_ENABLED -> "true"
+      SPARK_LIVY_STREAMING_SQL_ENABLED -> "true",
+      SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true"
     )
 
     val context = ApplicationEnvContext(env.asJava, appConf.asJava,
