@@ -30,6 +30,7 @@ import scala.concurrent.TimeoutException
 import scala.concurrent.duration.Duration
 
 import org.apache.commons.codec.binary.Base64
+import org.apache.commons.lang3.StringUtils
 
 object Utils {
   def getPropertiesFromFile(file: File): Map[String, String] = {
@@ -126,7 +127,25 @@ object Utils {
     Base64.encodeBase64String(secretBytes)
   }
 
-  def splitSemiColon(line: String): util.List[String] = {
+  def processLine(line: String): util.List[String] = {
+    val sqlList = new util.ArrayList[String]()
+    val command = new StringBuilder()
+    splitSemiColon(line).asScala
+      .filter(StringUtils.isNotBlank)
+      .foreach(sql => {
+        // Handle special escape characters in sql string (eg SET key='v1\\;v2\\;v3\\';).
+        if (StringUtils.endsWith(sql, "\\")) {
+          command.append(StringUtils.chop(sql) + ";")
+        } else {
+          command.append(sql)
+          sqlList.add(command.toString())
+          command.setLength(0)
+      }
+    })
+    sqlList
+  }
+
+  private def splitSemiColon(line: String): util.List[String] = {
     var insideSingleQuote = false
     var insideDoubleQuote = false
     var insideSimpleComment = false

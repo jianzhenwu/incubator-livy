@@ -178,11 +178,8 @@ public class SparkSqlRunner extends AbstractInteractiveRunner {
   }
 
   private void executeSqlBuffer(String line) {
-    List<String> sqls = Utils.splitSemiColon(line);
+    List<String> sqls = Utils.processLine(line);
     for (String sql : sqls) {
-      if (StringUtils.isBlank(sql)) {
-        continue;
-      }
       StatementResponse statementResponse = runStatement(sql);
       handleStatementResponse(statementResponse);
     }

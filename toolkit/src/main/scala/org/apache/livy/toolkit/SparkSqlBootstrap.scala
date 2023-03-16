@@ -146,7 +146,7 @@ class SparkSqlBootstrap(spark: SparkSession, csvWriter: CsvWriter) extends Loggi
       }
     } finally if (reader != null) reader.close()
     if (buf.nonEmpty) {
-      sqlList.addAll(Utils.splitSemiColon(buf.toString))
+      sqlList.addAll(Utils.processLine(buf.toString))
       buf.setLength(0)
     }
     sqlList

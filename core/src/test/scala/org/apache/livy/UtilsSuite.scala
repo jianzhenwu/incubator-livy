@@ -28,7 +28,7 @@ class UtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
       "show databases;\n" +
       "-- show tables;\n" +
       "show tables;"
-    val sql: util.List[String] = Utils.splitSemiColon(sqlBuf)
+    val sql: util.List[String] = Utils.processLine(sqlBuf)
     assert(sql.size() == 2)
     assert(sql.get(0).equals("-- show databases;\nshow databases"))
     assert(sql.get(1).equals("\n-- show tables;\nshow tables"))
@@ -40,7 +40,7 @@ class UtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
       "show databases;\n" +
       "/*show tables*/\n" +
       "show tables;"
-    val sql = Utils.splitSemiColon(sqlBuf)
+    val sql = Utils.processLine(sqlBuf)
     assert(sql.size() == 2)
     assert(sql.get(0).equals("/*show databases\n" +
       "*/\n" +
@@ -54,7 +54,7 @@ class UtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
       "-- 2\n" +
       "3 as b;\n" +
       "/*\n4\n*/"
-    val sql = Utils.splitSemiColon(sqlBuf)
+    val sql = Utils.processLine(sqlBuf)
     assert(sql.size() == 1)
     assert(sql.get(0).equals("select 1 as a,\n " +
     "-- 2\n" +
@@ -64,7 +64,7 @@ class UtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
       "-- 2\n" +
       "3 as b;\n" +
       "--4\n"
-    val sql1 = Utils.splitSemiColon(sqlBuf1)
+    val sql1 = Utils.processLine(sqlBuf1)
     assert(sql1.size() == 1)
     assert(sql1.get(0).equals("select 1 as a,\n " +
       "-- 2\n" +
@@ -73,20 +73,26 @@ class UtilsSuite extends FunSuite with LivyBaseUnitTestSuite {
 
   test("should return empty when simple sql comment line") {
     val sqlBuf = "-- show databases;\n"
-    val sql = Utils.splitSemiColon(sqlBuf)
+    val sql = Utils.processLine(sqlBuf)
     assert(sql.size() == 0)
 
     val sqlBuf1 = "/* show databases;*/\n"
-    val sql1 = Utils.splitSemiColon(sqlBuf1)
+    val sql1 = Utils.processLine(sqlBuf1)
     assert(sql1.size() == 0)
   }
 
   test("should return complete sql when comment end with semicolon") {
     val sqlBuf = "select 1, -- abc;\n" +
       "2"
-    val sql = Utils.splitSemiColon(sqlBuf)
+    val sql = Utils.processLine(sqlBuf)
     assert(sql.size() == 1)
     assert(sql.get(0).equals("select 1, -- abc;\n2"))
   }
 
+  test("should process sql string with escape character and semicolon") {
+    val sqlBuf = "SET key1=`v1:v2\\;v3:v4\\;v5:v6`;"
+    val sql = Utils.processLine(sqlBuf)
+    assert(sql.size() == 1)
+    assert(sql.get(0).equals("SET key1=`v1:v2;v3:v4;v5:v6`"))
+  }
 }
