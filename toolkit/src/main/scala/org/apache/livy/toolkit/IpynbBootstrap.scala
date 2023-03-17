@@ -32,6 +32,7 @@ import org.apache.commons.cli.MissingArgumentException
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.SparkConf
+import org.apache.spark.deploy.SparkHadoopUtilAdapter
 
 import org.apache.livy.{EOLUtils, Logging}
 import org.apache.livy.jupyter.JupyterUtil
@@ -71,7 +72,7 @@ object IpynbBootstrap{
 
   def newIpynbBootstrap(): IpynbBootstrap = {
     val sparkConf = new SparkConf()
-    val hadoopConf = new Configuration()
+    val hadoopConf = SparkHadoopUtilAdapter.newConfiguration(sparkConf)
 
     new IpynbBootstrap(sparkConf, hadoopConf)
   }
