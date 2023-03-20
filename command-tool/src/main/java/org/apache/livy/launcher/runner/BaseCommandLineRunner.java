@@ -108,7 +108,6 @@ public abstract class BaseCommandLineRunner {
 
   protected void close() {
     try {
-      cleanSessionDir();
       this.fileSystem.close();
     } catch (IOException io) {
       logger.error("Fail to close FileSystem.");

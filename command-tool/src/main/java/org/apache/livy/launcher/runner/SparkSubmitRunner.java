@@ -145,6 +145,11 @@ public class SparkSubmitRunner extends BaseCommandLineRunner {
             e.getCause());
       }
     }
+    try {
+      this.cleanSessionDir();
+    } catch (Exception e) {
+      logger.warn("Fail to clean session staging directory.");
+    }
     return exitCode;
   }
 

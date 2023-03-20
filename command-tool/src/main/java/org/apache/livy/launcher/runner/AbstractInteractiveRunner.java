@@ -151,6 +151,7 @@ public abstract class AbstractInteractiveRunner extends BaseCommandLineRunner {
 
         handleLine(line);
       }
+      this.cleanSessionDir();
     } catch (IOException e) {
       throw new LivyLauncherException(LauncherExitCode.others, e.getMessage(),
           e.getCause());
