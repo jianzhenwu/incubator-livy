@@ -16,7 +16,6 @@
  */
 package com.shopee.livy.auth
 
-import com.fasterxml.jackson.databind.{DeserializationFeature, ObjectMapper}
 import com.shopee.livy.utils.HttpUtils
 import okhttp3._
 import org.mockito.Matchers.any
@@ -31,10 +30,6 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
   private var httpUrl: HttpUrl = null
   private val hadoopAccount = "spark"
   private val password = "123456"
-
-  private val objectMapper: ObjectMapper = new ObjectMapper()
-    .registerModule(com.fasterxml.jackson.module.scala.DefaultScalaModule)
-    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
 
   private var dmpAuthentication: DmpAuthentication = null
 
@@ -107,46 +102,6 @@ class DmpAuthenticationSpec extends FunSuite with BeforeAndAfterAll {
     when(httpClient.newCall(any())).thenReturn(remoteCall)
     when(remoteCall.execute()).thenReturn(mockResponse(request2, responseBody2))
     assert(dmpAuthentication.validate(hadoopAccount, password))
-  }
-
-  test("get additional properties for project code") {
-    val body = RequestBody.create(
-      objectMapper.writeValueAsString(Seq(hadoopAccount)),
-      MediaType.parse("application/json"))
-
-    val request = new Request.Builder()
-      .method("POST", body)
-      .url(httpUrl)
-      .build()
-    val responseBody =
-      """{
-        |  "code": 200,
-        |  "message": "SUCCESS",
-        |  "data": {
-        |    "livy": {
-        |      "projectCode": "livy",
-        |      "prodServiceAccount": "livy",
-        |      "prodServicePassword": "111111",
-        |      "stagServiceAccount": "staging_livy",
-        |      "stagServicePassword": "000000"
-        |    }
-        |  },
-        |  "errorMsg": null
-        |}""".stripMargin
-
-    when(httpClient.newCall(any())).thenReturn(remoteCall)
-    when(remoteCall.execute()).thenReturn(mockResponse(request, responseBody))
-    val additionalPropertiesMap = dmpAuthentication.getAdditionalProperties(Seq(hadoopAccount))
-
-    assert(additionalPropertiesMap.size == 1)
-
-    additionalPropertiesMap.values.foreach(p => {
-      assert(p.projectCode.equals("livy"))
-      assert(p.prodServiceAccount.equals("livy"))
-      assert(p.prodServicePassword.equals("111111"))
-      assert(p.stagServiceAccount.equals("staging_livy"))
-      assert(p.stagServicePassword.equals("000000"))
-    })
   }
 
   private def mockResponse(request: Request, responseBody: String): Response = {

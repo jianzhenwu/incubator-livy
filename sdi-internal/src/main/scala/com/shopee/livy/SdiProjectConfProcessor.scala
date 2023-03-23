@@ -24,7 +24,6 @@ import org.apache.livy.client.common.ClientConf
 
 object SdiProjectConfProcessor {
   val SPARK_SHOPEE_DATA_INFRA_PROJECT = "spark.shopee.datainfra.project"
-  val SPARK_SHOPEE_DATA_INFRA_PROJECT_ACCOUNT = "spark.shopee.datainfra.project.account"
   val SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD = "spark.shopee.datainfra.project.password"
 
   // For testing
@@ -46,15 +45,12 @@ class SdiProjectConfProcessor extends ApplicationEnvProcessor with Logging {
     val appConf = applicationEnvContext.appConf
 
     val username = appConf.get(ClientConf.LIVY_APPLICATION_HADOOP_USER_NAME_KEY)
-    val projectCode = appConf.get(SPARK_SHOPEE_DATA_INFRA_PROJECT)
-    if (projectCode != null &&
-      (username.equals(projectCode) || dmpAuthentication.belongProject(username, projectCode))) {
-      val additionalPropertiesMap = dmpAuthentication.getAdditionalProperties(Seq(projectCode))
-
-      additionalPropertiesMap.values.foreach(properties => {
-        appConf.put(SPARK_SHOPEE_DATA_INFRA_PROJECT_ACCOUNT, properties.prodServiceAccount)
-        appConf.put(SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD, properties.prodServicePassword)
-      })
+    val project = appConf.get(SPARK_SHOPEE_DATA_INFRA_PROJECT)
+    if (project != null &&
+      (username.equals(project) || dmpAuthentication.belongProject(username, project))) {
+      info(s"Prepare add $SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD to spark conf.")
+      appConf.put(
+        SPARK_SHOPEE_DATA_INFRA_PROJECT_PASSWORD, dmpAuthentication.getPassword(project))
     }
   }
 }
