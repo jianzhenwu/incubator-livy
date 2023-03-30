@@ -48,7 +48,7 @@ public class BatchRestClient extends AbstractRestClient {
 
     try {
       BatchSessionViewResponse sessionView =
-          conn.post(batchOptions, BatchSessionViewResponse.class, "/");
+          conn.post(batchOptions, BatchSessionViewResponse.class, "");
       this.sessionId = sessionView.getId();
       return sessionView;
     } catch (Exception e) {
