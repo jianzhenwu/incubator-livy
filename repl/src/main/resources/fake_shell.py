@@ -432,8 +432,7 @@ def magic_table(name):
     try:
         value = global_dict[name]
     except KeyError:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     if not isinstance(value, (list, tuple)):
         value = [value]
@@ -475,7 +474,7 @@ def magic_table(name):
                     else:
                         exc_type = Exception
                         exc_value = 'table rows have different types'
-                        return execute_reply_error(exc_type, exc_value, None)
+                        raise ExecutionError((exc_type, exc_value, None))
 
             cols.append(col)
 
@@ -493,8 +492,7 @@ def magic_json(name):
     try:
         value = global_dict[name]
     except KeyError:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     return {
         'application/json': value,
@@ -513,8 +511,7 @@ def magic_matplot(name):
             encode = encode.decode()
 
     except:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     return {
         'image/png': encode,
@@ -532,8 +529,7 @@ def magic_plotly(name):
             encode = encode.decode()
 
     except:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     return {
         'image/png': encode,
@@ -554,8 +550,7 @@ def magic_ggplot(name):
                 encode = encode.decode()
 
     except:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     return {
         'image/png': encode,
@@ -576,8 +571,7 @@ def magic_utils(command):
         result = eval("utility.%s" % commandParts[1])
 
     except:
-        exc_type, exc_value, tb = sys.exc_info()
-        return execute_reply_error(exc_type, exc_value, None)
+        raise ExecutionError(sys.exc_info())
 
     return {
         'text/plain': result,

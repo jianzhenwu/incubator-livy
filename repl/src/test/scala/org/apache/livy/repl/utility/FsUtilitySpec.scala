@@ -104,17 +104,12 @@ class FsUtilitySpec extends FunSpec with BeforeAndAfter {
     }
 
     it("should throw exception with invalid command") {
-      var output = utils.help("other")
-      assert(output ==
-        """%utils fs.other:  Unknown command
-          |Usage: %utils fs.help([cmd ...])
-          |""".stripMargin)
-
-      output = utils.help("new")
-      assert(output ==
-        """%utils fs.new:  Unknown command
-          |Usage: %utils fs.help([cmd ...])
-          |""".stripMargin)
+      assertThrows[ExecuteCommandException] {
+        utils.help("other")
+      }
+      assertThrows[ExecuteCommandException] {
+        utils.help("new")
+      }
     }
   }
 }

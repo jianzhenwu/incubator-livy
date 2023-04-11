@@ -128,8 +128,8 @@ class FsUtility extends Utility with Logging {
       runInternal(cmdName, options, out, err) match {
         case 0 => out.toString
         case _ =>
-          s"""${err.toString}
-             |${out.toString}""".stripMargin
+          val msg = s"${err.toString}\n${out.toString}"
+          throw ExecuteCommandException(msg)
       }
     }
   }
@@ -352,3 +352,5 @@ class FsUtility extends Utility with Logging {
     }
   }
 }
+
+case class ExecuteCommandException(message: String) extends RuntimeException(message)
