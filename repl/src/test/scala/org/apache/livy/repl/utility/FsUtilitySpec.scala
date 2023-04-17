@@ -111,5 +111,55 @@ class FsUtilitySpec extends FunSpec with BeforeAndAfter {
         utils.help("new")
       }
     }
+
+    it("should finds all files that match the specified expression") {
+      var output = utils.find(s"${tempDir.getAbsolutePath} -name ${tempFiles.head.getName}")
+      assert(output ==
+        s"""${tempFiles.head.getAbsolutePath}
+           |""".stripMargin)
+
+      output = utils.find(s"${tempDir.getAbsolutePath} -name ${tempFiles(1).getName}")
+      assert(output ==
+        s"""${tempFiles(1).getAbsolutePath}
+           |""".stripMargin)
+    }
+
+    it("should checksum information for files") {
+      val output = utils.checksum(s"${tempFiles.head.getAbsolutePath}")
+      assert(output ==
+        s"""${tempFiles.head.getAbsolutePath}\tNONE\t
+           |""".stripMargin)
+    }
+
+    it("should displays the ACLs of files and directories") {
+      val output = utils.getfacl(s"$tempDir")
+      assert(output.contains(
+        """user::rwx
+          |group::r-x
+          |other::r-x""".stripMargin))
+    }
+
+    it("should change the permissions of files") {
+      var output = utils.getfacl(s"$tempDir")
+      assert(output.contains(
+        """user::rwx
+          |group::r-x
+          |other::r-x""".stripMargin))
+
+      utils.chmod(s"-R 777 $tempDir")
+      output = utils.getfacl(s"$tempDir")
+      assert(output.contains(
+        """user::rwx
+          |group::rwx
+          |other::rwx""".stripMargin))
+    }
+
+    it("should create a file of zero length") {
+      val newFile = s"$tempDir/newFile"
+      utils.touchz(newFile)
+      val output = utils.ls(s"$tempDir")
+      assert(output.contains("Found 3 items"))
+      assert(output.contains(newFile))
+    }
   }
 }

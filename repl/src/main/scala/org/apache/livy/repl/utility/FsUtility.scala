@@ -121,6 +121,90 @@ class FsUtility extends Utility with Logging {
     run("du", input)
   }
 
+  def df(input: String): String = {
+    run("df", input)
+  }
+
+  def find(input: String): String = {
+    run("find", input)
+  }
+
+  def appendToFile(input: String): Unit = {
+    run("appendToFile", input)
+  }
+
+  def checksum(input: String): String = {
+    run("checksum", input)
+  }
+
+  def chgrp(input: String): String = {
+    run("chgrp", input)
+  }
+
+  def chmod(input: String): String = {
+    run("chmod", input)
+  }
+
+  def copyFromLocal(input: String): String = {
+    run("copyFromLocal", input)
+  }
+
+  def copyToLocal(input: String): String = {
+    run("copyToLocal", input)
+  }
+
+  def moveFromLocal(input: String): String = {
+    run("moveFromLocal", input)
+  }
+
+  def moveToLocal(input: String): String = {
+    run("moveToLocal", input)
+  }
+
+  def getmerge(input: String): String = {
+    run("getmerge", input)
+  }
+
+  def getfacl(input: String): String = {
+    run("getfacl", input)
+  }
+
+  def getfattr(input: String): String = {
+    run("getfattr", input)
+  }
+
+  def setfacl(input: String): String = {
+    run("setfacl", input)
+  }
+
+  def setfattr(input: String): String = {
+    run("setfattr", input)
+  }
+
+  def stat(input: String): String = {
+    run("stat", input)
+  }
+
+  def tail(input: String): String = {
+    run("tail", input)
+  }
+
+  def test(input: String): String = {
+    run("test", input)
+  }
+
+  def text(input: String): String = {
+    run("text", input)
+  }
+
+  def touchz(input: String): String = {
+    run("touchz", input)
+  }
+
+  def truncate(input: String): String = {
+    run("truncate", input)
+  }
+
   private def run(cmdName: String, options: String): String = {
     usingResource(List(new ByteArrayOutputStream(), new ByteArrayOutputStream())) { streams =>
       val out = streams.head
