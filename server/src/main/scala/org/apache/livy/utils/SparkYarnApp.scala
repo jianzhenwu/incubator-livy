@@ -228,6 +228,43 @@ class SparkYarnApp private[utils] (
     }
   }
 
+  def searchAppIdFromLog(): Option[String] = {
+    info("Searching appId from log.")
+    val pattern = "application_[0-9]+_[0-9]+".r
+    var applicationId: Option[String] = None
+    log().foreach { line =>
+      if (applicationId.isEmpty) {
+        val matchResult = pattern.findFirstIn(line)
+        matchResult match {
+          case Some(appId) =>
+            applicationId = Some(appId)
+            info(s"Searched $appId from log.")
+          case _ =>
+        }
+      }
+    }
+    applicationId
+  }
+
+  def tryKillAtAppMonitorError(): Unit = synchronized {
+    try {
+      var applicationId: ApplicationId = null
+      if (appIdPromise.isCompleted) {
+        applicationId = appIdPromise.future.value.get.get
+      } else {
+        searchAppIdFromLog().foreach(appId => {
+          applicationId = ApplicationId.fromString(appId)
+        })
+      }
+      if (applicationId != null) {
+        yarnClient.killApplication(applicationId)
+        info(s"Killed ${applicationId.toString} when the application monitor threw an exception.")
+      }
+    } catch {
+      case _: Throwable =>
+    }
+  }
+
   override def kill(): Unit = synchronized {
     killed = true
     if (isRunning) {
@@ -462,11 +499,13 @@ class SparkYarnApp private[utils] (
       case _: InterruptedException =>
         Metrics().incrementCounter(MetricsKey.YARN_APPLICATION_KILLED_COUNT)
         yarnDiagnostics = ArrayBuffer("Session stopped by user.")
+        tryKillAtAppMonitorError()
         changeState(SparkApp.State.KILLED)
       case NonFatal(e) =>
         Metrics().incrementCounter(MetricsKey.YARN_APPLICATION_REFRESH_STATE_FAILED_COUNT)
         error(s"Error whiling refreshing YARN state", e)
         yarnDiagnostics = ArrayBuffer(e.getMessage)
+        tryKillAtAppMonitorError()
         changeState(SparkApp.State.FAILED)
     }
   }
