@@ -119,6 +119,28 @@ class IpynbBoostrapSpec extends FunSpec {
           "%table x\n%json x\n%matplot plt\n%plotly fig\n%ggplot fig")
       }
     }
+
+    it("should execute utils magic") {
+      withBootstrap { ipynbBootstrap =>
+        val sources = Array(
+          "%utils fs.ls('/')"
+        )
+        val (codeType, codeStrings) = ipynbBootstrap.parseCode(sources)
+        assert(codeType === None)
+        assert(codeStrings === "%utils fs.ls('/')")
+      }
+    }
+
+    it("should execute display_html magic") {
+      withBootstrap { ipynbBootstrap =>
+        val sources = Array(
+          "%display_html html"
+        )
+        val (codeType, codeStrings) = ipynbBootstrap.parseCode(sources)
+        assert(codeType === None)
+        assert(codeStrings === "%display_html html")
+      }
+    }
   }
 
   describe("IpynbBootstrap convert %%sql magic to pyspark") {

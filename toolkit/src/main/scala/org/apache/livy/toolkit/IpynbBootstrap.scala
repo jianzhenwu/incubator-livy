@@ -55,7 +55,8 @@ object IpynbBootstrap{
     "%matplot",
     "%plotly",
     "%ggplot",
-    "%utils"
+    "%utils",
+    "%display_html"
   )
 
   def main(args: Array[String]): Unit = {

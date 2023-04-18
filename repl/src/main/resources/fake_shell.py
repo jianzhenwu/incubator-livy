@@ -577,6 +577,24 @@ def magic_utils(command):
         'text/plain': result,
     }
 
+def magic_display_html(name):
+    try:
+        value = global_dict[name]
+        from IPython.core.display import HTML
+        if isinstance(value, HTML):
+            output = value.__html__()
+        elif isinstance(value, str):
+            output = value
+        else:
+            raise ValueError('The type of value is not supported')
+
+    except:
+        raise ExecutionError(sys.exc_info())
+
+    return {
+        'text/html': output,
+    }
+
 def shutdown_request(_content):
     sys.exit()
 
@@ -588,6 +606,7 @@ magic_router = {
     'plotly': magic_plotly,
     'ggplot': magic_ggplot,
     'utils': magic_utils,
+    'display_html': magic_display_html,
 }
 
 msg_type_router = {
