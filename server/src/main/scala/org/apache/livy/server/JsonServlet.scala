@@ -61,6 +61,7 @@ abstract class JsonServlet extends ScalatraServlet with ApiFormats with FutureSu
     case e: JsonParseException => BadRequest(e.getMessage)
     case e: UnrecognizedPropertyException => BadRequest(e.getMessage)
     case e: JsonMappingException => BadRequest(e.getMessage)
+    case e: IllegalArgumentException => BadRequest(e.getMessage)
     case e =>
       SessionServlet.error("internal error", e)
       InternalServerError(e.toString)

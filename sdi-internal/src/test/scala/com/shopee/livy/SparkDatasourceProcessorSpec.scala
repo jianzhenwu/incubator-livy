@@ -27,7 +27,6 @@ import org.scalatra.test.scalatest.ScalatraSuite
 
 import org.apache.livy.{ApplicationEnvContext, LivyConf}
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
-import org.apache.livy.utils.LivyProcessorException
 
 object SparkDatasourceProcessorSpec {
   val SPACE = " "
@@ -145,7 +144,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
 
-      assertThrows[LivyProcessorException] {
+      assertThrows[IllegalArgumentException] {
         processor.process(context)
       }
     }
@@ -247,7 +246,7 @@ class SparkDatasourceProcessorSpec extends ScalatraSuite
         SPARK_SQL_CATALOG_HBASE_IMPL -> "other"
       ) ++ baseAppConf
       val context = ApplicationEnvContext(Collections.emptyMap(), appConf.asJava)
-      val e = the[LivyProcessorException] thrownBy processor.process(context)
+      val e = the[IllegalArgumentException] thrownBy processor.process(context)
       e.getMessage should be (
         "The value of spark.sql.catalog.hbase.impl should be " +
           "one of hive, in-memory, but was other")

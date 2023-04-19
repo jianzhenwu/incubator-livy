@@ -98,14 +98,14 @@ class SparkDatasourceProcessor extends ApplicationEnvProcessor {
       val catalogImplValue = if (datasource.equalsIgnoreCase("clickhouse")) {
         val catalogImplLowerCase = Option(catalogImpl).getOrElse("in-memory").toLowerCase()
         if (!"in-memory".equals(catalogImplLowerCase)) {
-          throw new LivyProcessorException(
+          throw new IllegalArgumentException(
             s"The value of $catalogImplKey should be in-memory, but was $catalogImplLowerCase")
         }
         catalogImplLowerCase
       } else {
         val catalogImplLowerCase = Option(catalogImpl).getOrElse("hive").toLowerCase()
         if (!catalogSet.contains(catalogImplLowerCase)) {
-          throw new LivyProcessorException(
+          throw new IllegalArgumentException(
             s"The value of $catalogImplKey should be one of " +
               s"${catalogSet.mkString(", ")}, but was $catalogImplLowerCase")
         }

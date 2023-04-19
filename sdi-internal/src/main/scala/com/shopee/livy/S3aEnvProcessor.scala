@@ -26,7 +26,6 @@ import com.shopee.livy.utils.IvyUtils.{buildIvySettings, resolveMavenCoordinates
 import org.apache.commons.io.filefilter.PrefixFileFilter
 
 import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
-import org.apache.livy.client.common.ClientConf
 import org.apache.livy.utils.LivyProcessorException
 
 object S3aEnvProcessor {

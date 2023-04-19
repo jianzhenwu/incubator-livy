@@ -247,12 +247,9 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
           val session = try {
             sessionManager.register(createSession(sessionId, request))
           } catch {
-            case iae: IllegalArgumentException =>
+            case e @ (_ : IllegalArgumentException | _ : LivyProcessorException) =>
               deallocateServerQuietly(sessionId)
-              throw iae
-            case pe: LivyProcessorException =>
-              deallocateServerQuietly(sessionId)
-              throw pe
+              throw e
           }
           Metrics().endStoredScope(MetricsKey.REST_SESSION_CREATE_PROCESSING_TIME)
           // Because it may take some time to establish the session, update the last activity

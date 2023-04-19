@@ -61,6 +61,7 @@ class SdiSparkEnvProcessor extends ApplicationEnvProcessor {
     try {
       processorInstances.foreach(_.process(applicationEnvContext))
     } catch {
+      case e @ (_: IllegalArgumentException | _: LivyProcessorException) => throw e
       case e: Exception =>
         throw new LivyProcessorException(e.getMessage, e.getCause)
     }

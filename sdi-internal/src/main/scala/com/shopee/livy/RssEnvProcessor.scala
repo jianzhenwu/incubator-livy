@@ -81,7 +81,8 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
         appConf.putIfAbsent(sdiEnvPrefix + "rssEnabled", "true")
 
         if (sparkMajorVersion < SPARK_RSS_MIN_VERSION) {
-          throw new LivyProcessorException(s"Unsupported Spark version $sparkMajorVersion for RSS.")
+          throw new IllegalArgumentException(
+            s"Unsupported Spark version $sparkMajorVersion for RSS.")
         }
         val masterYarn = appConf.get(ClientConf.LIVY_APPLICATION_MASTER_YARN_ID_KEY)
         if (masterYarn == null) {
@@ -90,17 +91,19 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
         if (!appConf.get(SPARK_RSS_YARN_ALLOWED_MASTER_IDS).split(",")
           .map(_.toLowerCase().trim)
           .contains(masterYarn.toLowerCase())) {
-          throw new LivyProcessorException(s"The master yarn $masterYarn is not allowed for RSS.")
+          throw new IllegalArgumentException(
+            s"The master yarn $masterYarn is not allowed for RSS.")
         }
         val queue = appConf.get(SPARK_YARN_QUEUE)
         if (StringUtils.isBlank(queue)) {
-          throw new LivyProcessorException("The queue must be set by user.")
+          throw new IllegalArgumentException("The queue must be set by user.")
         }
         val yarnCluster = yarnRouterMapping.getCluster(queue)
         appConf.asScala.filter { kv =>
           StringUtils.startsWith(kv._1, RSC_CONF_PREFIX + yarnCluster)
         }.foreach { kv =>
-          appConf.put(StringUtils.substringAfter(kv._1, RSC_CONF_PREFIX + yarnCluster + "."), kv._2)
+          appConf.put(
+            StringUtils.substringAfter(kv._1, RSC_CONF_PREFIX + yarnCluster + "."), kv._2)
         }
         appConf.putAll(defaultConf.asJava)
       })

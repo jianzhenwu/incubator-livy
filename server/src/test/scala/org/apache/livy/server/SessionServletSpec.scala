@@ -639,10 +639,13 @@ class ClusterEnabledSessionServletSpec
       // Deallocate should be called when request is invalid
       post("/mocks/", Map(), headers = headers) {
         new String(bodyBytes).contains("invalid request 203") should be(true)
+        status should be(SC_BAD_REQUEST)
       }
 
+      // Should return 400 bad request response status code if create session failed.
       post("/mocks/204", toJson(Map()), headers = headers) {
         new String(bodyBytes).contains("processor error in request 204") should be(true)
+        status should be(SC_INTERNAL_SERVER_ERROR)
       }
 
       // Deallocate should be called when too many creating session
