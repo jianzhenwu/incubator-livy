@@ -106,6 +106,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
       .set(SPARK_PREVIEW_QUEUES_SUFFIXES, "-dev")
+    livyConf.refreshCache()
 
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, None, queue, livyConf)
     assert(sparkVersion.get == "v3.preview")
@@ -120,6 +121,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
       .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
+    livyConf.refreshCache()
 
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, None, queue, livyConf)
     assert(sparkVersion.get == "v3")
@@ -135,6 +137,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_STABLE_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
 
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, None, queue, livyConf)
     assert(sparkVersion.get == "v3")
@@ -150,6 +153,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_PREVIEW_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
 
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, None, queue, livyConf)
     assert(sparkVersion.get == "v3.preview")
@@ -165,6 +169,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.stale", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.stale", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_STALE_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, None, queue, livyConf)
     assert(sparkVersion.get == "v3.stale")
   }
@@ -179,6 +184,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.stale", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.stale", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_STABLE_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, Some(STALE), queue,
       livyConf)
     assert(sparkVersion.get == "v3.stale")
@@ -194,6 +200,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.stale", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.stale", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_PREVIEW_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, Some(STABLE), queue,
       livyConf)
     assert(sparkVersion.get == "v3")
@@ -209,6 +216,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3.preview", "/usr/share/spark-3.2")
       .set("livy.server.spark-conf-dir.v3.preview", "/etc/spark-3.2")
       .set(LivyConf.SPARK_VERSION_EDITION_STALE_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
     val sparkVersion = Session.reqSparkVersionAndEdition(reqSparkVersion, Some(PREVIEW), queue,
       livyConf)
     assert(sparkVersion.get == "v3.preview")
@@ -225,6 +233,7 @@ class SessionSpec extends FunSuite with LivyBaseUnitTestSuite {
       .set("livy.server.spark-home.v3", "/usr/share/spark-3.1")
       .set("livy.server.spark-conf-dir.v3", "/etc/spark-3.1")
       .set(LivyConf.SPARK_VERSION_EDITION_STALE_QUEUES.key, "queue-dev")
+    livyConf.refreshCache()
 
     val v1 = Session.mappingSparkAliasVersion(Some("v2"), Some("queue_a"), livyConf)
     assert(v1.get == "v2")

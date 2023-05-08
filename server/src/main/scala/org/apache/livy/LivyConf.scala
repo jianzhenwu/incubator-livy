@@ -497,6 +497,12 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
     sparkAliasVersionMapping = versionMapping.map {
       case (k, v) => k -> v.toMap
     }.toMap
+
+    previewQueues = configToSeq(SPARK_VERSION_EDITION_PREVIEW_QUEUES).toSet
+    stableQueues = configToSeq(SPARK_VERSION_EDITION_STABLE_QUEUES).toSet
+    staleQueues = configToSeq(SPARK_VERSION_EDITION_STALE_QUEUES).toSet
+
+    previewQueuesSuffixes = configToSeq(SPARK_PREVIEW_QUEUES_SUFFIXES).toSet
   }
 
   lazy val masterYarnIds = configToSeq(LIVY_SPARK_MASTER_YARN_IDS)
@@ -531,11 +537,11 @@ class LivyConf(loadDefaults: Boolean) extends ClientConf[LivyConf](null)
     }
     .toMap
 
-  lazy val previewQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_PREVIEW_QUEUES).toSet
-  lazy val stableQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_STABLE_QUEUES).toSet
-  lazy val staleQueues: Set[String] = configToSeq(SPARK_VERSION_EDITION_STALE_QUEUES).toSet
+  private[livy] var previewQueues: Set[String] = _
+  private[livy] var stableQueues: Set[String] = _
+  private[livy] var staleQueues: Set[String] = _
 
-  lazy val previewQueuesSuffixes: Set[String] = configToSeq(SPARK_PREVIEW_QUEUES_SUFFIXES).toSet
+  private[livy] var previewQueuesSuffixes: Set[String] = _
 
   /**
    * Create a LivyConf that loads defaults from the system properties and the classpath.
