@@ -18,7 +18,7 @@
 package org.apache.livy
 
 import java.io.File
-import java.lang.{Boolean => JBoolean, Long => JLong}
+import java.lang.{Boolean => JBoolean, Double => JDouble, Long => JLong}
 import java.net.InetAddress
 import java.nio.file.{Files, Paths}
 import java.util.{Map => JMap}
@@ -43,6 +43,7 @@ object LivyConf {
     def apply(key: String, dflt: Boolean): Entry = Entry(key, dflt: JBoolean)
     def apply(key: String, dflt: Int): Entry = Entry(key, dflt: Integer)
     def apply(key: String, dflt: Long): Entry = Entry(key, dflt: JLong)
+    def apply(key: String, dflt: Double): Entry = Entry(key, dflt: JDouble)
   }
 
   val TEST_MODE = ClientConf.TEST_MODE
@@ -394,6 +395,11 @@ object LivyConf {
 
   val LIVY_SERVER_CONFIG_CENTER_PROVIDER_CLASS =
     Entry("livy.server.config-center-provider.class", null)
+
+  val REQUEST_PERMIT_PER_SECOND =
+    Entry("livy.server.request.permitPerSecond", Double.MaxValue)
+  val REQUEST_PERMIT_ACQUIRE_TIMEOUT =
+    Entry("livy.server.request.permitAcquireTimeout", "1m")
 
   private val HARDCODED_SPARK_FILE_LISTS = Seq(
     SPARK_JARS,

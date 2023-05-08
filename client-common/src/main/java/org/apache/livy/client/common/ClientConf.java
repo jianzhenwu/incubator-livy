@@ -171,6 +171,15 @@ public abstract class ClientConf<T extends ClientConf>
     }
   }
 
+  public double getDouble(ConfEntry e) {
+    String val = get(e, Double.class);
+    if (val != null) {
+      return Double.parseDouble(val);
+    } else {
+      return (Double) e.dflt();
+    }
+  }
+
   public long getTimeAsMs(ConfEntry e) {
     String time = get(e, String.class);
     if (time == null) {

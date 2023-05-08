@@ -19,6 +19,7 @@ package org.apache.livy.server
 
 import java.net.URI
 import java.security.AccessControlException
+import java.util.concurrent.TimeUnit
 import javax.servlet.http.HttpServletRequest
 
 import scala.concurrent._
@@ -28,7 +29,9 @@ import scala.reflect.classTag
 import scala.util.{Failure, Success, Try}
 
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.google.common.util.concurrent.RateLimiter
 import com.squareup.okhttp.{Headers, HttpUrl, OkHttpClient, Request}
+import org.apache.commons.lang3.StringUtils
 import org.scalatra._
 import org.slf4j.MDC
 
@@ -41,7 +44,9 @@ import org.apache.livy.sessions.{Session, SessionManager}
 import org.apache.livy.sessions.Session.RecoveryMetadata
 import org.apache.livy.utils.LivyProcessorException
 
-object SessionServlet extends Logging
+object SessionServlet extends Logging {
+  val X_FORWARDED_FOR: String = "X-Forwarded-For"
+}
 
 /**
  * Base servlet for session management. All helper methods in this class assume that the session
@@ -108,40 +113,67 @@ abstract class SessionServlet[S <: Session, R <: RecoveryMetadata](
     contentType = "application/json"
   }
 
-  get("/") {
-    val from = params.get("from").map(_.toInt).getOrElse(0)
-    val size = params.get("size").map(_.toInt).getOrElse(100)
-    val searchKey = params.get("searchKey")
-    Metrics().startStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
-    if(livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+  private val permitPerSecond = livyConf.getDouble(LivyConf.REQUEST_PERMIT_PER_SECOND)
+  private val permitAcquireTimeout = livyConf.getTimeAsMs(LivyConf.REQUEST_PERMIT_ACQUIRE_TIMEOUT)
 
-      val sessions = sessionAllocator.map(e => {
-        e.getAllSessions[R](sessionManager.sessionType(), None)
-      }).orElse(Some(Seq(Failure(null))))
-        .get
-        .filter(e => e.isSuccess && filterBySearchKey(e.get, searchKey))
-        .sortWith(_.get.id > _.get.id)
+  private lazy val rateLimiter = RateLimiter.create(permitPerSecond)
 
-      Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
-      Map(
-        "from" -> from,
-        "total" -> sessions.size,
-        "sessions" -> sessions.view(from, from + size)
-          .map(e => clientSessionView(e.get, request))
-      )
+  /**
+   * Rate limit http request. Acquires a permit if it can be obtained without exceeding
+   * the specified timeout.
+   */
+  protected def doWithPermit(fn: => Any): Any = {
+    if (rateLimiter.tryAcquire(permitAcquireTimeout, TimeUnit.MILLISECONDS)) {
+      fn
     } else {
-      val sessions = sessionManager.all().filter(filterBySearchKey(_, searchKey))
-        .toSeq
-        .sortWith(_.id > _.id)
-      Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
-      Map(
-        "from" -> from,
-        "total" -> sessions.size,
-        "sessions" -> sessions.view(from, from + size)
-          .map(e => clientSessionView(e, request))
-      )
+      var remoteAddr = ""
+      if (request != null) {
+        remoteAddr = request.getHeader(SessionServlet.X_FORWARDED_FOR)
+        if (StringUtils.isBlank(remoteAddr)) {
+          remoteAddr = request.getRemoteAddr
+        }
+      }
+      val msg = s"Rate limiting for request ${request.getRequestURL}"
+      SessionServlet.warn(s"$msg, client ip address: $remoteAddr")
+      TooManyRequests(msg)
     }
+  }
 
+  get("/") {
+    doWithPermit {
+      val from = params.get("from").map(_.toInt).getOrElse(0)
+      val size = params.get("size").map(_.toInt).getOrElse(100)
+      val searchKey = params.get("searchKey")
+      Metrics().startStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+      if (livyConf.getBoolean(LivyConf.CLUSTER_ENABLED)) {
+
+        val sessions = sessionAllocator.map(e => {
+          e.getAllSessions[R](sessionManager.sessionType(), None)
+        }).orElse(Some(Seq(Failure(null))))
+          .get
+          .filter(e => e.isSuccess && filterBySearchKey(e.get, searchKey))
+          .sortWith(_.get.id > _.get.id)
+
+        Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+        Map(
+          "from" -> from,
+          "total" -> sessions.size,
+          "sessions" -> sessions.view(from, from + size)
+            .map(e => clientSessionView(e.get, request))
+        )
+      } else {
+        val sessions = sessionManager.all().filter(filterBySearchKey(_, searchKey))
+          .toSeq
+          .sortWith(_.id > _.id)
+        Metrics().endStoredScope(MetricsKey.REST_SESSION_LIST_PROCESSING_TIME)
+        Map(
+          "from" -> from,
+          "total" -> sessions.size,
+          "sessions" -> sessions.view(from, from + size)
+            .map(e => clientSessionView(e, request))
+        )
+      }
+    }
   }
 
   val getSession = get("/:id") {
