@@ -43,7 +43,8 @@ class ApolloConfigCenterProvider(livyConf: LivyConf) extends ConfigCenterProvide
     "livy.server.spark-home",
     "livy.server.spark-conf-dir",
     "livy.rsc.sparkr.package",
-    "livy.rsc.pyspark.archives"
+    "livy.rsc.pyspark.archives",
+    "livy.rsc.spark.rss.yarn.predefined"
   )
 
   override def start(): Unit = {
