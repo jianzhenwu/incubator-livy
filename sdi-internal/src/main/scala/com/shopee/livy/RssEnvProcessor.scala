@@ -21,6 +21,7 @@ import java.util.concurrent._
 import java.util.concurrent.atomic.AtomicReference
 
 import scala.collection.JavaConverters._
+import scala.util.Try
 import scala.xml.XML
 
 import com.shopee.livy.SdiYarnAmEnvProcessor._
@@ -39,10 +40,13 @@ object RssEnvProcessor {
 
   val SPARK_LIVY_RSS_ENABLED = "spark.livy.rss.enabled"
   val SPARK_YARN_QUEUE = "spark.yarn.queue"
+  val SPARK_APPLICATION_PRIORITY = "spark.yarn.priority"
+
   val YARN_CLUSTER_POLICY_LIST_URL = "policy.list.url"
 
   val SPARK_RSS_YARN_ALLOWED_MASTER_IDS = "livy.rsc.spark.rss.yarn.allowed.master.ids"
   val SPARK_RSS_YARN_PREDEFINED_QUEUES = "livy.rsc.spark.rss.yarn.predefined.queues"
+  val SPARK_RSS_YARN_PREDEFINED_PRIORITY = "livy.rsc.spark.rss.yarn.predefined.priority"
 
   val defaultConf = Map(
     "spark.shuffle.manager" -> "org.apache.spark.shuffle.rss.RssShuffleManager",
@@ -64,14 +68,29 @@ class RssEnvProcessor extends ApplicationEnvProcessor with Logging {
 
     var rssEnabled = Option(appConf.get(SPARK_LIVY_RSS_ENABLED))
     if (rssEnabled.isEmpty && sparkMajorVersion >= SPARK_RSS_MIN_VERSION) {
+      // Enable RSS when both predefined queue and priority match.
       val predefinedQueues = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_QUEUES))
-      // Enable RSS if the user queue is included in predefined configuration.
-      if (predefinedQueues.exists(_.split(",")
-        .map(_.trim)
-        .contains(appConf.get(SPARK_YARN_QUEUE)))) {
-        logger.info(s"Enable RSS for queue ${appConf.get(SPARK_YARN_QUEUE)}")
-        appConf.put(SPARK_LIVY_RSS_ENABLED, "true")
-        rssEnabled = Option("true")
+      val queue = appConf.get(SPARK_YARN_QUEUE)
+      if (predefinedQueues.exists(_.split(",").map(_.trim).contains(queue))) {
+        val predefinedPriority = Option(appConf.get(SPARK_RSS_YARN_PREDEFINED_PRIORITY))
+        predefinedPriority.foreach(priority => {
+          Try(priority.toInt).toOption match {
+            case Some(t) =>
+              Option(appConf.get(SPARK_APPLICATION_PRIORITY)).foreach(priority =>
+                Try(priority.toInt).toOption match {
+                  case Some(p) => if (p < t) {
+                    info(s"Enable RSS for the application.")
+                    appConf.put(SPARK_LIVY_RSS_ENABLED, "true")
+                    rssEnabled = Option("true")
+                  }
+                  case _ => throw new IllegalArgumentException(
+                    s"Invalid value '$priority' for option $SPARK_APPLICATION_PRIORITY, " +
+                      s"must be a integer")
+                }
+              )
+            case _ => // Do nothing
+          }
+        })
       }
     }
 

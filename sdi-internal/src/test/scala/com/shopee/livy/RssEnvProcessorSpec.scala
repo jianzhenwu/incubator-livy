@@ -24,15 +24,15 @@ import scala.collection.JavaConverters._
 
 import org.mockito.Matchers.anyString
 import org.mockito.Mockito.{mock, when}
-import org.scalatest.{BeforeAndAfterAll, FunSuite}
+import org.scalatest.{BeforeAndAfterAll, BeforeAndAfterEach, FunSuite}
 
 import org.apache.livy.ApplicationEnvContext
 
-class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
+class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterEach {
 
   private val appConf = new mutable.HashMap[String, String]
 
-  override def beforeAll(): Unit = {
+  override def beforeEach(): Unit = {
     appConf += (
       RssEnvProcessor.SPARK_YARN_QUEUE -> "queue1",
       RssEnvProcessor.RSC_CONF_PREFIX + RssEnvProcessor.YARN_CLUSTER_POLICY_LIST_URL ->
@@ -45,7 +45,7 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     )
   }
 
-  override def afterAll(): Unit = {
+  override def afterEach(): Unit = {
     appConf.clear()
   }
 
@@ -79,12 +79,15 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("should enable RSS if the user queue is included in predefined configuration") {
+  test("should enable RSS when both predefined queue and priority match") {
     val yarnRouterMapping = mock(classOf[YarnRouterMapping])
     YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
     when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
 
-    appConf += "livy.rsc.spark.rss.yarn.predefined.queues" -> "queue1, queue2"
+    appConf += (
+      "livy.rsc.spark.rss.yarn.predefined.queues" -> "queue1, queue2",
+      "livy.rsc.spark.rss.yarn.predefined.priority" -> "40",
+      "spark.yarn.priority" -> "30")
 
     val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
     val processor = new RssEnvProcessor()
@@ -127,6 +130,34 @@ class RssEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     val processor = new RssEnvProcessor()
     processor.process(context)
     assert(appConf("spark.livy.rss.enabled") == "false")
+  }
+
+  test("should not enable RSS when exceeds the predefined priority") {
+    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
+    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
+    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
+
+    appConf += (
+      "livy.rsc.spark.rss.yarn.predefined.queues" -> "queue1, queue2",
+      "livy.rsc.spark.rss.yarn.predefined.priority" -> "40",
+      "spark.yarn.priority" -> "50")
+
+    val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
+    val processor = new RssEnvProcessor()
+    processor.process(context)
+
+    assert(!appConf.contains("spark.livy.rss.enabled"))
+  }
+
+  test("should throw exception if spark.yarn.priority is not a Integer") {
+    appConf += (
+      "livy.rsc.spark.rss.yarn.predefined.queues" -> "queue1, queue2",
+      "livy.rsc.spark.rss.yarn.predefined.priority" -> "40",
+      "spark.yarn.priority" -> "30a")
+
+    val context = ApplicationEnvContext(new util.HashMap[String, String](), appConf.asJava)
+    val processor = new RssEnvProcessor()
+    assertThrows[IllegalArgumentException] { processor.process(context) }
   }
 }
 
