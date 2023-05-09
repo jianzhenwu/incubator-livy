@@ -41,7 +41,7 @@ import org.apache.livy.metrics.common.{Metrics, MetricsKey}
 import org.apache.livy.rsc.{ContextLauncher, PingJob, RSCClient, RSCConf}
 import org.apache.livy.rsc.driver.Statement
 import org.apache.livy.server.AccessManager
-import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType}
+import org.apache.livy.server.event.{Event, Events, SessionEvent, SessionType, StatementEvent}
 import org.apache.livy.server.recovery.SessionStore
 import org.apache.livy.sessions._
 import org.apache.livy.sessions.Session._
@@ -575,7 +575,10 @@ class InteractiveSession(
     if (r.statements.length < 1) {
       None
     } else {
-      Option(r.statements(0))
+      val statement = r.statements(0)
+      // Send statement event to listeners.
+      triggerStatementEvent(statement)
+      Option(statement)
     }
   }
 
@@ -588,13 +591,18 @@ class InteractiveSession(
     recordActivity()
 
     val id = client.get.submitReplCode(content.code, content.kind.orNull).get
-    client.get.getReplJobResults(id, 1).get().statements(0)
+    val statement = client.get.getReplJobResults(id, 1).get().statements(0)
+    // Send statement event to listeners.
+    triggerStatementEvent(statement)
+    statement
   }
 
   def cancelStatement(statementId: Int): Unit = {
     ensureRunning()
     recordActivity()
     client.get.cancelReplCode(statementId)
+    // Send statement event to listeners.
+    getStatement(statementId)
   }
 
   def completion(content: CompletionRequest): CompletionResponse = {
@@ -742,7 +750,15 @@ class InteractiveSession(
 
   private def triggerSessionEvent(): Unit = {
     val event: Event = new SessionEvent(SessionType.Interactive, id, name, appId, appTag, owner,
-      proxyUser, state)
+      proxyUser, state, _createdTime, _startedTime)
+    Events().notify(event)
+  }
+
+  private[interactive] def triggerStatementEvent(statement: Statement): Unit = {
+    val event: Event = new StatementEvent(
+      SessionType.Interactive, id, name, appId, appTag, owner,
+      proxyUser, state, _createdTime, _startedTime, statement.id,
+      statement.state.get(), statement.started, statement.completed)
     Events().notify(event)
   }
 

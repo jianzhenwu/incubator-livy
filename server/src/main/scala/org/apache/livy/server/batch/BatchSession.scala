@@ -371,7 +371,7 @@ class BatchSession(
 
   private def triggerSessionEvent(): Unit = {
     val event: Event = new SessionEvent(SessionType.Batch, id, name, appId, appTag, owner,
-      proxyUser, state)
+      proxyUser, state, _createdTime, _startedTime)
     Events().notify(event)
   }
 

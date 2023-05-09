@@ -26,8 +26,9 @@ import org.scalatest.{BeforeAndAfter, FunSpec, Matchers}
 import org.scalatest.concurrent.Eventually.{eventually, interval, timeout}
 import org.scalatestplus.mockito.MockitoSugar.mock
 
-import org.apache.livy.{LivyBaseUnitTestSuite, LivyConf}
+import org.apache.livy.{ExecuteRequest, LivyBaseUnitTestSuite, LivyConf}
 import org.apache.livy.rsc.RSCConf
+import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.server.AccessManager
 import org.apache.livy.server.interactive.{CreateInteractiveRequest, InteractiveSession}
 import org.apache.livy.server.recovery.SessionStore
@@ -88,8 +89,27 @@ class InteractiveSessionEventSpec extends FunSpec
       }
       Await.ready(session.stop(), 30 seconds)
 
-      assertEventBuffer(99, Array(SessionState.Starting, SessionState.Idle,
+      assertSessionEventBuffer(99, Array(SessionState.Starting, SessionState.Idle,
         SessionState.ShuttingDown, SessionState.Dead()))
+    }
+
+    it("should receive statement event") {
+      val mockApp = mock[SparkApp]
+      val session: InteractiveSession = createSession(100, sessionStore, Some(mockApp))
+      session.start()
+
+      eventually(timeout(60 seconds), interval(100 millis)) {
+        session.state shouldBe (SessionState.Idle)
+      }
+
+      val id = session.executeStatement(ExecuteRequest("1+1", Some("spark"))).id
+      session.cancelStatement(id)
+
+      Await.ready(session.stop(), 30 seconds)
+
+      assertSessionEventBuffer(100, Array(SessionState.Starting, SessionState.Idle,
+        SessionState.ShuttingDown, SessionState.Dead()))
+      assertStatementEventBuffer(100, Array(StatementState.Waiting, StatementState.Cancelled))
     }
   }
 }

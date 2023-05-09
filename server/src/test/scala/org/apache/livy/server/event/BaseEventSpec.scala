@@ -23,6 +23,7 @@ import org.scalatest.{BeforeAndAfterAll, Suite}
 
 import org.apache.livy.LivyConf
 import org.apache.livy.metrics.common.Metrics
+import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.sessions.SessionState
 
 trait BaseEventSpec extends Suite with BeforeAndAfterAll with org.scalatest.Matchers {
@@ -39,12 +40,25 @@ trait BaseEventSpec extends Suite with BeforeAndAfterAll with org.scalatest.Matc
     Events.init(new LivyConf())
   }
 
-  def assertEventBuffer(id: Int, expectedEvents: Array[SessionState]): Unit = {
-    val eventsBuffer = BufferedEventListener.buffer.filter(_.asInstanceOf[SessionEvent].id == id)
+  def assertSessionEventBuffer(id: Int, expectedEvents: Array[SessionState]): Unit = {
+    val eventsBuffer = BufferedEventListener.buffer
+      .filter(_.isInstanceOf[SessionEvent])
+      .filter(_.asInstanceOf[SessionEvent].id == id)
     eventsBuffer.size should be(expectedEvents.size)
 
     for (i <- 0 to (eventsBuffer.size - 1)) {
       eventsBuffer(i).asInstanceOf[SessionEvent].state.state should be(expectedEvents(i).state)
+    }
+  }
+
+  def assertStatementEventBuffer(id: Int, expectedEvents: Array[StatementState]): Unit = {
+    val eventsBuffer = BufferedEventListener.buffer
+      .filter(_.isInstanceOf[StatementEvent])
+      .filter(_.asInstanceOf[StatementEvent].sessionId == id)
+    eventsBuffer.size should be(expectedEvents.size)
+
+    for (i <- 0 to (eventsBuffer.size - 1)) {
+      eventsBuffer(i).asInstanceOf[StatementEvent].statementState should be(expectedEvents(i))
     }
   }
 }

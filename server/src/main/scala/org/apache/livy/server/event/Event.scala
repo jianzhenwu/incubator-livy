@@ -19,6 +19,7 @@ package org.apache.livy.server.event
 
 import SessionType.SessionType
 
+import org.apache.livy.rsc.driver.StatementState
 import org.apache.livy.sessions.SessionState
 
 trait Event {}
@@ -31,8 +32,26 @@ case class SessionEvent(
     appTag: String,
     owner: String,
     proxyUser: Option[String],
-    state: SessionState
+    state: SessionState,
+    createTime: java.lang.Long,
+    startedTime: java.lang.Long
   ) extends Event
+
+case class StatementEvent(
+    sessionType: SessionType,
+    sessionId: Int,
+    sessionName: Option[String],
+    sessionAppId: Option[String],
+    sessionAppTag: String,
+    sessionOwner: String,
+    sessionProxyUser: Option[String],
+    sessionState: SessionState,
+    sessionCreateTime: java.lang.Long,
+    sessionStartedTime: java.lang.Long,
+    statementId: Int,
+    statementState: StatementState,
+    statementStarted: java.lang.Long,
+    statementCompleted: java.lang.Long) extends Event
 
 object SessionType extends Enumeration {
   type SessionType = Value

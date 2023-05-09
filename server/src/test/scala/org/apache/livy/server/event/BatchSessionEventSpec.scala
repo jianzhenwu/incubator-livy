@@ -108,7 +108,7 @@ class BatchSessionEventSpec extends FunSpec
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
 
-      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
+      assertSessionEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
         SessionState.Success()))
     }
 
@@ -126,7 +126,8 @@ class BatchSessionEventSpec extends FunSpec
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
 
-      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running, SessionState.Dead()))
+      assertSessionEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
+        SessionState.Dead()))
     }
 
     it("should receive killed event") {
@@ -145,7 +146,7 @@ class BatchSessionEventSpec extends FunSpec
 
       Utils.waitUntil({ () => !batch.state.isActive }, Duration(10, TimeUnit.SECONDS))
 
-      assertEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
+      assertSessionEventBuffer(0, Array(SessionState.Starting, SessionState.Running,
         SessionState.Killed()))
     }
   }
