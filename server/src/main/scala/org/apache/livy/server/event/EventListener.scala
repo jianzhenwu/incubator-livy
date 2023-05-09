@@ -40,3 +40,17 @@ class LoggingEventListener(livyConf: LivyConf) extends EventListener(livyConf) {
     info(s"${this.getClass.getName} stopped")
   }
 }
+
+abstract class DistinguishedEventListener(livyConf: LivyConf) extends EventListener(livyConf) {
+  override def onEvent(event: Event): Unit = {
+    event match {
+      case e: SessionEvent => onSessionEvent(e)
+      case e: StatementEvent => onStatementEvent(e)
+      case _ =>
+    }
+  }
+
+  def onSessionEvent(event: SessionEvent): Unit
+
+  def onStatementEvent(event: StatementEvent): Unit
+}
