@@ -44,6 +44,7 @@ class StreamingSqlConfProcessorSpec extends ScalatraSuite
 
       appConf(SPARK_SQL_EXTENSIONS) should be (
         ("OtherClass", STREAMING_SQL_EXTENSION).productIterator.mkString(","))
+      appConf(StreamingConfProcessor.SPARK_LIVY_APPLICATION_IS_STREAING) should be ("true")
     }
   }
 }

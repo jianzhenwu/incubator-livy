@@ -1,0 +1,82 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+log4j.rootCategory=INFO,fileAppender
+
+log4j.appender.fileAppender=org.apache.log4j.RollingFileAppender
+log4j.appender.fileAppender.layout=org.apache.log4j.PatternLayout
+log4j.appender.fileAppender.layout.ConversionPattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
+log4j.appender.fileAppender.File=${spark.yarn.app.container.log.dir}/spark.log
+log4j.appender.fileAppender.MaxFileSize=100MB
+log4j.appender.fileAppender.MaxBackupIndex=10
+
+log4j.appender.shopeeAppender=org.apache.log4j.RollingFileAppender
+log4j.appender.shopeeAppender.layout=org.apache.log4j.PatternLayout
+log4j.appender.shopeeAppender.layout.ConversionPattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
+log4j.appender.shopeeAppender.File=${spark.yarn.app.container.log.dir}/shopee.log
+log4j.appender.shopeeAppender.MaxFileSize=100MB
+log4j.appender.shopeeAppender.MaxBackupIndex=10
+
+log4j.appender.hudiAppender=org.apache.log4j.RollingFileAppender
+log4j.appender.hudiAppender.layout=org.apache.log4j.PatternLayout
+log4j.appender.hudiAppender.layout.ConversionPattern=%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n
+log4j.appender.hudiAppender.File=${spark.yarn.app.container.log.dir}/hudi.log
+log4j.appender.hudiAppender.MaxFileSize=100MB
+log4j.appender.hudiAppender.MaxBackupIndex=10
+
+log4j.logger.com.shopee=INFO,shopeeAppender
+log4j.logger.org.apache.hudi=INFO,hudiAppender
+
+# Ensure the logs don't add to each other
+log4j.additivity.com.shopee=false
+log4j.additivity.org.apache.hudi=false
+
+# Set the default spark-shell log level to WARN. When running the spark-shell, the
+# log level for this class is used to overwrite the root logger's log level, so that
+# the user can have different defaults for the shell and regular Spark apps.
+log4j.logger.org.apache.spark.repl.Main=ERROR
+
+# Settings to quiet third party logs that are too verbose
+log4j.logger.org.spark_project.jetty=ERROR
+log4j.logger.org.spark_project.jetty.util.component.AbstractLifeCycle=ERROR
+log4j.logger.org.apache.spark.repl.SparkIMain$exprTyper=WARN
+log4j.logger.org.apache.spark.repl.SparkILoop$SparkILoopInterpreter=WARN
+log4j.logger.org.apache.parquet=ERROR
+log4j.logger.parquet=ERROR
+log4j.logger.io.netty=ERROR
+
+log4j.logger.org.apache.spark.scheduler.TaskSetManager=ERROR
+log4j.logger.org.apache.spark.scheduler.DAGScheduler=ERROR
+log4j.logger.org.apache.spark.storage.DiskBlockManager=ERROR
+log4j.logger.org.apache.spark.storage.BlockManagerInfo=ERROR
+log4j.logger.org.apache.spark.storage.BlockManagerMasterEndpoint=ERROR
+log4j.logger.org.apache.spark.storage.memory.MemoryStore=ERROR
+log4j.logger.org.apache.spark.network=ERROR
+log4j.logger.com.aliyun.emr.rss.common.network=ERROR
+
+# SPARK-9183: Settings to avoid annoying messages when looking up nonexistent UDFs in SparkSQL with Hive support
+log4j.logger.org.apache.hadoop.hive.metastore.RetryingHMSHandler=FATAL
+log4j.logger.org.apache.hadoop.hive.ql.exec.FunctionRegistry=ERROR
+
+#SPDI-43562. Change ProcfsMetricsGetter log level to ERROR
+log4j.logger.org.apache.spark.executor.ProcfsMetricsGetter=ERROR
+
+log4j.logger.org.apache.spark.cleaner=INFO
+
+# SPDI-82948. Remove some log for Spark 3.2
+log4j.logger.org.apache.spark.sql.execution.datasources.FileSourceStrategy=WARN
+log4j.logger.org.apache.spark.sql.execution.datasources.DataSourceStrategy=WARN
+log4j.logger.org.apache.spark.scheduler.AsyncEventQueue=WARN

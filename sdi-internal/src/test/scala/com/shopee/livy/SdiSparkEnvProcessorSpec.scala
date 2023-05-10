@@ -17,7 +17,8 @@
 
 package com.shopee.livy
 
-import java.nio.file.Files
+import java.io.File
+import java.nio.file.{Files, Path => JPath}
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
@@ -29,6 +30,7 @@ import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
 import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
 import com.shopee.livy.StreamingSqlConfProcessor.{SPARK_LIVY_STREAMING_SQL_ENABLED, SPARK_SQL_EXTENSIONS, STREAMING_SQL_EXTENSION}
 import com.shopee.livy.auth.DmpAuthentication
+import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
 import org.mockito.Matchers.{any, anyString}
 import org.mockito.Mockito.{mock, when}
@@ -40,6 +42,12 @@ import org.apache.livy.client.common.ClientConf
 
 class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
+  val livyConfDirPath: JPath = new File(sys.env("LIVY_HOME"), "conf").toPath
+  val hasLivyConfDir: Boolean = Files.exists(livyConfDirPath)
+  val log4jPropertiesPath: JPath = new File(
+    livyConfDirPath.toString, StreamingConfProcessor.CUSTOM_LOG_PROPERTIES_FILE).toPath
+  val hasLog4jProperties: Boolean = Files.exists(log4jPropertiesPath)
+
   override def beforeAll: Unit = {
     IpynbEnvProcessor.mockFileSystem = Some(mock(classOf[FileSystem]))
     val fs = IpynbEnvProcessor.mockFileSystem.get
@@ -48,10 +56,22 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     )
     when(fs.listStatus(new Path("s3a://bucket_a/jars/"))).thenReturn(jarsStatus)
     when(fs.exists(any(classOf[Path]))).thenReturn(true)
+    if (!hasLivyConfDir) {
+      Files.createDirectories(livyConfDirPath)
+    }
+    if (!Files.exists(log4jPropertiesPath)) {
+      Files.createFile(log4jPropertiesPath)
+    }
   }
 
   override def afterAll(): Unit = {
     IpynbEnvProcessor.mockFileSystem = None
+    if (!hasLivyConfDir) {
+      FileUtils.deleteDirectory(livyConfDirPath.toFile)
+    }
+    if (!hasLog4jProperties) {
+      FileUtils.deleteQuietly(log4jPropertiesPath.toFile)
+    }
   }
 
   test("Test SdiSparkEnvProcessor") {
@@ -233,6 +253,14 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf(amEnvPrefix + "TEST_ENV") == "amVal")
     assert(appConf(amEnvPrefix + "rssEnabled") == "true")
     assert(appConf(SPARK_SQL_EXTENSIONS).contains(STREAMING_SQL_EXTENSION))
+
+    // should add custom log4j properties file to spark conf.
+    assert(appConf(StreamingConfProcessor.SPARK_LIVY_APPLICATION_IS_STREAING) == "true")
+    assert(appConf("spark.files").contains(log4jPropertiesPath.toString))
+    assert(appConf("spark.driver.extraJavaOptions").contains(
+      s"-Dlog4j.configuration=file:${StreamingConfProcessor.CUSTOM_LOG_PROPERTIES_FILE}"))
+    assert(appConf("spark.executor.extraJavaOptions").contains(
+      s"-Dlog4j.configuration=file:${StreamingConfProcessor.CUSTOM_LOG_PROPERTIES_FILE}"))
   }
 
 }

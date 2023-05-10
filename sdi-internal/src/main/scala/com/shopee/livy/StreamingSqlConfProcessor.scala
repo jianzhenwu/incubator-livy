@@ -42,6 +42,7 @@ class StreamingSqlConfProcessor extends ApplicationEnvProcessor {
       Option(appConf.get(SPARK_SQL_EXTENSIONS)).foreach(extensions.append(_))
       extensions.append(STREAMING_SQL_EXTENSION)
       appConf.put(SPARK_SQL_EXTENSIONS, extensions.mkString(","))
+      appConf.putIfAbsent(StreamingConfProcessor.SPARK_LIVY_APPLICATION_IS_STREAING, "true")
     }
   }
 }
