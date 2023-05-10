@@ -27,6 +27,9 @@ object SdiSparkEnvProcessor {
   /**
    * Do not change the order of DefaultsConfLivyProcessor and DefaultsConfSparkProcessor
    * in processorNames unless you have a valid reason.
+   *
+   * After HBO, Livy should not modify resource parameters again, and needs to identify
+   * and configure RSS.
    */
   val processorNames = Seq(
     "com.shopee.livy.SdiProjectConfProcessor",
@@ -35,6 +38,7 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.SdiHadoopEnvProcessor",
     "com.shopee.livy.S3aEnvProcessor",
     "com.shopee.livy.SparkResourceOptimizationProcessor",
+    "com.shopee.livy.HBOProcessor",
     "com.shopee.livy.StreamingMetricProcessor",
     "com.shopee.livy.StreamingSqlConfProcessor",
     "com.shopee.livy.StreamingConfProcessor",
@@ -45,7 +49,6 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.IpynbEnvProcessor",
     "com.shopee.livy.SdiYarnAmEnvProcessor",
     "com.shopee.livy.AlluxioConfProcessor",
-    "com.shopee.livy.HBOProcessor",
     "com.shopee.livy.DefaultsConfSparkProcessor",
     "com.shopee.livy.HudiConfProcessor"
   )
