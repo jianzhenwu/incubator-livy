@@ -182,10 +182,6 @@
                   <include>*:*</include>
                 </includes>
                 <excludes>
-                  <exclude>*:json4s-ast_${scala.binary.version}</exclude>
-                  <exclude>*:json4s-core_${scala.binary.version}</exclude>
-                  <exclude>*:json4s-jackson_${scala.binary.version}</exclude>
-                  <exclude>*:json4s-scalap_${scala.binary.version}</exclude>
                   <exclude>*:scala-xml_${scala.binary.version}</exclude>
                   <exclude>*:paranamer</exclude>
                   <exclude>*:scalap</exclude>
@@ -223,6 +219,10 @@
                 <relocation>
                   <pattern>scopt.</pattern>
                   <shadedPattern>${livy.toolkit.shade.packageName}.scopt.</shadedPattern>
+                </relocation>
+                <relocation>
+                  <pattern>org.json4s</pattern>
+                  <shadedPattern>${livy.toolkit.shade.packageName}.org.json4s</shadedPattern>
                 </relocation>
               </relocations>
             </configuration>
