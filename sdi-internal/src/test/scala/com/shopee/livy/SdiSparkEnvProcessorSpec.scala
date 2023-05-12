@@ -24,7 +24,7 @@ import scala.collection.JavaConverters._
 import scala.collection.mutable
 
 import com.shopee.livy.AlluxioConfProcessor.{SPARK_LIVY_ALLUXIO_ARCHIVE, SPARK_LIVY_ALLUXIO_ENV_ENABLED}
-import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
+import com.shopee.livy.HudiConfProcessor._
 import com.shopee.livy.IpynbEnvProcessor.{SPARK_LIVY_IPYNB_ENV_ENABLED, SPARK_LIVY_IPYNB_JARS}
 import com.shopee.livy.SdiYarnAmEnvProcessor.{amEnvPrefix, sdiEnvPrefix}
 import com.shopee.livy.SparkDatasourceProcessorSpec.{SPARK_SQL_CATALOG_HBASE_IMPL, _}
@@ -40,13 +40,17 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, ClassLoa
 import org.apache.livy.ApplicationEnvProcessor.SPARK_JARS
 import org.apache.livy.client.common.ClientConf
 
-class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
+abstract class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
 
   val livyConfDirPath: JPath = new File(sys.env("LIVY_HOME"), "conf").toPath
   val hasLivyConfDir: Boolean = Files.exists(livyConfDirPath)
   val log4jPropertiesPath: JPath = new File(
     livyConfDirPath.toString, StreamingConfProcessor.CUSTOM_LOG_PROPERTIES_FILE).toPath
   val hasLog4jProperties: Boolean = Files.exists(log4jPropertiesPath)
+
+  val sparkVersion: String = "3.1"
+  val appConf = new mutable.HashMap[String, String]()
+  val env = new mutable.HashMap[String, String]()
 
   override def beforeAll: Unit = {
     IpynbEnvProcessor.mockFileSystem = Some(mock(classOf[FileSystem]))
@@ -62,6 +66,15 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     if (!Files.exists(log4jPropertiesPath)) {
       Files.createFile(log4jPropertiesPath)
     }
+
+    val mockDmp: DmpAuthentication = mock(classOf[DmpAuthentication])
+    when(mockDmp.getPassword("spark")).thenReturn("123456")
+
+    SdiHadoopEnvProcessor.mockDmpAuthentication = mockDmp
+
+    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
+    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
+    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
   }
 
   override def afterAll(): Unit = {
@@ -74,26 +87,9 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     }
   }
 
-  test("Test SdiSparkEnvProcessor") {
-
-    val mockDmp: DmpAuthentication = mock(classOf[DmpAuthentication])
-    when(mockDmp.getPassword("spark")).thenReturn("123456")
-
-    SdiHadoopEnvProcessor.mockDmpAuthentication = mockDmp
-
-    val yarnRouterMapping = mock(classOf[YarnRouterMapping])
-    YarnRouterMapping.mockYarnRouterMapping = yarnRouterMapping
-    when(yarnRouterMapping.getCluster(anyString())).thenReturn("cluster1")
-
-    val url = ClassLoaderUtils.getContextOrDefaultClassLoader
-      .getResource("spark-conf")
-
-    val env = mutable.HashMap[String, String](
-      "SPARK_CONF_DIR" -> url.getPath,
-      "SPARK_HOME" -> "/opt/spark-2.4.7-sdi-026-bin-2.10.sdi-008"
-    )
-
-    val appConf = mutable.HashMap[String, String](
+  private def createApplicationContext(): ApplicationEnvContext = {
+    val url = ClassLoaderUtils.getContextOrDefaultClassLoader.getResource("spark-conf")
+    appConf += (
       "spark.executor.cores" -> "1",
       "spark.dynamicAllocation.maxExecutors" -> "50",
       "spark.dynamicAllocation.enabled" -> "true",
@@ -142,20 +138,28 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
       sdiEnvPrefix + "PYSPARK_DRIVER_PYTHON" -> "/usr/share/python3",
       sdiEnvPrefix + "TEST_ENV" -> "amVal",
       SPARK_LIVY_STREAMING_SQL_ENABLED -> "true",
-      SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true"
-    )
-
-    val context = ApplicationEnvContext(env.asJava, appConf.asJava,
-      Some(SessionType.Batches))
-    appConf ++= mutable.Map[String, String](
+      SPARK_LIVY_ALLUXIO_ENV_ENABLED -> "true",
+      SPARK_SQL_EXTENSIONS -> SPARK_HUDI_EXTENSION_CLASS_NAME,
       SPARK_LIVY_SQL_CATALOG_HBASE_ENABLED -> "true",
       SPARK_SQL_CATALOG_HBASE_JARS -> HBASE_JARS,
+      SPARK_SQL_CATALOG_HBASE_JARS_V3_2 -> HBASE_JARS,
       SPARK_SQL_CATALOG_HBASE_IMPL -> "hive",
-      LivyConf.SPARK_FEATURE_VERSION -> "3.1"
+      "SPARK_CONF_DIR" -> url.getPath
+    )
+    env += (
+      "SPARK_CONF_DIR" -> url.getPath,
+      "SPARK_HOME" -> "/opt/spark-2.4.7-sdi-026-bin-2.10.sdi-008"
     )
 
-    val processor =
-      ApplicationEnvProcessor.apply("com.shopee.livy.SdiSparkEnvProcessor")
+    ApplicationEnvContext(env.asJava, appConf.asJava, Some(SessionType.Batches))
+  }
+
+  def testSdiSparkEnvProcessor(): Unit = {
+    val context = createApplicationContext()
+    appConf ++= mutable.Map[String, String](
+      LivyConf.SPARK_FEATURE_VERSION -> sparkVersion
+    )
+    val processor = ApplicationEnvProcessor.apply("com.shopee.livy.SdiSparkEnvProcessor")
     processor.process(context)
 
     // username and password should be in env.
@@ -262,5 +266,24 @@ class SdiSparkEnvProcessorSpec extends FunSuite with BeforeAndAfterAll {
     assert(appConf("spark.executor.extraJavaOptions").contains(
       s"-Dlog4j.configuration=file:${StreamingConfProcessor.CUSTOM_LOG_PROPERTIES_FILE}"))
   }
+}
 
+class Sdi_v3_1_SparkEnvProcessorSpec extends SdiSparkEnvProcessorSpec {
+  override val sparkVersion = "3.1"
+
+  test("Test SdiSparkEnvProcessor using spark 3.1") {
+    testSdiSparkEnvProcessor()
+    // should not add hudi catalog class.
+    assert(!appConf.contains("spark.sql.catalog.spark_catalog"))
+  }
+}
+
+class Sdi_v3_2_SparkEnvProcessorSpec extends SdiSparkEnvProcessorSpec {
+  override val sparkVersion = "3.2"
+
+  test("Test SdiSparkEnvProcessor using spark 3.2") {
+    testSdiSparkEnvProcessor()
+    // should add hudi catalog if spark version is higher than 3.2.
+    assert(appConf("spark.sql.catalog.spark_catalog") == SPARK_HUDI_CATALOG_CLASS_NAME)
+  }
 }

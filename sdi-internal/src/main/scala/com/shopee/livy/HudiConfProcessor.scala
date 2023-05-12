@@ -19,9 +19,7 @@ package com.shopee.livy
 
 import scala.collection.mutable.ArrayBuffer
 
-import com.shopee.livy.HudiConfProcessor.{SPARK_AUX_JAR, SPARK_LIVY_HUDI_JAR}
-
-import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
+import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, LivyConf, Logging}
 
 /**
  * The HudiConfProcessor should be behind the DefaultsConfSparkProcessor.
@@ -31,11 +29,29 @@ import org.apache.livy.{ApplicationEnvContext, ApplicationEnvProcessor, Logging}
 object HudiConfProcessor {
   val SPARK_LIVY_HUDI_JAR = "spark.livy.hudi.jar"
   val SPARK_AUX_JAR = "spark.aux.jar"
+  val SPARK_SQL_EXTENSIONS = "spark.sql.extensions"
+
+  val SPARK_HUDI_EXTENSION_CLASS_NAME = "org.apache.spark.sql.hudi.HoodieSparkSessionExtension"
+  val SPARK_HUDI_CATALOG_CLASS_NAME = "org.apache.spark.sql.hudi.catalog.HoodieCatalog"
+  val SPARK_HUDI_CATALOG_MIN_VESION = 3.2
 }
 
 class HudiConfProcessor extends ApplicationEnvProcessor with Logging {
+
+  import HudiConfProcessor._
+
   override def process(applicationEnvContext: ApplicationEnvContext): Unit = {
     val appConf = applicationEnvContext.appConf
+    val sparkVersion = appConf.get(LivyConf.SPARK_FEATURE_VERSION)
+
+    Option(appConf.get(SPARK_SQL_EXTENSIONS))
+      .map(_.split(","))
+      .foreach(extension => {
+        if (sparkVersion.toDouble >= SPARK_HUDI_CATALOG_MIN_VESION &&
+            extension.contains(SPARK_HUDI_EXTENSION_CLASS_NAME)) {
+          appConf.put("spark.sql.catalog.spark_catalog", SPARK_HUDI_CATALOG_CLASS_NAME)
+        }
+      })
 
     if (!appConf.containsKey(SPARK_LIVY_HUDI_JAR)) {
       return

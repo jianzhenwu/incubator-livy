@@ -58,6 +58,12 @@ object SparkDatasourceProcessorSpec {
   val SPARK_SQL_CATALOG_TFRECORD_JARS = "livy.rsc.spark.sql.catalog.tfrecord.jars.v3.1"
   val SPARK_SQL_CATALOG_CLICKHOUSE_JARS = "livy.rsc.spark.sql.catalog.clickhouse.jars.v3.1"
 
+  val SPARK_SQL_CATALOG_HBASE_JARS_V3_2 = "livy.rsc.spark.sql.catalog.hbase.jars.v3.2"
+  val SPARK_SQL_CATALOG_JDBC_JARS_V3_2 = "livy.rsc.spark.sql.catalog.jdbc.jars.v3.2"
+  val SPARK_SQL_CATALOG_KAFKA_JARS_V3_2 = "livy.rsc.spark.sql.catalog.kafka.jars.v3.2"
+  val SPARK_SQL_CATALOG_TFRECORD_JARS_V3_2 = "livy.rsc.spark.sql.catalog.tfrecord.jars.v3.2"
+  val SPARK_SQL_CATALOG_CLICKHOUSE_JARS_V3_2 = "livy.rsc.spark.sql.catalog.clickhouse.jars.v3.2"
+
   val SPARK_SQL_CATALOG_HBASE_IMPL = "spark.sql.catalog.hbase.impl"
   val SPARK_SQL_CATALOG_JDBC_IMPL = "spark.sql.catalog.jdbc.impl"
   val SPARK_SQL_CATALOG_KAFKA_IMPL = "spark.sql.catalog.kafka.impl"
