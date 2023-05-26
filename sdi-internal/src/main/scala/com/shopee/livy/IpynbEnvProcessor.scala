@@ -21,7 +21,6 @@ import scala.collection.JavaConverters.mapAsScalaMapConverter
 import scala.collection.mutable.ArrayBuffer
 
 import com.google.common.net.UrlEscapers
-import com.shopee.livy.AlluxioConfProcessor.SPARK_LIVY_ALLUXIO_ENV_ENABLED
 import org.apache.commons.lang3.StringUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
@@ -36,6 +35,8 @@ object IpynbEnvProcessor {
   val SPARK_LIVY_IPYNB_PY_FILES = "spark.livy.ipynb.pyFiles"
 
   val OZONE_SERVICE_IDS = "spark.livy.ozone.service.ids"
+  val WORKSPACE_BUCKET_IDC_REGION = "spark.livy.ipynb.workspace.bucket.idc-region"
+  val DEFAULT_WORKSPACE_BUCKET_IDC_REGION = "sg"
 
   val SPARK_LIVY_IPYNB_ENV_ENABLED = "spark.livy.ipynb.env.enabled"
 
@@ -96,7 +97,9 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
     })
 
     if (!bucketInfo.name.isEmpty) {
-      val workspaceUri = getWorkspaceUriFromBucketInfo(bucketInfo, appConf.get(OZONE_SERVICE_IDS))
+      val workspaceUri = getWorkspaceUriFromBucketInfo(bucketInfo,
+          appConf.getOrDefault(WORKSPACE_BUCKET_IDC_REGION, DEFAULT_WORKSPACE_BUCKET_IDC_REGION),
+          appConf.get(OZONE_SERVICE_IDS))
       appConf.put("spark.yarn.appMasterEnv.NOTEBOOK_ALLUXIO_WORKSPACE_URI", workspaceUri)
       appConf.putIfAbsent(s"spark.hadoop.fs.s3a.bucket.${bucketInfo.name}.access.key",
         env.get(HADOOP_USER_NAME))
@@ -166,13 +169,16 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
     }
   }
 
-  def getWorkspaceUriFromBucketInfo(bucketInfo: BucketInfo, ozoneServiceIds: String): String = {
+  def getWorkspaceUriFromBucketInfo(bucketInfo: BucketInfo, bucketRegion: String,
+      ozoneServiceIds: String): String = {
     val workspace = bucketInfo.path.split("/.notebook").head.split("/").last
+    // get $project from $idcRegion-$project-notebook.
+    val project = bucketInfo.name.stripPrefix(s"$bucketRegion-").stripSuffix("-notebook")
     val workspaceUri = new StringBuilder("/s3")
         .append("/")
         .append(ozoneServiceIds)
         .append("/")
-        .append(bucketInfo.name.substring(3).split("-notebook").head)
+        .append(project)
         .append("/")
         .append(bucketInfo.name)
         .append("/")
