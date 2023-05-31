@@ -50,7 +50,8 @@ object SdiSparkEnvProcessor {
     "com.shopee.livy.SdiYarnAmEnvProcessor",
     "com.shopee.livy.AlluxioConfProcessor",
     "com.shopee.livy.DefaultsConfSparkProcessor",
-    "com.shopee.livy.HudiConfProcessor"
+    "com.shopee.livy.HudiConfProcessor",
+    "com.shopee.livy.SparkSqlAuthEnvProcessor"
   )
 
   lazy val processorInstances: Seq[ApplicationEnvProcessor] =

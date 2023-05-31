@@ -67,7 +67,6 @@ class IpynbEnvProcessor extends ApplicationEnvProcessor with Logging {
 
     val sparkHome = env.get("SPARK_HOME").trim.stripSuffix("/")
 
-    appConf.put("spark.sql.auth.canFailJob", "true")
     val pyfiles = new ArrayBuffer[String]()
     pyfiles += s"$sparkHome/python/lib/pyspark.zip"
     pyfiles += s"$sparkHome/python/lib/py4j-*.zip"

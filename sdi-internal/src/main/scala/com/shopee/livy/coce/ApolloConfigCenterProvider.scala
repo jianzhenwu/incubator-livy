@@ -45,6 +45,7 @@ class ApolloConfigCenterProvider(livyConf: LivyConf) extends ConfigCenterProvide
     "livy.rsc.sparkr.package",
     "livy.rsc.pyspark.archives",
     "livy.rsc.spark.rss.yarn.predefined",
+    "livy.rsc.spark.sql.auth.bypassSecret",
     "livy.server.spark_version_edition",
     "livy.server.spark.preview.queues.suffixes"
   )

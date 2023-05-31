@@ -107,7 +107,6 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
       appConf should not contain (SPARK_PY_FILES -> pyFiles)
-      appConf should not contain ("spark.sql.auth.canFailJob" -> "true")
     }
 
     it("should work when there are no dependencies") {
@@ -117,7 +116,6 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
       appConf(SPARK_PY_FILES) should be (pyFiles)
-      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when dependency is empty") {
@@ -128,7 +126,6 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       val context = ApplicationEnvContext(env.asJava, appConf.asJava)
       processor.process(context)
       appConf(SPARK_PY_FILES) should be (pyFiles)
-      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when there is a bucket") {
@@ -147,7 +144,6 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.access.key") should be(hadoopUser)
       appConf("spark.hadoop.fs.s3a.bucket.bucket_a.secret.key") should be(hadoopPassword)
       appConf(SPARK_PY_FILES) should be ("s3a://bucket_a/pyFiles/module.zip," + pyFiles)
-      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should work when there are multiple buckets") {
@@ -171,7 +167,6 @@ class IpynbEnvProcessorSpec extends ScalatraSuite
 
       appConf(SPARK_PY_FILES) should be ("s3a://bucket_d/pyFiles/module.zip," +
         pyFiles + ",spark.zip")
-      appConf("spark.sql.auth.canFailJob") should be ("true")
     }
 
     it("should get correct workspace uri using ipynbJars") {

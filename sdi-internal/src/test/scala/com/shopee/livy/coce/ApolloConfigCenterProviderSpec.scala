@@ -41,7 +41,7 @@ class ApolloConfigCenterProviderSpec extends ScalatraSuite with FunSpecLike {
     livyConf = new LivyConf(false)
     apolloConfigCenterProvider = new ApolloConfigCenterProvider(livyConf)
     when(mockConfigCenter.getPropertyNames).thenReturn(
-      Set("livy.server.spark-home.v2", "other.key").asJava
+      Set("livy.server.spark-home.v2", "other.key", "livy.rsc.spark.sql.auth.bypassSecret").asJava
     )
 
     when(mockConfigCenter.getProperty("livy.server.spark-home.v2", null))
@@ -49,6 +49,9 @@ class ApolloConfigCenterProviderSpec extends ScalatraSuite with FunSpecLike {
 
     when(mockConfigCenter.getProperty("other.key", null))
       .thenReturn("other.value")
+
+    when(mockConfigCenter.getProperty("livy.rsc.spark.sql.auth.bypassSecret", null))
+      .thenReturn("testSecret")
 
     when(mockConfigCenter.addChangeListener(anyObject()))
       .thenAnswer(new Answer[Unit] {
@@ -61,6 +64,7 @@ class ApolloConfigCenterProviderSpec extends ScalatraSuite with FunSpecLike {
     it("should contain effective configuration") {
       apolloConfigCenterProvider.start()
       livyConf.get("livy.server.spark-home.v2") should be ("/usr/share/spark2")
+      livyConf.get("livy.rsc.spark.sql.auth.bypassSecret") should be ("testSecret")
       livyConf.toMap should not contain key ("other.key")
     }
   }
